@@ -70,23 +70,26 @@ class GeminiProvider(BaseLLMProvider):
                     headers={"Content-Type": "application/json"},
                 )
 
-            # Handle 404 (model deprecated or catalog update on Gemini)
-            if response.status_code == 404:
-                fallback_candidates = ["gemini-3.5-flash", "gemini-flash-latest"]
+            # Handle 404 or 503 (model deprecated or high demand on Gemini)
+            if response.status_code in (404, 503):
+                fallback_candidates = ["gemini-3.5-flash", "gemini-3.8-flash", "gemini-flash-latest"]
                 for fb_model in fallback_candidates:
                     if fb_model != model_id:
-                        logger.info("Gemini model '%s' not found. Retrying with active model '%s'...", model_id, fb_model)
+                        logger.info("Gemini model '%s' returned status %s. Retrying with fallback '%s'...", model_id, response.status_code, fb_model)
                         fb_endpoint = f"{self.base_url}/models/{fb_model}:generateContent"
-                        async with httpx.AsyncClient(timeout=self.timeout) as client:
-                            fb_resp = await client.post(
-                                fb_endpoint,
-                                params=params,
-                                json=payload,
-                                headers={"Content-Type": "application/json"},
-                            )
-                            if fb_resp.status_code == 200:
-                                response = fb_resp
-                                break
+                        try:
+                            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                                fb_resp = await client.post(
+                                    fb_endpoint,
+                                    params=params,
+                                    json=payload,
+                                    headers={"Content-Type": "application/json"},
+                                )
+                                if fb_resp.status_code == 200:
+                                    response = fb_resp
+                                    break
+                        except Exception as fb_err:
+                            logger.warning("Fallback model '%s' failed: %s", fb_model, fb_err)
 
             # Handle error status codes
             if response.status_code == 400:
@@ -153,6 +156,28 @@ class GeminiProvider(BaseLLMProvider):
             return result_text
 
         except httpx.TimeoutException:
+            if model_id != "gemini-3.5-flash":
+                logger.warning("Gemini model '%s' timed out. Attempting emergency fallback to gemini-3.5-flash...", model_id)
+                try:
+                    fb_endpoint = f"{self.base_url}/models/gemini-3.5-flash:generateContent"
+                    async with httpx.AsyncClient(timeout=25.0) as client:
+                        fb_resp = await client.post(
+                            fb_endpoint,
+                            params=params,
+                            json=payload,
+                            headers={"Content-Type": "application/json"},
+                        )
+                        if fb_resp.status_code == 200:
+                            data = fb_resp.json()
+                            candidates = data.get("candidates", [])
+                            if candidates:
+                                parts = candidates[0].get("content", {}).get("parts", [])
+                                result_text = "".join(p.get("text", "") for p in parts if "text" in p).strip()
+                                if result_text:
+                                    return result_text
+                except Exception as fb_exc:
+                    logger.warning("Emergency fallback to gemini-3.5-flash failed: %s", fb_exc)
+
             logger.warning("Gemini API request timed out after %.1f seconds", self.timeout)
             raise ProviderTimeoutError(
                 f"Google Gemini API request timed out after {self.timeout} seconds."

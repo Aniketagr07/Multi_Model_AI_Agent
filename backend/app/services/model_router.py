@@ -31,22 +31,29 @@ class ModelRouter:
     CATEGORY_PREFERENCES: Dict[str, List[str]] = {
         "coding": [
             "llama-3.1-8b-instant",      # Groq LPU: ultra-fast token rate (500+ tok/s) ideal for code
+            "gemini-3.8-flash",
             "llama-3.3-70b-versatile",
+            "gemini-3.5-flash",
             "gemini-1.5-flash",
         ],
         "reasoning": [
-            "gemini-1.5-pro",            # 1M token context and deep analytical synthesis
+            "gemini-3.8-flash",          # Google AI Studio flagship multimodal reasoning
+            "gemini-1.5-pro",
             "llama-3.3-70b-versatile",
-            "gemini-1.5-flash",
+            "gemini-3.5-flash",
             "llama-3.1-8b-instant",
         ],
         "writing": [
-            "gemini-1.5-flash",          # High fluency and generous 15 RPM / 1M TPM quota
+            "gemini-3.8-flash",          # High fluency & latest synthesis
+            "gemini-3.5-flash",
+            "gemini-1.5-flash",
             "mixtral-8x7b-32768",
             "llama-3.1-8b-instant",
         ],
         "general": [
-            "gemini-1.5-flash",          # Balanced general-purpose default
+            "gemini-3.8-flash",          # Balanced general-purpose default
+            "gemini-3.5-flash",
+            "gemini-1.5-flash",
             "llama-3.1-8b-instant",
             "gemini-1.5-pro",
         ],

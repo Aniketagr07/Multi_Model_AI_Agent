@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     # AI Provider 1: Google Gemini API (Day 3)
     GEMINI_API_KEY: Optional[str] = None
     GEMINI_BASE_URL: str = "https://generativelanguage.googleapis.com/v1beta"
-    DEFAULT_GEMINI_MODEL: str = "gemini-1.5-flash"
+    DEFAULT_GEMINI_MODEL: str = "gemini-3.8-flash"
 
     # AI Provider 2: Groq API (Day 4)
     GROQ_API_KEY: Optional[str] = None
@@ -34,16 +34,16 @@ class Settings(BaseSettings):
     DEFAULT_GROQ_MODEL: str = "llama-3.1-8b-instant"
 
     # Default application model
-    DEFAULT_MODEL: str = "gemini-1.5-flash"
+    DEFAULT_MODEL: str = "gemini-3.8-flash"
 
     # Allowed models list (comma-separated IDs)
-    ALLOWED_MODELS: str = "gemini-1.5-flash,gemini-1.5-pro,gemini-2.0-flash-exp,llama-3.1-8b-instant,llama-3.3-70b-versatile,mixtral-8x7b-32768"
+    ALLOWED_MODELS: str = "gemini-3.8-flash,gemini-3.5-flash,gemini-1.5-flash,gemini-1.5-pro,gemini-2.0-flash-exp,llama-3.1-8b-instant,llama-3.3-70b-versatile,mixtral-8x7b-32768"
 
     # Database Configuration (Day 7 Persistent SQLite)
     SQLITE_DB_PATH: str = "data/omniai.db"
 
     # Request Limits & Safeguards
-    REQUEST_TIMEOUT_SECONDS: float = 30.0
+    REQUEST_TIMEOUT_SECONDS: float = 45.0
     MAX_MESSAGE_LENGTH: int = 4000
     MAX_HISTORY_MESSAGES: int = 20
 
