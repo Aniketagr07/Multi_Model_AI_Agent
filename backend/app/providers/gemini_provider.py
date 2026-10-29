@@ -149,3 +149,4 @@ class GeminiProvider(BaseLLMProvider):
     async def check_availability(self) -> bool:
         """Check if GEMINI_API_KEY is configured and service is reachable."""
         return bool(self.api_key and self.api_key.strip())
+

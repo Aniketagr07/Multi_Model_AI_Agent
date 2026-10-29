@@ -58,3 +58,4 @@ class BaseLLMProvider(ABC):
     async def check_availability(self) -> bool:
         """Verify provider availability and credentials."""
         pass
+

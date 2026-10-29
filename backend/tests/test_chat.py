@@ -137,3 +137,4 @@ def test_successful_mocked_chat_response():
         assert response.response == mock_answer
         assert response.latency_ms >= 0
         assert response.timestamp is not None
+

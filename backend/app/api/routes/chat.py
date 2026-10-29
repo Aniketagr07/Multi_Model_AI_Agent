@@ -18,3 +18,4 @@ async def chat_completion(
 ) -> ChatResponse:
     """Process incoming chat request and generate AI model completion."""
     return await chat_service.process_chat(request)
+
