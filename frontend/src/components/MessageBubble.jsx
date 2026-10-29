@@ -176,3 +176,4 @@ export function MessageBubble({ message, onRetry }) {
     </article>
   );
 }
+

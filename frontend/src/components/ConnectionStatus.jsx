@@ -69,3 +69,4 @@ export function ConnectionStatus({ status, onRefresh, compact = false }) {
     </div>
   );
 }
+
