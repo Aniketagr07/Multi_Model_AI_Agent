@@ -180,3 +180,4 @@ def get_model_router() -> ModelRouter:
     if _model_router is None:
         _model_router = ModelRouter()
     return _model_router
+

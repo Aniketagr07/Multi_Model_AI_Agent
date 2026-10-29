@@ -24,6 +24,7 @@ export default function App() {
     setIsSidebarOpen,
     startNewChat,
     selectConversation,
+    renameConversation,
     deleteConversation,
     setSelectedModelId,
     sendMessage,
@@ -55,6 +56,7 @@ export default function App() {
         activeConversationId={activeConversationId}
         onSelectConversation={selectConversation}
         onNewChat={startNewChat}
+        onRenameConversation={renameConversation}
         onDeleteConversation={deleteConversation}
         healthStatus={healthStatus}
         onCheckHealth={onCheckHealth}

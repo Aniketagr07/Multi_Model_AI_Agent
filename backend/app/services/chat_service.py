@@ -7,6 +7,7 @@ from app.core.config import get_settings
 from app.core.model_registry import ModelRegistry, ModelInfo
 from app.schemas.chat import ChatRequest, ChatResponse, ChatMessage
 from app.services.model_router import ModelRouter, get_model_router, RoutingDecision
+from app.db.repository import ConversationRepository
 from app.providers.base import (
     BaseLLMProvider,
     ProviderError,
@@ -22,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 class ChatService:
-    """Orchestrates model validation, automatic routing, fallback policy, and latency measurement."""
+    """Orchestrates model validation, automatic routing, fallback policy, SQLite persistence, and latency measurement."""
 
     def __init__(self):
         settings = get_settings()
@@ -68,12 +69,35 @@ class ChatService:
 
         return model_info, provider
 
-    def _prepare_history(
+    async def _resolve_conversation(self, conv_id: Optional[str], initial_prompt: str) -> str:
+        """
+        Ensure conversation exists in SQLite. If missing or None, creates it.
+        """
+        title = initial_prompt.strip()[:35] + ("..." if len(initial_prompt.strip()) > 35 else "")
+        if not title:
+            title = "New Conversation"
+
+        if conv_id:
+            existing = await ConversationRepository.a_get_conversation(conv_id)
+            if existing:
+                return conv_id
+            # If specified ID does not exist, initialize it with that ID
+            created = await ConversationRepository.a_create_conversation(conv_id=conv_id, title=title)
+            return created["id"]
+
+        created = await ConversationRepository.a_create_conversation(title=title)
+        return created["id"]
+
+    async def _prepare_history(
         self,
+        conv_id: str,
         current_message: str,
         history: Optional[List[ChatMessage]] = None,
     ) -> List[Dict[str, str]]:
-        """Consolidate history and latest message up to the maximum context limit."""
+        """
+        Consolidate conversational history and latest message up to the maximum context limit.
+        Loads from SQLite if history is not provided by the client.
+        """
         settings = get_settings()
         max_history = settings.MAX_HISTORY_MESSAGES
 
@@ -86,6 +110,10 @@ class ChatService:
                     "role": msg.role,
                     "content": msg.content,
                 })
+        else:
+            # Load chronological recent history from SQLite database
+            db_history = await ConversationRepository.a_get_recent_context(conv_id, limit=max_history)
+            formatted_messages.extend(db_history)
 
         # Append current user prompt if not already the last item
         if not formatted_messages or formatted_messages[-1]["content"] != current_message:
@@ -135,12 +163,26 @@ class ChatService:
     async def process_chat(self, request: ChatRequest) -> ChatResponse:
         """
         Process chat request, performing automatic model routing when model_id == 'auto',
-        executing with monotonic latency timing, and applying a conservative fallback policy.
+        persisting messages into SQLite, executing with monotonic latency timing,
+        and applying a conservative fallback policy.
         """
         is_auto_mode = request.model_id.lower() == "auto"
         routing_decision: Optional[RoutingDecision] = None
-        messages_payload = self._prepare_history(request.message, request.messages)
 
+        # 1. Resolve or create persistent conversation in SQLite
+        conv_id = await self._resolve_conversation(request.conversation_id, request.message)
+
+        # 2. Save user message to persistent storage immediately
+        await ConversationRepository.a_add_message(
+            conv_id=conv_id,
+            role="user",
+            content=request.message,
+        )
+
+        # 3. Prepare sliding-window context history
+        messages_payload = await self._prepare_history(conv_id, request.message, request.messages)
+
+        # 4. Resolve Model & Provider
         if is_auto_mode:
             available_models = ModelRegistry.get_available_models()
             if not available_models:
@@ -161,6 +203,7 @@ class ChatService:
         final_explanation = routing_decision.explanation if routing_decision else None
         final_model_info = model_info
 
+        # 5. Execute Provider with Fallback Handling
         try:
             response_text = await self._execute_provider(
                 provider=provider,
@@ -226,8 +269,21 @@ class ChatService:
 
         elapsed_ms = int((time.perf_counter() - start_time) * 1000)
 
+        # 6. Save assistant message into SQLite persistent storage
+        await ConversationRepository.a_add_message(
+            conv_id=conv_id,
+            role="assistant",
+            content=response_text,
+            model_id=final_model_info.id,
+            provider=final_model_info.provider,
+            latency_ms=elapsed_ms,
+            routed=is_auto_mode,
+            routing_category=routing_decision.category if routing_decision else None,
+            routing_explanation=final_explanation,
+        )
+
         return ChatResponse(
-            conversation_id=request.conversation_id,
+            conversation_id=conv_id,
             model_id=final_model_info.id,
             provider=final_model_info.provider,
             response=response_text,

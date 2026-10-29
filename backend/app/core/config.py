@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     # Allowed models list (comma-separated IDs)
     ALLOWED_MODELS: str = "gemini-1.5-flash,gemini-1.5-pro,gemini-2.0-flash-exp,llama-3.1-8b-instant,llama-3.3-70b-versatile,mixtral-8x7b-32768"
 
+    # Database Configuration (Day 7 Persistent SQLite)
+    SQLITE_DB_PATH: str = "data/omniai.db"
+
     # Request Limits & Safeguards
     REQUEST_TIMEOUT_SECONDS: float = 30.0
     MAX_MESSAGE_LENGTH: int = 4000

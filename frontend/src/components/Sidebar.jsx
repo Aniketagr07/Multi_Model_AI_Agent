@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ConnectionStatus } from './ConnectionStatus';
 
 export function Sidebar({
@@ -8,12 +8,43 @@ export function Sidebar({
   activeConversationId,
   onSelectConversation,
   onNewChat,
+  onRenameConversation,
   onDeleteConversation,
   healthStatus,
   onCheckHealth,
   activeView = 'chat',
   onSelectView,
 }) {
+  const [editingId, setEditingId] = useState(null);
+  const [editTitle, setEditTitle] = useState('');
+
+  const handleStartRename = (conv, e) => {
+    e.stopPropagation();
+    setEditingId(conv.id);
+    setEditTitle(conv.title || '');
+  };
+
+  const handleSaveRename = (convId, e) => {
+    if (e) e.stopPropagation();
+    if (onRenameConversation && editTitle.trim()) {
+      onRenameConversation(convId, editTitle.trim());
+    }
+    setEditingId(null);
+  };
+
+  const handleCancelRename = (e) => {
+    if (e) e.stopPropagation();
+    setEditingId(null);
+  };
+
+  const handleDeleteWithConfirm = (convId, title, e) => {
+    e.stopPropagation();
+    const confirmed = window.confirm(`Permanently delete conversation "${title || 'Untitled Session'}" from SQLite?`);
+    if (confirmed && onDeleteConversation) {
+      onDeleteConversation(convId);
+    }
+  };
+
   return (
     <>
       {/* Mobile Backdrop overlay */}
@@ -45,7 +76,7 @@ export function Sidebar({
               <div className="flex items-center gap-1.5">
                 <h1 className="text-sm font-bold tracking-tight text-[#F3F4F6]">OmniAI</h1>
                 <span className="text-[10px] px-1.5 py-0.2 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20 font-medium">
-                  Day 6
+                  Day 7
                 </span>
               </div>
               <p className="text-[11px] text-[#9CA3AF]">Intelligent Multi-Model</p>
@@ -109,7 +140,7 @@ export function Sidebar({
             {activeView === 'chat' && <span className="w-1.5 h-1.5 rounded-full bg-purple-400"></span>}
           </button>
 
-          {/* Compare Models Button (Active in Day 5) */}
+          {/* Compare Models Button */}
           <button
             type="button"
             onClick={() => {
@@ -130,18 +161,12 @@ export function Sidebar({
               </svg>
               <span>Compare Models</span>
             </div>
-            {activeView === 'compare' ? (
-              <span className="w-1.5 h-1.5 rounded-full bg-purple-400"></span>
-            ) : (
-              <span className="text-[10px] px-1.5 py-0.2 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20">
-                New
-              </span>
-            )}
+            {activeView === 'compare' && <span className="w-1.5 h-1.5 rounded-full bg-purple-400"></span>}
           </button>
 
           {/* AI Council (Coming Soon) */}
           <div
-            title="Coming in Day 6 / Day 7"
+            title="Coming in Day 8"
             className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-xs font-medium text-slate-500 hover:text-slate-400 cursor-not-allowed"
           >
             <div className="flex items-center gap-2">
@@ -157,39 +182,24 @@ export function Sidebar({
               Coming Soon
             </span>
           </div>
-
-          {/* Settings (Coming Soon) */}
-          <div
-            title="Coming Soon"
-            className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-xs font-medium text-slate-500 hover:text-slate-400 cursor-not-allowed"
-          >
-            <div className="flex items-center gap-2">
-              <svg className="w-4 h-4 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="3" />
-                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
-              </svg>
-              <span>Settings</span>
-            </div>
-            <span className="text-[10px] px-1.5 py-0.2 rounded bg-[#151923] text-slate-500 border border-[#282D38]">
-              Coming Soon
-            </span>
-          </div>
         </div>
 
         {/* Conversation History List */}
         <div className="flex-1 overflow-y-auto px-3 py-3 space-y-1">
           <div className="px-2 pb-1.5 flex items-center justify-between text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-            <span>Recent Sessions</span>
-            <span className="text-[10px] font-normal text-slate-500">Local State</span>
+            <span>Conversations</span>
+            <span className="text-[10px] font-normal text-purple-400/80">SQLite</span>
           </div>
 
           {conversations.length === 0 ? (
             <div className="p-4 text-center text-xs text-slate-500 italic">
-              No active conversations yet
+              No conversations yet
             </div>
           ) : (
             conversations.map((conv) => {
               const isActive = conv.id === activeConversationId;
+              const isEditing = editingId === conv.id;
+
               return (
                 <div
                   key={conv.id}
@@ -199,12 +209,13 @@ export function Sidebar({
                       : 'text-slate-400 hover:text-slate-200 hover:bg-[#151923]/50 border border-transparent'
                   }`}
                   onClick={() => {
+                    if (isEditing) return;
                     if (onSelectView) onSelectView('chat');
                     onSelectConversation(conv.id);
                     if (window.innerWidth < 768) onClose();
                   }}
                 >
-                  <div className="flex items-center gap-2 min-w-0 pr-6">
+                  <div className="flex items-center gap-2 min-w-0 pr-12 flex-1">
                     <svg
                       className={`w-3.5 h-3.5 shrink-0 ${isActive && activeView === 'chat' ? 'text-purple-400' : 'text-slate-500'}`}
                       viewBox="0 0 24 24"
@@ -216,28 +227,83 @@ export function Sidebar({
                     >
                       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                     </svg>
-                    <div className="flex flex-col min-w-0">
-                      <span className="truncate font-medium">{conv.title || 'Untitled Session'}</span>
-                      <span className="text-[10px] text-slate-500">{conv.dateLabel}</span>
-                    </div>
+
+                    {isEditing ? (
+                      <div className="flex items-center gap-1 flex-1 min-w-0" onClick={e => e.stopPropagation()}>
+                        <input
+                          type="text"
+                          value={editTitle}
+                          onChange={e => setEditTitle(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') handleSaveRename(conv.id, e);
+                            if (e.key === 'Escape') handleCancelRename(e);
+                          }}
+                          autoFocus
+                          className="w-full bg-[#0B0D12] text-white text-xs px-1.5 py-0.5 rounded border border-purple-500 focus:outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={e => handleSaveRename(conv.id, e)}
+                          title="Save title"
+                          className="p-1 text-emerald-400 hover:text-emerald-300"
+                        >
+                          ✓
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleCancelRename}
+                          title="Cancel"
+                          className="p-1 text-slate-400 hover:text-slate-300"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col min-w-0 flex-1">
+                        <span className="truncate font-medium">{conv.title || 'Untitled Session'}</span>
+                        <div className="flex items-center gap-2 text-[10px] text-slate-500">
+                          <span>{conv.dateLabel}</span>
+                          {typeof conv.messageCount === 'number' && conv.messageCount > 0 && (
+                            <span>• {conv.messageCount} msgs</span>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Delete Conversation Button */}
-                  {onDeleteConversation && (
-                    <button
-                      type="button"
-                      title="Remove session"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDeleteConversation(conv.id);
-                      }}
-                      className="absolute right-2 opacity-0 group-hover:opacity-100 p-1 text-slate-500 hover:text-red-400 hover:bg-[#1E2330] rounded transition-opacity"
-                    >
-                      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="3 6 5 6 21 6" />
-                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                      </svg>
-                    </button>
+                  {/* Actions: Rename & Delete Buttons */}
+                  {!isEditing && (
+                    <div className="absolute right-1.5 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {/* Rename Button */}
+                      {onRenameConversation && (
+                        <button
+                          type="button"
+                          title="Rename conversation"
+                          onClick={e => handleStartRename(conv, e)}
+                          className="p-1 text-slate-500 hover:text-purple-300 hover:bg-[#1E2330] rounded transition-colors"
+                        >
+                          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M12 20h9" />
+                            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+                          </svg>
+                        </button>
+                      )}
+
+                      {/* Delete Button */}
+                      {onDeleteConversation && (
+                        <button
+                          type="button"
+                          title="Delete conversation"
+                          onClick={e => handleDeleteWithConfirm(conv.id, conv.title, e)}
+                          className="p-1 text-slate-500 hover:text-red-400 hover:bg-[#1E2330] rounded transition-colors"
+                        >
+                          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="3 6 5 6 21 6" />
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
               );
@@ -251,7 +317,7 @@ export function Sidebar({
 
           <div className="flex items-center justify-between text-[11px] text-slate-500 px-1 pt-1">
             <span>OmniAI • B.Tech AI & ML</span>
-            <span className="font-mono text-slate-400">v0.1.0 (Day 6)</span>
+            <span className="font-mono text-slate-400">v0.1.0 (Day 7)</span>
           </div>
         </div>
       </aside>

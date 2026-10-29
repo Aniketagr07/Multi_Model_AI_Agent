@@ -13,6 +13,14 @@ from app.schemas.compare import (
     ModelComparisonResult,
     CompareResponse,
 )
+from app.schemas.conversation import (
+    ConversationCreate,
+    ConversationUpdate,
+    MessageResponse,
+    ConversationResponse,
+    ConversationDetailResponse,
+    ConversationListResponse,
+)
 
 __all__ = [
     "HealthResponse",
@@ -24,4 +32,10 @@ __all__ = [
     "CompareRequest",
     "ModelComparisonResult",
     "CompareResponse",
+    "ConversationCreate",
+    "ConversationUpdate",
+    "MessageResponse",
+    "ConversationResponse",
+    "ConversationDetailResponse",
+    "ConversationListResponse",
 ]

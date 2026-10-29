@@ -1,33 +1,49 @@
 /**
- * API Service for communicating with OmniAI FastAPI Backend.
+ * OmniAI API Service
+ * Centralizes all asynchronous communication between the React frontend
+ * and the FastAPI backend, providing typed payload contracts and error normalization.
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
 /**
- * Fetch health status from backend /api/health endpoint.
- * @returns {Promise<{app_name: string, status: string, version: string, environment: string, timestamp: string}>}
+ * Checks backend health status.
+ * Target: GET /api/health
  */
-export async function fetchHealthStatus() {
+export async function checkBackendHealth() {
   const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/health`;
 
-  const response = await fetch(url, {
-    method: 'GET',
-    headers: {
-      'Accept': 'application/json',
-    },
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 6000);
 
-  if (!response.ok) {
-    throw new Error(`Backend responded with status HTTP ${response.status}: ${response.statusText}`);
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      throw new Error(`Health check returned HTTP ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (err) {
+    clearTimeout(timeoutId);
+    throw err;
   }
-
-  return await response.json();
 }
 
+// Alias for backwards compatibility
+export const fetchHealthStatus = checkBackendHealth;
+
 /**
- * Fetch server-side registered models list from /api/models.
- * @returns {Promise<{models: Array<{id: string, name: string, provider: string, description: string, tag: string, is_available: boolean}>}>}
+ * Fetches the server-side model registry.
+ * Target: GET /api/models
  */
 export async function fetchModelRegistry() {
   const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/models`;
@@ -47,37 +63,15 @@ export async function fetchModelRegistry() {
 }
 
 /**
- * Fetch root service info from backend / endpoint.
- */
-export async function fetchRootInfo() {
-  const url = `${API_BASE_URL.replace(/\/+$/, '')}/`;
-
-  const response = await fetch(url, {
-    method: 'GET',
-    headers: {
-      'Accept': 'application/json',
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(`Backend responded with status HTTP ${response.status}: ${response.statusText}`);
-  }
-
-  return await response.json();
-}
-
-/**
- * Dispatches a chat completion request to the FastAPI backend.
- * 
- * Contract:
- * POST /api/chat
+ * Dispatches a chat message to the FastAPI backend.
+ * Target: POST /api/chat
  */
 export async function sendChatMessage({ message, model_id, conversation_id, messages }) {
   const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/chat`;
 
   const payload = {
     message,
-    model_id: model_id || 'gemini-1.5-flash',
+    model_id,
     conversation_id: conversation_id || null,
     messages: messages && messages.length > 0 ? messages : null,
   };
@@ -99,7 +93,7 @@ export async function sendChatMessage({ message, model_id, conversation_id, mess
   }
 
   if (!response.ok) {
-    let errorMessage = `Server error (HTTP ${response.status})`;
+    let errorMessage = `Provider request failed with HTTP ${response.status}`;
     try {
       const errorJson = await response.json();
       if (errorJson && errorJson.detail) {
@@ -118,21 +112,7 @@ export async function sendChatMessage({ message, model_id, conversation_id, mess
 
 /**
  * Dispatches a multi-model comparison request to the FastAPI backend.
- * 
- * Contract:
- * POST /api/compare
- * Payload:
- * {
- *   "prompt": string,
- *   "model_a_id": string,
- *   "model_b_id": string
- * }
- * 
- * @param {Object} params
- * @param {string} params.prompt
- * @param {string} params.model_a_id
- * @param {string} params.model_b_id
- * @returns {Promise<{prompt: string, model_a: Object, model_b: Object, timestamp: string}>}
+ * Target: POST /api/compare
  */
 export async function sendCompareRequest({ prompt, model_a_id, model_b_id }) {
   const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/compare`;
@@ -175,4 +155,111 @@ export async function sendCompareRequest({ prompt, model_a_id, model_b_id }) {
   }
 
   return await response.json();
+}
+
+/**
+ * Fetches all persistent conversations from SQLite.
+ * Target: GET /api/conversations
+ */
+export async function fetchConversations() {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/conversations`;
+
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'Accept': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch conversations: HTTP ${response.status}`);
+  }
+
+  const data = await response.json();
+  return data.conversations || [];
+}
+
+/**
+ * Fetches single conversation details and its complete message history.
+ * Target: GET /api/conversations/{id}
+ */
+export async function fetchConversationDetails(conversationId) {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/conversations/${conversationId}`;
+
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'Accept': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to load conversation: HTTP ${response.status}`);
+  }
+
+  return await response.json();
+}
+
+/**
+ * Creates a new conversation in persistent storage.
+ * Target: POST /api/conversations
+ */
+export async function createConversation(title = 'New Conversation') {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/conversations`;
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    },
+    body: JSON.stringify({ title }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to create conversation: HTTP ${response.status}`);
+  }
+
+  return await response.json();
+}
+
+/**
+ * Renames a conversation title.
+ * Target: PATCH /api/conversations/{id}
+ */
+export async function renameConversation(conversationId, title) {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/conversations/${conversationId}`;
+
+  const response = await fetch(url, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    },
+    body: JSON.stringify({ title }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to rename conversation: HTTP ${response.status}`);
+  }
+
+  return await response.json();
+}
+
+/**
+ * Deletes a conversation and all its messages.
+ * Target: DELETE /api/conversations/{id}
+ */
+export async function deleteConversationApi(conversationId) {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/conversations/${conversationId}`;
+
+  const response = await fetch(url, {
+    method: 'DELETE',
+  });
+
+  if (!response.ok && response.status !== 204) {
+    throw new Error(`Failed to delete conversation: HTTP ${response.status}`);
+  }
+
+  return true;
 }

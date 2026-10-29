@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
 from app.api.routes import api_router
+from app.db.database import init_db
 
 
 @asynccontextmanager
@@ -12,6 +13,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan manager for startup and shutdown routines."""
     settings = get_settings()
     print(f"Starting {settings.APP_NAME} v{settings.APP_VERSION} [{settings.APP_ENV}]...")
+    # Initialize SQLite database schema
+    init_db()
     yield
     print(f"Shutting down {settings.APP_NAME}...")
 
@@ -26,6 +29,7 @@ def create_application() -> FastAPI:
         description="OmniAI Intelligent Multi-Model AI Chatbot API",
         docs_url="/docs",
         redoc_url="/redoc",
+        lifespan=lifespan,
     )
 
     # Configure CORS middleware
