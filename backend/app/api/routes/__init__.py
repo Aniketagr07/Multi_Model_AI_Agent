@@ -5,3 +5,4 @@ api_router = APIRouter()
 
 # Mount health routes at /api/health
 api_router.include_router(health_router, prefix="", tags=["Health"])
+

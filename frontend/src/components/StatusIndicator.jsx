@@ -117,3 +117,4 @@ export function StatusIndicator({ status, data, error, lastChecked, onCheckAgain
     </div>
   );
 }
+
