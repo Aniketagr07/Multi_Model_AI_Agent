@@ -71,20 +71,6 @@ export async function fetchRootInfo() {
  * 
  * Contract:
  * POST /api/chat
- * Payload:
- * {
- *   "message": string,
- *   "model_id": string,
- *   "conversation_id": string | null,
- *   "messages": Array<{ role: "user" | "assistant", content: string }> | null
- * }
- * 
- * @param {Object} params
- * @param {string} params.message
- * @param {string} params.model_id
- * @param {string} [params.conversation_id]
- * @param {Array<{role: string, content: string}>} [params.messages]
- * @returns {Promise<{conversation_id: string, model_id: string, provider: string, response: string, latency_ms: number, timestamp: string}>}
  */
 export async function sendChatMessage({ message, model_id, conversation_id, messages }) {
   const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/chat`;
@@ -123,6 +109,67 @@ export async function sendChatMessage({ message, model_id, conversation_id, mess
       }
     } catch {
       // Non-JSON error body fallback
+    }
+    throw new Error(errorMessage);
+  }
+
+  return await response.json();
+}
+
+/**
+ * Dispatches a multi-model comparison request to the FastAPI backend.
+ * 
+ * Contract:
+ * POST /api/compare
+ * Payload:
+ * {
+ *   "prompt": string,
+ *   "model_a_id": string,
+ *   "model_b_id": string
+ * }
+ * 
+ * @param {Object} params
+ * @param {string} params.prompt
+ * @param {string} params.model_a_id
+ * @param {string} params.model_b_id
+ * @returns {Promise<{prompt: string, model_a: Object, model_b: Object, timestamp: string}>}
+ */
+export async function sendCompareRequest({ prompt, model_a_id, model_b_id }) {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/compare`;
+
+  const payload = {
+    prompt,
+    model_a_id,
+    model_b_id,
+  };
+
+  let response;
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+  } catch (networkError) {
+    throw new Error(
+      `Network connection failure: Unable to reach OmniAI backend at ${API_BASE_URL}. Ensure the FastAPI server is running.`
+    );
+  }
+
+  if (!response.ok) {
+    let errorMessage = `Comparison error (HTTP ${response.status})`;
+    try {
+      const errorJson = await response.json();
+      if (errorJson && errorJson.detail) {
+        errorMessage = typeof errorJson.detail === 'string'
+          ? errorJson.detail
+          : JSON.stringify(errorJson.detail);
+      }
+    } catch {
+      // Fallback
     }
     throw new Error(errorMessage);
   }

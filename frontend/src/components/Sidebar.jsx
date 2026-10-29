@@ -11,6 +11,8 @@ export function Sidebar({
   onDeleteConversation,
   healthStatus,
   onCheckHealth,
+  activeView = 'chat',
+  onSelectView,
 }) {
   return (
     <>
@@ -43,7 +45,7 @@ export function Sidebar({
               <div className="flex items-center gap-1.5">
                 <h1 className="text-sm font-bold tracking-tight text-[#F3F4F6]">OmniAI</h1>
                 <span className="text-[10px] px-1.5 py-0.2 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20 font-medium">
-                  Day 4
+                  Day 5
                 </span>
               </div>
               <p className="text-[11px] text-[#9CA3AF]">Intelligent Multi-Model</p>
@@ -69,6 +71,7 @@ export function Sidebar({
           <button
             type="button"
             onClick={() => {
+              if (onSelectView) onSelectView('chat');
               onNewChat();
               if (window.innerWidth < 768) onClose();
             }}
@@ -84,38 +87,61 @@ export function Sidebar({
 
         {/* Secondary Navigation */}
         <div className="px-3 pb-3 border-b border-[#282D38]/60 space-y-1">
+          {/* Chat View Button */}
           <button
             type="button"
-            className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-xs font-medium bg-[#151923] text-purple-300 border border-purple-500/20"
+            onClick={() => {
+              if (onSelectView) onSelectView('chat');
+              if (window.innerWidth < 768) onClose();
+            }}
+            className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+              activeView === 'chat'
+                ? 'bg-[#151923] text-purple-300 border border-purple-500/20'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-[#151923]/50 border border-transparent'
+            }`}
           >
             <div className="flex items-center gap-2">
-              <svg className="w-4 h-4 text-purple-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg className={`w-4 h-4 ${activeView === 'chat' ? 'text-purple-400' : 'text-slate-500'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
               </svg>
               <span>Chat</span>
             </div>
-            <span className="w-1.5 h-1.5 rounded-full bg-purple-400"></span>
+            {activeView === 'chat' && <span className="w-1.5 h-1.5 rounded-full bg-purple-400"></span>}
           </button>
 
-          <div
-            title="Coming in Day 5"
-            className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-xs font-medium text-slate-500 hover:text-slate-400 cursor-not-allowed"
+          {/* Compare Models Button (Active in Day 5) */}
+          <button
+            type="button"
+            onClick={() => {
+              if (onSelectView) onSelectView('compare');
+              if (window.innerWidth < 768) onClose();
+            }}
+            className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+              activeView === 'compare'
+                ? 'bg-[#151923] text-purple-300 border border-purple-500/20'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-[#151923]/50 border border-transparent'
+            }`}
           >
             <div className="flex items-center gap-2">
-              <svg className="w-4 h-4 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg className={`w-4 h-4 ${activeView === 'compare' ? 'text-purple-400' : 'text-slate-400'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
                 <line x1="8" y1="21" x2="16" y2="21" />
                 <line x1="12" y1="17" x2="12" y2="21" />
               </svg>
               <span>Compare Models</span>
             </div>
-            <span className="text-[10px] px-1.5 py-0.2 rounded bg-[#151923] text-slate-500 border border-[#282D38]">
-              Coming Soon
-            </span>
-          </div>
+            {activeView === 'compare' ? (
+              <span className="w-1.5 h-1.5 rounded-full bg-purple-400"></span>
+            ) : (
+              <span className="text-[10px] px-1.5 py-0.2 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                New
+              </span>
+            )}
+          </button>
 
+          {/* AI Council (Coming Soon) */}
           <div
-            title="Coming in Day 5"
+            title="Coming in Day 6 / Day 7"
             className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-xs font-medium text-slate-500 hover:text-slate-400 cursor-not-allowed"
           >
             <div className="flex items-center gap-2">
@@ -132,8 +158,9 @@ export function Sidebar({
             </span>
           </div>
 
+          {/* Settings (Coming Soon) */}
           <div
-            title="Coming in Day 5"
+            title="Coming Soon"
             className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-xs font-medium text-slate-500 hover:text-slate-400 cursor-not-allowed"
           >
             <div className="flex items-center gap-2">
@@ -167,18 +194,19 @@ export function Sidebar({
                 <div
                   key={conv.id}
                   className={`group relative flex items-center justify-between rounded-lg px-2.5 py-2 text-xs transition-colors cursor-pointer ${
-                    isActive
+                    isActive && activeView === 'chat'
                       ? 'bg-[#151923] text-white border border-[#282D38]'
                       : 'text-slate-400 hover:text-slate-200 hover:bg-[#151923]/50 border border-transparent'
                   }`}
                   onClick={() => {
+                    if (onSelectView) onSelectView('chat');
                     onSelectConversation(conv.id);
                     if (window.innerWidth < 768) onClose();
                   }}
                 >
                   <div className="flex items-center gap-2 min-w-0 pr-6">
                     <svg
-                      className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-purple-400' : 'text-slate-500'}`}
+                      className={`w-3.5 h-3.5 shrink-0 ${isActive && activeView === 'chat' ? 'text-purple-400' : 'text-slate-500'}`}
                       viewBox="0 0 24 24"
                       fill="none"
                       stroke="currentColor"
@@ -223,7 +251,7 @@ export function Sidebar({
 
           <div className="flex items-center justify-between text-[11px] text-slate-500 px-1 pt-1">
             <span>OmniAI • B.Tech AI & ML</span>
-            <span className="font-mono text-slate-400">v0.1.0 (Day 4)</span>
+            <span className="font-mono text-slate-400">v0.1.0 (Day 5)</span>
           </div>
         </div>
       </aside>

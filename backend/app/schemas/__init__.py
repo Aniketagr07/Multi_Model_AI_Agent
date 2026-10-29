@@ -8,6 +8,11 @@ from app.schemas.chat import (
     ModelItemResponse,
     ModelRegistryResponse,
 )
+from app.schemas.compare import (
+    CompareRequest,
+    ModelComparisonResult,
+    CompareResponse,
+)
 
 __all__ = [
     "HealthResponse",
@@ -16,4 +21,7 @@ __all__ = [
     "ChatResponse",
     "ModelItemResponse",
     "ModelRegistryResponse",
+    "CompareRequest",
+    "ModelComparisonResult",
+    "CompareResponse",
 ]

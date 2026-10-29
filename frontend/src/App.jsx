@@ -1,12 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { ChatHeader } from './components/ChatHeader';
 import { ChatWindow } from './components/ChatWindow';
 import { MessageComposer } from './components/MessageComposer';
+import { CompareView } from './components/CompareView';
 import { useChat } from './hooks/useChat';
 import { useHealthCheck } from './hooks/useHealthCheck';
 
 export default function App() {
+  const [activeView, setActiveView] = useState('chat'); // 'chat' | 'compare'
+
   const {
     conversations,
     activeConversationId,
@@ -55,39 +58,47 @@ export default function App() {
         onDeleteConversation={deleteConversation}
         healthStatus={healthStatus}
         onCheckHealth={onCheckHealth}
+        activeView={activeView}
+        onSelectView={setActiveView}
       />
 
-      {/* Main Chat Interface */}
+      {/* Main Interface */}
       <div className="flex-1 flex flex-col h-full min-w-0 relative bg-[#0B0D12]">
         {/* Top Header */}
         <ChatHeader
-          activeTitle={activeTitle}
-          selectedModelName={selectedModel.name}
+          activeTitle={activeView === 'compare' ? 'Compare Models' : activeTitle}
+          selectedModelName={activeView === 'compare' ? 'Parallel Dual-Model Benchmark' : selectedModel.name}
           onToggleSidebar={handleToggleSidebar}
           healthStatus={healthStatus}
           onCheckHealth={onCheckHealth}
         />
 
-        {/* Chat Conversation Scroll Area */}
-        <main className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
-          <ChatWindow
-            messages={activeMessages}
-            isLoading={isLoading}
-            selectedModelName={selectedModel.name}
-            onSelectPrompt={handleSelectPrompt}
-            onRetryMessage={handleRetryMessage}
-          />
+        {/* Dynamic Main View Area */}
+        {activeView === 'compare' ? (
+          <main className="flex-1 min-h-0 overflow-hidden relative">
+            <CompareView />
+          </main>
+        ) : (
+          <main className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
+            <ChatWindow
+              messages={activeMessages}
+              isLoading={isLoading}
+              selectedModelName={selectedModel.name}
+              onSelectPrompt={handleSelectPrompt}
+              onRetryMessage={handleRetryMessage}
+            />
 
-          {/* Bottom Message Composer */}
-          <MessageComposer
-            input={input}
-            setInput={setInput}
-            onSend={() => sendMessage()}
-            isLoading={isLoading}
-            selectedModelId={selectedModelId}
-            onSelectModel={setSelectedModelId}
-          />
-        </main>
+            {/* Bottom Message Composer */}
+            <MessageComposer
+              input={input}
+              setInput={setInput}
+              onSend={() => sendMessage()}
+              isLoading={isLoading}
+              selectedModelId={selectedModelId}
+              onSelectModel={setSelectedModelId}
+            />
+          </main>
+        )}
       </div>
     </div>
   );
