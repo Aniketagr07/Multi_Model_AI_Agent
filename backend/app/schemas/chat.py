@@ -20,7 +20,7 @@ class ChatMessage(BaseModel):
 class ChatRequest(BaseModel):
     """Schema for POST /api/chat incoming request."""
     message: str = Field(..., min_length=1, max_length=4000, description="The user's query prompt")
-    model_id: str = Field(default="gemini-1.5-flash", description="Target model identifier")
+    model_id: str = Field(default="auto", description="Target model identifier or 'auto' for intelligent routing")
     conversation_id: Optional[str] = Field(default=None, description="Client conversation identifier")
     messages: Optional[List[ChatMessage]] = Field(default=None, description="Prior conversational context")
 
@@ -42,12 +42,16 @@ class ChatRequest(BaseModel):
 
 
 class ChatResponse(BaseModel):
-    """Schema for POST /api/chat successful response."""
+    """Schema for POST /api/chat successful response with routing metadata."""
     conversation_id: Optional[str] = Field(default=None, description="Associated conversation identifier")
     model_id: str = Field(..., description="Model that produced the response")
     provider: Optional[str] = Field(default=None, description="Name of the backend provider adapter used")
     response: str = Field(..., description="Actual text response from the AI provider")
     latency_ms: int = Field(..., description="Provider round-trip latency in milliseconds")
+    routed: bool = Field(default=False, description="Whether automatic intelligent model routing was used")
+    routing_category: Optional[str] = Field(default=None, description="Classified task category if auto-routed")
+    routing_explanation: Optional[str] = Field(default=None, description="Explainable rationale for model selection")
+    fallback_used: bool = Field(default=False, description="Whether a fallback model was used after primary error")
     timestamp: str = Field(
         default_factory=lambda: datetime.now(timezone.utc).isoformat(),
         description="ISO 8601 UTC timestamp of response generation",
@@ -62,6 +66,10 @@ class ModelItemResponse(BaseModel):
     description: str
     tag: str
     is_available: bool
+    supported_categories: List[str] = Field(default_factory=list)
+    strengths: List[str] = Field(default_factory=list)
+    context_window: int = 8192
+    cost_tier: str = "Free tier"
 
 
 class ModelRegistryResponse(BaseModel):

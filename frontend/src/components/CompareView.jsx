@@ -445,3 +445,4 @@ export function CompareView() {
     </div>
   );
 }
+

@@ -5,7 +5,7 @@ from app.core.config import get_settings
 
 
 class ModelInfo(BaseModel):
-    """Server-side registered model metadata."""
+    """Server-side registered model metadata with capability categorization."""
     id: str = Field(..., description="Stable internal model identifier")
     name: str = Field(..., description="Human-readable display name")
     provider: str = Field(..., description="Provider identifier ('gemini' or 'groq')")
@@ -13,10 +13,26 @@ class ModelInfo(BaseModel):
     description: str = Field(..., description="Short summary of model capabilities")
     tag: str = Field(..., description="UI badge tag (e.g. 'Google AI Studio', 'Groq Cloud')")
     is_available: bool = Field(..., description="Whether required server API credentials are present")
+    supported_categories: List[str] = Field(
+        default_factory=list,
+        description="Task categories this model is optimized for ('coding', 'writing', 'reasoning', 'general')"
+    )
+    strengths: List[str] = Field(
+        default_factory=list,
+        description="Key verified architectural strengths"
+    )
+    context_window: int = Field(
+        default=8192,
+        description="Maximum supported context window in tokens"
+    )
+    cost_tier: str = Field(
+        default="Free tier",
+        description="Current verified pricing/quota tier"
+    )
 
 
-# Master Server-Side Registry Definition
-REGISTERED_MODELS: Dict[str, Dict[str, str]] = {
+# Master Server-Side Registry Definition with verified capabilities
+REGISTERED_MODELS: Dict[str, Dict] = {
     "gemini-1.5-flash": {
         "id": "gemini-1.5-flash",
         "name": "Gemini 1.5 Flash",
@@ -24,6 +40,10 @@ REGISTERED_MODELS: Dict[str, Dict[str, str]] = {
         "provider_model_id": "gemini-1.5-flash",
         "description": "High-speed multimodal intelligence with 15 RPM / 1M TPM free quota",
         "tag": "Google AI Studio",
+        "supported_categories": ["general", "writing"],
+        "strengths": ["Rapid response latency", "1M token context capacity", "Balanced text fluency"],
+        "context_window": 1048576,
+        "cost_tier": "Free tier (15 RPM / 1M TPM)",
     },
     "gemini-1.5-pro": {
         "id": "gemini-1.5-pro",
@@ -32,6 +52,10 @@ REGISTERED_MODELS: Dict[str, Dict[str, str]] = {
         "provider_model_id": "gemini-1.5-pro",
         "description": "Complex reasoning and analytical synthesis with 1M token context",
         "tag": "Google AI Studio",
+        "supported_categories": ["reasoning", "writing"],
+        "strengths": ["Complex multi-step reasoning", "Mathematical analysis", "Extensive document context"],
+        "context_window": 1048576,
+        "cost_tier": "Free tier (2 RPM / 32k TPM)",
     },
     "llama-3.1-8b-instant": {
         "id": "llama-3.1-8b-instant",
@@ -40,6 +64,10 @@ REGISTERED_MODELS: Dict[str, Dict[str, str]] = {
         "provider_model_id": "llama-3.1-8b-instant",
         "description": "Ultra-fast low-latency inference powered by Groq LPU engine",
         "tag": "Groq Cloud",
+        "supported_categories": ["coding", "general"],
+        "strengths": ["Sub-second code generation", "Deterministic LPU latency", "Concise algorithmic explanations"],
+        "context_window": 131072,
+        "cost_tier": "Free tier (30 RPM / 6k TPM)",
     },
     "llama-3.3-70b-versatile": {
         "id": "llama-3.3-70b-versatile",
@@ -48,6 +76,10 @@ REGISTERED_MODELS: Dict[str, Dict[str, str]] = {
         "provider_model_id": "llama-3.3-70b-versatile",
         "description": "State-of-the-art open-weights reasoning model running on Groq LPUs",
         "tag": "Groq Cloud",
+        "supported_categories": ["reasoning", "coding"],
+        "strengths": ["High-precision reasoning", "Complex coding challenges", "Open-weight transparency"],
+        "context_window": 131072,
+        "cost_tier": "Free tier (30 RPM / 6k TPM)",
     },
     "mixtral-8x7b-32768": {
         "id": "mixtral-8x7b-32768",
@@ -56,6 +88,10 @@ REGISTERED_MODELS: Dict[str, Dict[str, str]] = {
         "provider_model_id": "mixtral-8x7b-32768",
         "description": "Mixture-of-Experts architecture with 32k context window on Groq",
         "tag": "Groq Cloud",
+        "supported_categories": ["writing", "general"],
+        "strengths": ["Sparse Mixture-of-Experts routing", "Rich prose and summarization", "32k context buffer"],
+        "context_window": 32768,
+        "cost_tier": "Free tier (30 RPM / 6k TPM)",
     },
 }
 
@@ -86,6 +122,10 @@ class ModelRegistry:
             description=raw["description"],
             tag=raw["tag"],
             is_available=is_available,
+            supported_categories=raw.get("supported_categories", []),
+            strengths=raw.get("strengths", []),
+            context_window=raw.get("context_window", 8192),
+            cost_tier=raw.get("cost_tier", "Free tier"),
         )
 
     @staticmethod
@@ -99,6 +139,11 @@ class ModelRegistry:
         return models
 
     @staticmethod
+    def get_available_models() -> List[ModelInfo]:
+        """Return only models whose provider credentials are configured and valid."""
+        return [m for m in ModelRegistry.list_models() if m.is_available]
+
+    @staticmethod
     def is_valid_model(model_id: str) -> bool:
         """Check if model ID is recognized in the server registry."""
-        return model_id in REGISTERED_MODELS
+        return model_id in REGISTERED_MODELS or model_id == "auto"

@@ -1,11 +1,12 @@
 import time
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 from fastapi import HTTPException
 
 from app.core.config import get_settings
 from app.core.model_registry import ModelRegistry, ModelInfo
 from app.schemas.chat import ChatRequest, ChatResponse, ChatMessage
+from app.services.model_router import ModelRouter, get_model_router, RoutingDecision
 from app.providers.base import (
     BaseLLMProvider,
     ProviderError,
@@ -21,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 class ChatService:
-    """Orchestrates model validation, multi-provider dispatch, and latency measurement."""
+    """Orchestrates model validation, automatic routing, fallback policy, and latency measurement."""
 
     def __init__(self):
         settings = get_settings()
@@ -43,7 +44,9 @@ class ChatService:
             "groq": self._groq_provider,
         }
 
-    def resolve_model_and_provider(self, model_id: str) -> tuple[ModelInfo, BaseLLMProvider]:
+        self._router: ModelRouter = get_model_router()
+
+    def resolve_model_and_provider(self, model_id: str) -> Tuple[ModelInfo, BaseLLMProvider]:
         """
         Validate model identifier against the server registry and return
         its registered ModelInfo along with its corresponding provider adapter.
@@ -93,49 +96,146 @@ class ChatService:
 
         return formatted_messages
 
+    async def _execute_provider(
+        self,
+        provider: BaseLLMProvider,
+        messages_payload: List[Dict[str, str]],
+        provider_model_id: str,
+    ) -> str:
+        """Call provider adapter with exception normalization."""
+        return await provider.generate_response(
+            messages=messages_payload,
+            model_id=provider_model_id,
+        )
+
+    def _find_fallback_model(
+        self,
+        primary_model_id: str,
+        available_models: List[ModelInfo],
+    ) -> Optional[ModelInfo]:
+        """
+        Locate an eligible secondary model when auto-routed primary encounters a transient error.
+        Prioritizes a different provider to bypass provider-level outages or rate limits.
+        """
+        primary_info = ModelRegistry.get_model(primary_model_id)
+        primary_provider = primary_info.provider if primary_info else None
+
+        # Prefer an alternate provider first
+        for model in available_models:
+            if model.id != primary_model_id and model.provider != primary_provider:
+                return model
+
+        # Otherwise pick any other available model
+        for model in available_models:
+            if model.id != primary_model_id:
+                return model
+
+        return None
+
     async def process_chat(self, request: ChatRequest) -> ChatResponse:
-        """Process incoming chat request, route to the correct provider, and measure latency."""
-        model_info, provider = self.resolve_model_and_provider(request.model_id)
+        """
+        Process chat request, performing automatic model routing when model_id == 'auto',
+        executing with monotonic latency timing, and applying a conservative fallback policy.
+        """
+        is_auto_mode = request.model_id.lower() == "auto"
+        routing_decision: Optional[RoutingDecision] = None
         messages_payload = self._prepare_history(request.message, request.messages)
 
-        # Measure real round-trip latency with monotonic clock
+        if is_auto_mode:
+            available_models = ModelRegistry.get_available_models()
+            if not available_models:
+                raise HTTPException(
+                    status_code=503,
+                    detail="No configured AI models are available. Please configure GEMINI_API_KEY or GROQ_API_KEY.",
+                )
+            routing_decision = self._router.route_request(request.message, available_models)
+            model_info = routing_decision.chosen_model
+            provider = self._providers.get(model_info.provider)
+            if not provider:
+                raise HTTPException(status_code=500, detail=f"Provider adapter '{model_info.provider}' missing.")
+        else:
+            model_info, provider = self.resolve_model_and_provider(request.model_id)
+
         start_time = time.perf_counter()
+        fallback_used = False
+        final_explanation = routing_decision.explanation if routing_decision else None
+        final_model_info = model_info
 
         try:
-            response_text = await provider.generate_response(
-                messages=messages_payload,
-                model_id=model_info.provider_model_id,
+            response_text = await self._execute_provider(
+                provider=provider,
+                messages_payload=messages_payload,
+                provider_model_id=model_info.provider_model_id,
             )
-        except ProviderConfigError as e:
-            logger.error("[%s] Configuration error: %s", model_info.provider, e.message)
+        except (ProviderConfigError, ProviderAuthError) as e:
+            # Conservative Policy: Do not retry configuration or authentication failures
+            logger.error("[%s] Config/Auth error: %s", model_info.provider, e.message)
             raise HTTPException(status_code=e.status_code, detail=e.message)
-        except ProviderAuthError as e:
-            logger.error("[%s] Authentication error: %s", model_info.provider, e.message)
-            raise HTTPException(status_code=e.status_code, detail=e.message)
-        except ProviderRateLimitError as e:
-            logger.warning("[%s] Rate limit error: %s", model_info.provider, e.message)
-            raise HTTPException(status_code=e.status_code, detail=e.message)
-        except ProviderTimeoutError as e:
-            logger.warning("[%s] Timeout error: %s", model_info.provider, e.message)
-            raise HTTPException(status_code=e.status_code, detail=e.message)
-        except ProviderError as e:
-            logger.error("[%s] Provider error: %s", model_info.provider, e.message)
-            raise HTTPException(status_code=e.status_code, detail=e.message)
-        except Exception as e:
-            logger.exception("[%s] Unexpected error processing request: %s", model_info.provider, str(e))
-            raise HTTPException(
-                status_code=500,
-                detail=f"An internal error occurred while processing the request with {model_info.name}.",
+        except (ProviderRateLimitError, ProviderTimeoutError, ProviderError, Exception) as primary_err:
+            # Conservative Fallback: Only permitted for Auto Mode on transient/quota errors
+            err_msg = primary_err.message if isinstance(primary_err, ProviderError) else str(primary_err)
+            logger.warning(
+                "Primary model '%s' failed (%s). Evaluating fallback policy...",
+                model_info.id,
+                err_msg,
             )
+
+            if not is_auto_mode:
+                # Manual mode: return exact failure without unexpected model substitution
+                if isinstance(primary_err, ProviderError):
+                    raise HTTPException(status_code=primary_err.status_code, detail=primary_err.message)
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"An internal error occurred with {model_info.name}: {err_msg}",
+                )
+
+            # Auto Mode Fallback Attempt
+            available_models = ModelRegistry.get_available_models()
+            fallback_model = self._find_fallback_model(model_info.id, available_models)
+
+            if not fallback_model:
+                logger.error("No alternate model available for fallback.")
+                if isinstance(primary_err, ProviderError):
+                    raise HTTPException(status_code=primary_err.status_code, detail=primary_err.message)
+                raise HTTPException(status_code=500, detail=f"Request failed and no fallback available: {err_msg}")
+
+            fallback_provider = self._providers.get(fallback_model.provider)
+            if not fallback_provider:
+                raise HTTPException(status_code=500, detail="Fallback provider adapter missing.")
+
+            logger.info("Executing conservative fallback via '%s'...", fallback_model.id)
+            try:
+                response_text = await self._execute_provider(
+                    provider=fallback_provider,
+                    messages_payload=messages_payload,
+                    provider_model_id=fallback_model.provider_model_id,
+                )
+                fallback_used = True
+                final_model_info = fallback_model
+                final_explanation = (
+                    f"{routing_decision.explanation} "
+                    f"[Fallback Activated: Primary model '{model_info.name}' encountered a temporary error ({err_msg}). "
+                    f"Successfully generated answer via fallback model '{fallback_model.name}']."
+                )
+            except Exception as fallback_err:
+                logger.error("Fallback model '%s' also failed: %s", fallback_model.id, str(fallback_err))
+                raise HTTPException(
+                    status_code=502,
+                    detail=f"Primary model '{model_info.name}' failed ({err_msg}) and fallback model '{fallback_model.name}' also failed.",
+                )
 
         elapsed_ms = int((time.perf_counter() - start_time) * 1000)
 
         return ChatResponse(
             conversation_id=request.conversation_id,
-            model_id=model_info.id,
-            provider=model_info.provider,
+            model_id=final_model_info.id,
+            provider=final_model_info.provider,
             response=response_text,
             latency_ms=elapsed_ms,
+            routed=is_auto_mode,
+            routing_category=routing_decision.category if routing_decision else None,
+            routing_explanation=final_explanation,
+            fallback_used=fallback_used,
         )
 
 

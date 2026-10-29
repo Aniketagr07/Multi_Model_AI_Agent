@@ -153,3 +153,4 @@ def get_comparison_service() -> ComparisonService:
     if _comparison_service is None:
         _comparison_service = ComparisonService()
     return _comparison_service
+

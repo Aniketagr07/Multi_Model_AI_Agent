@@ -18,3 +18,4 @@ async def compare_models(
 ) -> CompareResponse:
     """Execute concurrent multi-model response comparison."""
     return await comparison_service.compare_models(request)
+

@@ -2,6 +2,16 @@ import React, { useState, useRef, useEffect } from 'react';
 
 export const AVAILABLE_MODELS = [
   {
+    id: 'auto',
+    name: 'Auto (Smart Router)',
+    tag: 'Rule-Based Router',
+    provider: 'OmniAI Router',
+    isOperational: true,
+    badgeColor: 'bg-purple-500/10 text-purple-400 border-purple-500/30',
+    iconColor: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
+    description: 'Automatically routes to the best model based on prompt classification (coding, writing, reasoning, general)',
+  },
+  {
     id: 'gemini-1.5-flash',
     name: 'Gemini 1.5 Flash',
     tag: 'Google Free Tier',
@@ -32,6 +42,16 @@ export const AVAILABLE_MODELS = [
     description: 'Complex reasoning and synthesis with massive 1M token context',
   },
   {
+    id: 'llama-3.3-70b-versatile',
+    name: 'Llama 3.3 70B',
+    tag: 'Groq Heavy LPU',
+    provider: 'Groq Cloud',
+    isOperational: true,
+    badgeColor: 'bg-amber-500/10 text-amber-400 border-amber-500/30',
+    iconColor: 'bg-amber-600/20 text-amber-500 border-amber-500/30',
+    description: 'Open-weights reasoning powerhouse accelerated on Groq LPUs',
+  },
+  {
     id: 'mixtral-8x7b-32768',
     name: 'Mixtral 8x7B',
     tag: 'Groq MoE',
@@ -45,7 +65,7 @@ export const AVAILABLE_MODELS = [
     id: 'llama-3-8b-local',
     name: 'Llama 3 (Local)',
     tag: 'Coming Soon',
-    provider: 'Ollama Local (Day 5)',
+    provider: 'Ollama Local (Day 7)',
     isOperational: false,
     badgeColor: 'bg-charcoal-800 text-slate-500 border-[#282D38]',
     iconColor: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
@@ -121,18 +141,18 @@ export function ModelSelector({ selectedModelId, onSelectModel, disabled = false
           <div className="px-3 py-2 border-b border-[#282D38]/60 mb-1">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">
-                Multi-Model Registry
+                Model Selector & Router
               </span>
               <span className="text-[10px] text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded border border-purple-500/20 font-medium">
-                Day 4: Multi-Model Active
+                Day 6 Router Active
               </span>
             </div>
             <p className="text-[11px] text-slate-400 mt-0.5">
-              Switch freely between Google Gemini and Groq Cloud models.
+              Choose "Auto" for intelligent heuristic routing or select a specific model.
             </p>
           </div>
 
-          <div className="space-y-1">
+          <div className="space-y-1 max-h-72 overflow-y-auto">
             {AVAILABLE_MODELS.map((model) => {
               const isSelected = model.id === selectedModel.id;
               const isOperational = model.isOperational;
@@ -161,7 +181,7 @@ export function ModelSelector({ selectedModelId, onSelectModel, disabled = false
                   }`}
                 >
                   <div className={`mt-0.5 w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold border shrink-0 ${model.iconColor}`}>
-                    {model.name[0]}
+                    {model.id === 'auto' ? '⚡' : model.name[0]}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-1">

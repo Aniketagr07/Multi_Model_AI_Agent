@@ -153,6 +153,16 @@ export function MessageBubble({ message, onRetry }) {
               {message.modelTag}
             </span>
           )}
+          {message.routed && (
+            <span className="text-[10px] px-1.5 py-0.2 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20 font-medium">
+              🎯 Auto: {message.routingCategory ? message.routingCategory.toUpperCase() : 'ROUTED'}
+            </span>
+          )}
+          {message.fallbackUsed && (
+            <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30 font-medium">
+              ⚠️ Fallback Model
+            </span>
+          )}
           {typeof message.latencyMs === 'number' && (
             <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">
               ⚡ {message.latencyMs}ms
@@ -175,6 +185,16 @@ export function MessageBubble({ message, onRetry }) {
         >
           <FormattedContent text={message.content} />
 
+          {/* Explainable Routing Rationale Banner */}
+          {message.routingExplanation && (
+            <div className="mt-3 pt-2.5 border-t border-[#282D38]/80 text-[11px] text-purple-300 flex items-start gap-2 bg-[#10131A]/70 px-3 py-2 rounded-xl border border-purple-500/20">
+              <span className="shrink-0 text-purple-400 text-xs">🎯</span>
+              <span className="leading-relaxed">
+                <strong className="text-purple-300">Routing Rationale:</strong> {message.routingExplanation}
+              </span>
+            </div>
+          )}
+
           {/* Error Retry Action */}
           {isError && onRetry && message.originalUserMessage && (
             <div className="mt-3 pt-3 border-t border-red-500/20 flex flex-wrap items-center justify-between gap-2 text-xs">
@@ -196,7 +216,7 @@ export function MessageBubble({ message, onRetry }) {
             <div className="mt-3 pt-3 border-t border-[#282D38] flex flex-wrap items-center justify-between gap-2 text-xs">
               <span className="inline-flex items-center gap-1.5 text-purple-400 text-[11px]">
                 <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse"></span>
-                Day 4: Multi-Model Orchestration
+                Day 6: Intelligent Model Router
               </span>
               <button
                 type="button"

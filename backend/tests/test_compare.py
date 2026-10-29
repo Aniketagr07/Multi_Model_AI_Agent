@@ -155,3 +155,4 @@ def test_both_models_fail():
 
         assert response.model_b.success is False
         assert "timed out" in response.model_b.error
+

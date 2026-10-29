@@ -16,7 +16,7 @@ router = APIRouter()
     response_model=ModelRegistryResponse,
     status_code=status.HTTP_200_OK,
     summary="List Registered Models",
-    description="Returns the server-side model registry with provider details and credential availability.",
+    description="Returns the server-side model registry with provider details, verified capabilities, and credential availability.",
 )
 def get_model_registry() -> ModelRegistryResponse:
     """Return all registered models from the server-side model registry."""
@@ -29,6 +29,10 @@ def get_model_registry() -> ModelRegistryResponse:
             description=m.description,
             tag=m.tag,
             is_available=m.is_available,
+            supported_categories=m.supported_categories,
+            strengths=m.strengths,
+            context_window=m.context_window,
+            cost_tier=m.cost_tier,
         )
         for m in models_list
     ]
@@ -40,7 +44,7 @@ def get_model_registry() -> ModelRegistryResponse:
     response_model=ChatResponse,
     status_code=status.HTTP_200_OK,
     summary="Generate Chat Completion",
-    description="Submits a message prompt and optional conversation history to the specified AI model provider.",
+    description="Submits a message prompt to a specified AI model or routes automatically when model_id='auto'.",
 )
 async def chat_completion(
     request: ChatRequest,

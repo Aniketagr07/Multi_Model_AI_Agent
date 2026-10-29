@@ -8,7 +8,7 @@ const INITIAL_DEMO_CONVERSATIONS = [
     id: 'demo-binary-search',
     title: 'Binary Search in Python',
     dateLabel: 'Earlier today',
-    modelId: 'gemini-1.5-flash',
+    modelId: 'auto',
   },
   {
     id: 'demo-fastapi-arch',
@@ -35,10 +35,14 @@ const INITIAL_DEMO_MESSAGES = {
     {
       id: 'msg-bs-2',
       sender: 'assistant',
-      modelName: 'Gemini 1.5 Flash',
-      modelTag: 'Google Free Tier',
-      provider: 'gemini',
-      latencyMs: 385,
+      modelName: 'Llama 3.1 8B',
+      modelTag: 'Groq Cloud',
+      provider: 'groq',
+      latencyMs: 185,
+      routed: true,
+      routingCategory: 'coding',
+      routingExplanation: 'Selected Llama 3.1 8B (Groq Cloud) because this request was classified as a coding/debugging task (high token velocity and deterministic code synthesis).',
+      fallbackUsed: false,
       content: `Here is an optimal iterative implementation of Binary Search in Python:
 
 \`\`\`python
@@ -85,6 +89,7 @@ print(binary_search(numbers, 23))  # Output: 5
       modelTag: 'Groq LPU Free Tier',
       provider: 'groq',
       latencyMs: 142,
+      routed: false,
       content: `Key architectural advantages of Groq Language Processing Units (LPUs) include:
 
 1. **Deterministic Execution**: LPUs feature a Tensor Streaming Processor (TSP) architecture with no instruction cache or hardware branch prediction, eliminating variable scheduling overhead.
@@ -108,6 +113,10 @@ print(binary_search(numbers, 23))  # Output: 5
       modelTag: 'Google Pro',
       provider: 'gemini',
       latencyMs: 640,
+      routed: true,
+      routingCategory: 'reasoning',
+      routingExplanation: 'Selected Gemini 1.5 Pro (Google AI Studio) because this request was classified as an analytical/reasoning task (deep contextual reasoning and multi-step derivation).',
+      fallbackUsed: false,
       content: `In multi-class classification, Cross-Entropy Loss with Softmax is preferred because:
 
 * **Convex Optimization**: Cross-entropy produces a steeper gradient when predictions are confident and wrong, preventing saturation and vanishing gradients during backpropagation.
@@ -127,7 +136,7 @@ export function useChat() {
   const [conversations, setConversations] = useState(INITIAL_DEMO_CONVERSATIONS);
   const [messagesByConv, setMessagesByConv] = useState(INITIAL_DEMO_MESSAGES);
   const [activeConversationId, setActiveConversationId] = useState(null); // null = new chat
-  const [selectedModelId, setSelectedModelId] = useState('gemini-1.5-flash');
+  const [selectedModelId, setSelectedModelId] = useState('auto'); // Default to Auto Smart Router in Day 6
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -230,16 +239,26 @@ export function useChat() {
         messages: priorMessages,
       });
 
-      // Append real AI assistant response
+      // Find actual model used (could differ from 'auto' if router selected it)
+      const actualModel = AVAILABLE_MODELS.find(m => m.id === result.model_id) || {
+        name: result.model_id,
+        tag: result.provider === 'groq' ? 'Groq Cloud' : 'Google AI Studio',
+      };
+
+      // Append real AI assistant response with routing explanations
       const assistantMessage = {
         id: `assist-${Date.now()}`,
         sender: 'assistant',
         content: result.response,
         modelId: result.model_id,
         provider: result.provider || targetModel.provider,
-        modelName: targetModel.name,
-        modelTag: targetModel.tag,
+        modelName: actualModel.name,
+        modelTag: actualModel.tag,
         latencyMs: result.latency_ms,
+        routed: Boolean(result.routed),
+        routingCategory: result.routing_category,
+        routingExplanation: result.routing_explanation,
+        fallbackUsed: Boolean(result.fallback_used),
         timestamp: result.timestamp || new Date().toISOString(),
       };
 
@@ -251,8 +270,10 @@ export function useChat() {
       console.error('[OmniAI Chat] Model request failed:', err);
       const errorMessage = err instanceof Error ? err.message : 'Unknown communication error occurred.';
 
-      const keyName = targetModel.provider.toLowerCase().includes('groq') ? 'GROQ_API_KEY' : 'GEMINI_API_KEY';
-      const portalUrl = targetModel.provider.toLowerCase().includes('groq')
+      const keyName = targetModel.provider && targetModel.provider.toLowerCase().includes('groq')
+        ? 'GROQ_API_KEY'
+        : 'GEMINI_API_KEY';
+      const portalUrl = targetModel.provider && targetModel.provider.toLowerCase().includes('groq')
         ? 'https://console.groq.com/keys'
         : 'https://aistudio.google.com/app/apikey';
 
