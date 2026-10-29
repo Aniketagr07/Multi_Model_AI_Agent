@@ -42,8 +42,8 @@ export function Sidebar({
             <div>
               <div className="flex items-center gap-1.5">
                 <h1 className="text-sm font-bold tracking-tight text-[#F3F4F6]">OmniAI</h1>
-                <span className="text-[10px] px-1.5 py-0.2 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 font-medium">
-                  Day 3
+                <span className="text-[10px] px-1.5 py-0.2 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20 font-medium">
+                  Day 4
                 </span>
               </div>
               <p className="text-[11px] text-[#9CA3AF]">Intelligent Multi-Model</p>
@@ -98,7 +98,7 @@ export function Sidebar({
           </button>
 
           <div
-            title="Coming in Day 4"
+            title="Coming in Day 5"
             className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-xs font-medium text-slate-500 hover:text-slate-400 cursor-not-allowed"
           >
             <div className="flex items-center gap-2">
@@ -115,7 +115,7 @@ export function Sidebar({
           </div>
 
           <div
-            title="Coming in Day 4"
+            title="Coming in Day 5"
             className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-xs font-medium text-slate-500 hover:text-slate-400 cursor-not-allowed"
           >
             <div className="flex items-center gap-2">
@@ -223,11 +223,10 @@ export function Sidebar({
 
           <div className="flex items-center justify-between text-[11px] text-slate-500 px-1 pt-1">
             <span>OmniAI • B.Tech AI & ML</span>
-            <span className="font-mono text-slate-400">v0.1.0 (Day 3)</span>
+            <span className="font-mono text-slate-400">v0.1.0 (Day 4)</span>
           </div>
         </div>
       </aside>
     </>
   );
 }
-

@@ -96,6 +96,16 @@ export function MessageBubble({ message, onRetry }) {
     ? new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     : '';
 
+  // Determine distinctive badge styling per provider
+  const isGroq = message.provider === 'groq' ||
+    (message.modelName && (message.modelName.includes('Llama') || message.modelName.includes('Mixtral')));
+
+  const badgeStyle = isError
+    ? 'bg-red-500/10 text-red-400 border-red-500/20'
+    : isGroq
+    ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+    : 'bg-blue-500/10 text-blue-400 border-blue-500/30';
+
   return (
     <article
       className={`flex gap-3 max-w-4xl w-full mx-auto p-4 transition-colors ${
@@ -107,6 +117,8 @@ export function MessageBubble({ message, onRetry }) {
         <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white shrink-0 shadow-md mt-0.5 ${
           isError
             ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+            : isGroq
+            ? 'bg-gradient-to-tr from-amber-500 to-orange-600 shadow-amber-500/20'
             : 'bg-gradient-to-tr from-[#8B5CF6] to-indigo-600 shadow-purple-500/20'
         }`}>
           {isError ? (
@@ -137,11 +149,7 @@ export function MessageBubble({ message, onRetry }) {
             {isUser ? 'You' : message.modelName || 'OmniAI Assistant'}
           </span>
           {message.modelTag && (
-            <span className={`text-[10px] px-1.5 py-0.2 rounded border ${
-              isError
-                ? 'bg-red-500/10 text-red-400 border-red-500/20'
-                : 'bg-[#10131A] text-purple-400 border-[#282D38]'
-            }`}>
+            <span className={`text-[10px] px-1.5 py-0.2 rounded border font-medium ${badgeStyle}`}>
               {message.modelTag}
             </span>
           )}
@@ -171,34 +179,32 @@ export function MessageBubble({ message, onRetry }) {
           {isError && onRetry && message.originalUserMessage && (
             <div className="mt-3 pt-3 border-t border-red-500/20 flex flex-wrap items-center justify-between gap-2 text-xs">
               <span className="text-red-400 text-[11px]">
-                Target: {message.modelName || 'Gemini 1.5 Flash'}
+                Target: {message.modelName || 'Model'}
               </span>
               <button
                 type="button"
-                onClick={() => onRetry(message.originalUserMessage)}
+                onClick={() => onRetry(message.originalUserMessage, message.modelId)}
                 className="px-2.5 py-1 rounded bg-[#10131A] hover:bg-red-900/30 text-red-300 border border-red-500/30 text-[11px] font-medium transition-colors cursor-pointer"
               >
-                Retry Request
+                Retry with {message.modelName || 'Model'}
               </button>
             </div>
           )}
 
-          {/* Day 2 Informational Notice (if present in historical session) */}
-          {isSystemNotice && !isError && (
+          {/* Historical notice */}
+          {isSystemNotice && !isError && onRetry && message.originalUserMessage && (
             <div className="mt-3 pt-3 border-t border-[#282D38] flex flex-wrap items-center justify-between gap-2 text-xs">
               <span className="inline-flex items-center gap-1.5 text-purple-400 text-[11px]">
                 <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse"></span>
-                Day 3: Live Model Orchestration
+                Day 4: Multi-Model Orchestration
               </span>
-              {onRetry && message.originalUserMessage && (
-                <button
-                  type="button"
-                  onClick={() => onRetry(message.originalUserMessage)}
-                  className="px-2.5 py-1 rounded bg-[#10131A] hover:bg-[#1E2330] text-slate-300 border border-[#282D38] text-[11px] font-medium transition-colors cursor-pointer"
-                >
-                  Submit with Real AI Model
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => onRetry(message.originalUserMessage, message.modelId)}
+                className="px-2.5 py-1 rounded bg-[#10131A] hover:bg-[#1E2330] text-slate-300 border border-[#282D38] text-[11px] font-medium transition-colors cursor-pointer"
+              >
+                Submit with Active AI Model
+              </button>
             </div>
           )}
         </div>

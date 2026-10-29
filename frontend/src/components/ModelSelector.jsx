@@ -4,47 +4,52 @@ export const AVAILABLE_MODELS = [
   {
     id: 'gemini-1.5-flash',
     name: 'Gemini 1.5 Flash',
-    tag: 'Active Free Tier',
+    tag: 'Google Free Tier',
     provider: 'Google AI Studio',
     isOperational: true,
-    description: 'High-speed multimodal reasoning with 15 RPM / 1M TPM free quota',
+    badgeColor: 'bg-blue-500/10 text-blue-400 border-blue-500/30',
     iconColor: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+    description: 'High-speed multimodal intelligence with 15 RPM / 1M TPM free quota',
+  },
+  {
+    id: 'llama-3.1-8b-instant',
+    name: 'Llama 3.1 8B',
+    tag: 'Groq LPU Free Tier',
+    provider: 'Groq Cloud',
+    isOperational: true,
+    badgeColor: 'bg-amber-500/10 text-amber-400 border-amber-500/30',
+    iconColor: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+    description: 'Ultra-low latency inference powered by Groq LPU engine (30 RPM free)',
   },
   {
     id: 'gemini-1.5-pro',
     name: 'Gemini 1.5 Pro',
-    tag: 'Active Free Tier',
+    tag: 'Google Pro',
     provider: 'Google AI Studio',
     isOperational: true,
-    description: 'Deep reasoning and complex synthesis with massive context window',
+    badgeColor: 'bg-blue-500/10 text-blue-400 border-blue-500/30',
     iconColor: 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30',
+    description: 'Complex reasoning and synthesis with massive 1M token context',
   },
   {
-    id: 'gpt-4o',
-    name: 'GPT-4o',
-    tag: 'Coming Soon',
-    provider: 'OpenAI (Day 4)',
-    isOperational: false,
-    description: 'High-intelligence flagship multimodal model',
-    iconColor: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
-  },
-  {
-    id: 'claude-3-5-sonnet',
-    name: 'Claude 3.5 Sonnet',
-    tag: 'Coming Soon',
-    provider: 'Anthropic (Day 4)',
-    isOperational: false,
-    description: 'Nuanced logic, deep analysis, and code synthesis specialist',
-    iconColor: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+    id: 'mixtral-8x7b-32768',
+    name: 'Mixtral 8x7B',
+    tag: 'Groq MoE',
+    provider: 'Groq Cloud',
+    isOperational: true,
+    badgeColor: 'bg-amber-500/10 text-amber-400 border-amber-500/30',
+    iconColor: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
+    description: 'High-speed Mixture-of-Experts architecture with 32k context on Groq',
   },
   {
     id: 'llama-3-8b-local',
-    name: 'Llama 3 8B',
+    name: 'Llama 3 (Local)',
     tag: 'Coming Soon',
-    provider: 'Ollama (Day 4)',
+    provider: 'Ollama Local (Day 5)',
     isOperational: false,
-    description: 'Privacy-first on-device local neural model execution',
+    badgeColor: 'bg-charcoal-800 text-slate-500 border-[#282D38]',
     iconColor: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
+    description: 'Privacy-first on-device local execution via Ollama',
   },
 ];
 
@@ -91,11 +96,7 @@ export function ModelSelector({ selectedModelId, onSelectModel, disabled = false
       >
         <span className={`w-2 h-2 rounded-full ${selectedModel.isOperational ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}`} />
         <span className="font-semibold text-slate-200">{selectedModel.name}</span>
-        <span className={`text-[10px] px-1.5 py-0.2 rounded border ${
-          selectedModel.isOperational
-            ? 'bg-blue-500/10 text-blue-400 border-blue-500/30'
-            : 'bg-charcoal-800 text-slate-400 border-[#282D38]'
-        }`}>
+        <span className={`text-[10px] px-1.5 py-0.2 rounded border ${selectedModel.badgeColor}`}>
           {selectedModel.tag}
         </span>
         <svg
@@ -115,19 +116,19 @@ export function ModelSelector({ selectedModelId, onSelectModel, disabled = false
         <div
           role="listbox"
           tabIndex={-1}
-          className="absolute bottom-full mb-2 left-0 w-80 rounded-xl bg-[#10131A] border border-[#282D38] shadow-2xl p-1.5 z-50 focus:outline-none animate-in fade-in duration-150"
+          className="absolute bottom-full mb-2 left-0 w-84 rounded-xl bg-[#10131A] border border-[#282D38] shadow-2xl p-1.5 z-50 focus:outline-none animate-in fade-in duration-150"
         >
           <div className="px-3 py-2 border-b border-[#282D38]/60 mb-1">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">
-                Model Registry
+                Multi-Model Registry
               </span>
-              <span className="text-[10px] text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20 font-medium">
-                Day 3: Real AI Active
+              <span className="text-[10px] text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded border border-purple-500/20 font-medium">
+                Day 4: Multi-Model Active
               </span>
             </div>
             <p className="text-[11px] text-slate-400 mt-0.5">
-              Select an operational model powered by Google AI Studio.
+              Switch freely between Google Gemini and Groq Cloud models.
             </p>
           </div>
 
@@ -165,11 +166,7 @@ export function ModelSelector({ selectedModelId, onSelectModel, disabled = false
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-1">
                       <span className="font-semibold text-slate-100 truncate">{model.name}</span>
-                      <span className={`text-[10px] px-1.5 py-0.2 rounded border shrink-0 ${
-                        isOperational
-                          ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
-                          : 'bg-charcoal-800 text-slate-500 border-[#282D38]'
-                      }`}>
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded border shrink-0 ${model.badgeColor}`}>
                         {model.tag}
                       </span>
                     </div>

@@ -26,6 +26,27 @@ export async function fetchHealthStatus() {
 }
 
 /**
+ * Fetch server-side registered models list from /api/models.
+ * @returns {Promise<{models: Array<{id: string, name: string, provider: string, description: string, tag: string, is_available: boolean}>}>}
+ */
+export async function fetchModelRegistry() {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/models`;
+
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'Accept': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch models: HTTP ${response.status}`);
+  }
+
+  return await response.json();
+}
+
+/**
  * Fetch root service info from backend / endpoint.
  */
 export async function fetchRootInfo() {
@@ -63,7 +84,7 @@ export async function fetchRootInfo() {
  * @param {string} params.model_id
  * @param {string} [params.conversation_id]
  * @param {Array<{role: string, content: string}>} [params.messages]
- * @returns {Promise<{conversation_id: string, model_id: string, response: string, latency_ms: number, timestamp: string}>}
+ * @returns {Promise<{conversation_id: string, model_id: string, provider: string, response: string, latency_ms: number, timestamp: string}>}
  */
 export async function sendChatMessage({ message, model_id, conversation_id, messages }) {
   const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/chat`;
@@ -96,7 +117,6 @@ export async function sendChatMessage({ message, model_id, conversation_id, mess
     try {
       const errorJson = await response.json();
       if (errorJson && errorJson.detail) {
-        // detail can be a string or array of validation errors
         errorMessage = typeof errorJson.detail === 'string'
           ? errorJson.detail
           : JSON.stringify(errorJson.detail);

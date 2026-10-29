@@ -4,6 +4,7 @@ from typing import Dict, List, Optional
 from fastapi import HTTPException
 
 from app.core.config import get_settings
+from app.core.model_registry import ModelRegistry, ModelInfo
 from app.schemas.chat import ChatRequest, ChatResponse, ChatMessage
 from app.providers.base import (
     BaseLLMProvider,
@@ -14,41 +15,55 @@ from app.providers.base import (
     ProviderTimeoutError,
 )
 from app.providers.gemini_provider import GeminiProvider
+from app.providers.groq_provider import GroqProvider
 
 logger = logging.getLogger(__name__)
 
 
 class ChatService:
-    """Orchestrates model validation, provider dispatch, and latency measurement."""
+    """Orchestrates model validation, multi-provider dispatch, and latency measurement."""
 
     def __init__(self):
         settings = get_settings()
-        # Initialize providers registry
+        # Initialize providers
         self._gemini_provider = GeminiProvider(
             api_key=settings.GEMINI_API_KEY,
             base_url=settings.GEMINI_BASE_URL,
             timeout=settings.REQUEST_TIMEOUT_SECONDS,
         )
+        self._groq_provider = GroqProvider(
+            api_key=settings.GROQ_API_KEY,
+            base_url=settings.GROQ_BASE_URL,
+            timeout=settings.REQUEST_TIMEOUT_SECONDS,
+        )
 
-    def get_provider(self, model_id: str) -> BaseLLMProvider:
-        """Route model identifier to its responsible provider adapter."""
-        settings = get_settings()
-        allowed = settings.allowed_models_list
+        # Provider mapping dictionary
+        self._providers: Dict[str, BaseLLMProvider] = {
+            "gemini": self._gemini_provider,
+            "groq": self._groq_provider,
+        }
 
-        if model_id not in allowed:
+    def resolve_model_and_provider(self, model_id: str) -> tuple[ModelInfo, BaseLLMProvider]:
+        """
+        Validate model identifier against the server registry and return
+        its registered ModelInfo along with its corresponding provider adapter.
+        """
+        model_info = ModelRegistry.get_model(model_id)
+        if not model_info:
+            valid_models = [m.id for m in ModelRegistry.list_models()]
             raise HTTPException(
                 status_code=400,
-                detail=f"Model '{model_id}' is not in the allowed models list: {allowed}",
+                detail=f"Model '{model_id}' is not recognized in the server registry. Registered models: {valid_models}",
             )
 
-        # For Day 3, Gemini handles gemini-1.5-flash, gemini-1.5-pro, gemini-2.0-flash-exp
-        if model_id.startswith("gemini"):
-            return self._gemini_provider
+        provider = self._providers.get(model_info.provider)
+        if not provider:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Internal configuration error: Provider '{model_info.provider}' is not mapped to an adapter.",
+            )
 
-        raise HTTPException(
-            status_code=400,
-            detail=f"No provider adapter registered for model '{model_id}'.",
-        )
+        return model_info, provider
 
     def _prepare_history(
         self,
@@ -62,7 +77,6 @@ class ChatService:
         formatted_messages: List[Dict[str, str]] = []
 
         if history:
-            # Enforce max history window
             windowed = history[-max_history:]
             for msg in windowed:
                 formatted_messages.append({
@@ -80,45 +94,46 @@ class ChatService:
         return formatted_messages
 
     async def process_chat(self, request: ChatRequest) -> ChatResponse:
-        """Process incoming chat request, invoke provider, and measure latency."""
-        provider = self.get_provider(request.model_id)
+        """Process incoming chat request, route to the correct provider, and measure latency."""
+        model_info, provider = self.resolve_model_and_provider(request.model_id)
         messages_payload = self._prepare_history(request.message, request.messages)
 
-        # Measure real round-trip latency with monotonic timer
+        # Measure real round-trip latency with monotonic clock
         start_time = time.perf_counter()
 
         try:
             response_text = await provider.generate_response(
                 messages=messages_payload,
-                model_id=request.model_id,
+                model_id=model_info.provider_model_id,
             )
         except ProviderConfigError as e:
-            logger.error("Configuration error: %s", e.message)
+            logger.error("[%s] Configuration error: %s", model_info.provider, e.message)
             raise HTTPException(status_code=e.status_code, detail=e.message)
         except ProviderAuthError as e:
-            logger.error("Provider authentication error: %s", e.message)
+            logger.error("[%s] Authentication error: %s", model_info.provider, e.message)
             raise HTTPException(status_code=e.status_code, detail=e.message)
         except ProviderRateLimitError as e:
-            logger.warning("Provider rate limit reached: %s", e.message)
+            logger.warning("[%s] Rate limit error: %s", model_info.provider, e.message)
             raise HTTPException(status_code=e.status_code, detail=e.message)
         except ProviderTimeoutError as e:
-            logger.warning("Provider timeout: %s", e.message)
+            logger.warning("[%s] Timeout error: %s", model_info.provider, e.message)
             raise HTTPException(status_code=e.status_code, detail=e.message)
         except ProviderError as e:
-            logger.error("Provider execution error: %s", e.message)
+            logger.error("[%s] Provider error: %s", model_info.provider, e.message)
             raise HTTPException(status_code=e.status_code, detail=e.message)
         except Exception as e:
-            logger.exception("Unexpected error processing chat request: %s", str(e))
+            logger.exception("[%s] Unexpected error processing request: %s", model_info.provider, str(e))
             raise HTTPException(
                 status_code=500,
-                detail="An internal server error occurred while processing the chat request.",
+                detail=f"An internal error occurred while processing the request with {model_info.name}.",
             )
 
         elapsed_ms = int((time.perf_counter() - start_time) * 1000)
 
         return ChatResponse(
             conversation_id=request.conversation_id,
-            model_id=request.model_id,
+            model_id=model_info.id,
+            provider=model_info.provider,
             response=response_text,
             latency_ms=elapsed_ms,
         )
@@ -133,4 +148,3 @@ def get_chat_service() -> ChatService:
     if _chat_service is None:
         _chat_service = ChatService()
     return _chat_service
-

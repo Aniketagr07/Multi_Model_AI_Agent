@@ -12,15 +12,29 @@ from app.providers.base import (
     ProviderRateLimitError,
     ProviderTimeoutError,
 )
-from app.api.routes.chat import chat_completion
+from app.api.routes.chat import get_model_registry
 from app.main import app
 
 
-def test_chat_route_mounted():
-    """Verify that /api/chat route is mounted in OpenAPI specification."""
+def test_chat_and_models_routes_mounted():
+    """Verify that /api/chat and /api/models routes are mounted in OpenAPI spec."""
     paths = list(app.openapi()["paths"].keys())
     assert "/api/chat" in paths
     assert "post" in app.openapi()["paths"]["/api/chat"]
+    assert "/api/models" in paths
+    assert "get" in app.openapi()["paths"]["/api/models"]
+
+
+def test_models_registry_endpoint():
+    """Verify GET /api/models returns registered models from both providers."""
+    response = get_model_registry()
+    model_ids = [m.id for m in response.models]
+    assert "gemini-1.5-flash" in model_ids
+    assert "llama-3.1-8b-instant" in model_ids
+
+    providers = {m.provider for m in response.models}
+    assert "gemini" in providers
+    assert "groq" in providers
 
 
 def test_empty_message_validation():
@@ -29,7 +43,7 @@ def test_empty_message_validation():
         ChatRequest(message="   ", model_id="gemini-1.5-flash")
 
     with pytest.raises(ValueError):
-        ChatRequest(message="", model_id="gemini-1.5-flash")
+        ChatRequest(message="", model_id="llama-3.1-8b-instant")
 
 
 def test_invalid_model_id_rejection():
@@ -41,15 +55,13 @@ def test_invalid_model_id_rejection():
         asyncio.run(service.process_chat(request))
 
     assert exc_info.value.status_code == 400
-    assert "not in the allowed models list" in exc_info.value.detail
+    assert "not recognized in the server registry" in exc_info.value.detail
 
 
-def test_missing_api_key_configuration_handling():
+def test_gemini_missing_api_key_configuration():
     """Verify that missing GEMINI_API_KEY raises HTTP 503 without crashing."""
     service = ChatService()
-    # Force api_key to None to simulate unconfigured state
     service._gemini_provider.api_key = None
-
     request = ChatRequest(message="Hello", model_id="gemini-1.5-flash")
 
     with pytest.raises(HTTPException) as exc_info:
@@ -59,82 +71,113 @@ def test_missing_api_key_configuration_handling():
     assert "Gemini API key is not configured" in exc_info.value.detail
 
 
-def test_provider_auth_error_handling():
-    """Verify that invalid API key / auth failure returns HTTP 502."""
+def test_groq_missing_api_key_configuration():
+    """Verify that missing GROQ_API_KEY raises HTTP 503 without crashing."""
     service = ChatService()
-    request = ChatRequest(message="Hello", model_id="gemini-1.5-flash")
+    service._groq_provider.api_key = None
+    request = ChatRequest(message="Hello", model_id="llama-3.1-8b-instant")
+
+    with pytest.raises(HTTPException) as exc_info:
+        asyncio.run(service.process_chat(request))
+
+    assert exc_info.value.status_code == 503
+    assert "Groq API key is not configured" in exc_info.value.detail
+
+
+def test_gemini_provider_dispatch_and_mock_response():
+    """Verify that selecting a Gemini model routes to Gemini provider and returns response."""
+    service = ChatService()
+    request = ChatRequest(
+        message="Explain recursion in Python.",
+        model_id="gemini-1.5-flash",
+        conversation_id="conv-gemini-1",
+    )
+    mock_answer = "Recursion occurs when a function calls itself."
 
     with patch.object(
         service._gemini_provider,
         "generate_response",
-        new=AsyncMock(side_effect=ProviderAuthError("Authentication failed with Google Gemini API.")),
+        new=AsyncMock(return_value=mock_answer),
+    ) as mock_gemini:
+        response: ChatResponse = asyncio.run(service.process_chat(request))
+
+        mock_gemini.assert_called_once()
+        assert response.model_id == "gemini-1.5-flash"
+        assert response.provider == "gemini"
+        assert response.response == mock_answer
+        assert response.latency_ms >= 0
+
+
+def test_groq_provider_dispatch_and_mock_response():
+    """Verify that selecting a Groq model routes to Groq provider and returns response."""
+    service = ChatService()
+    request = ChatRequest(
+        message="Explain binary search in C++.",
+        model_id="llama-3.1-8b-instant",
+        conversation_id="conv-groq-1",
+    )
+    mock_answer = "Binary search divides the search space in half."
+
+    with patch.object(
+        service._groq_provider,
+        "generate_response",
+        new=AsyncMock(return_value=mock_answer),
+    ) as mock_groq:
+        response: ChatResponse = asyncio.run(service.process_chat(request))
+
+        mock_groq.assert_called_once()
+        assert response.model_id == "llama-3.1-8b-instant"
+        assert response.provider == "groq"
+        assert response.response == mock_answer
+        assert response.latency_ms >= 0
+
+
+def test_groq_auth_error_handling():
+    """Verify that Groq auth failure returns HTTP 502."""
+    service = ChatService()
+    request = ChatRequest(message="Hello", model_id="llama-3.1-8b-instant")
+
+    with patch.object(
+        service._groq_provider,
+        "generate_response",
+        new=AsyncMock(side_effect=ProviderAuthError("Authentication failed with Groq Cloud API.")),
     ):
         with pytest.raises(HTTPException) as exc_info:
             asyncio.run(service.process_chat(request))
 
         assert exc_info.value.status_code == 502
-        assert "Authentication failed" in exc_info.value.detail
+        assert "Authentication failed with Groq" in exc_info.value.detail
 
 
-def test_provider_rate_limit_error_handling():
-    """Verify that provider 429 rate limit translates to HTTP 429."""
+def test_groq_rate_limit_error_handling():
+    """Verify that Groq rate limit (429) returns HTTP 429."""
     service = ChatService()
-    request = ChatRequest(message="Hello", model_id="gemini-1.5-flash")
+    request = ChatRequest(message="Hello", model_id="llama-3.1-8b-instant")
 
     with patch.object(
-        service._gemini_provider,
+        service._groq_provider,
         "generate_response",
-        new=AsyncMock(side_effect=ProviderRateLimitError("Quota exceeded.")),
+        new=AsyncMock(side_effect=ProviderRateLimitError("Groq rate limit reached.")),
     ):
         with pytest.raises(HTTPException) as exc_info:
             asyncio.run(service.process_chat(request))
 
         assert exc_info.value.status_code == 429
-        assert "Quota exceeded" in exc_info.value.detail
+        assert "rate limit" in exc_info.value.detail
 
 
-def test_provider_timeout_error_handling():
-    """Verify that provider timeout translates to HTTP 504."""
+def test_groq_timeout_error_handling():
+    """Verify that Groq timeout returns HTTP 504."""
     service = ChatService()
-    request = ChatRequest(message="Hello", model_id="gemini-1.5-flash")
+    request = ChatRequest(message="Hello", model_id="llama-3.1-8b-instant")
 
     with patch.object(
-        service._gemini_provider,
+        service._groq_provider,
         "generate_response",
-        new=AsyncMock(side_effect=ProviderTimeoutError("Request timed out.")),
+        new=AsyncMock(side_effect=ProviderTimeoutError("Groq request timed out.")),
     ):
         with pytest.raises(HTTPException) as exc_info:
             asyncio.run(service.process_chat(request))
 
         assert exc_info.value.status_code == 504
         assert "timed out" in exc_info.value.detail
-
-
-def test_successful_mocked_chat_response():
-    """Verify that a successful provider response produces structured ChatResponse with latency."""
-    service = ChatService()
-    request = ChatRequest(
-        message="Explain recursion in one sentence.",
-        model_id="gemini-1.5-flash",
-        conversation_id="test-conv-123",
-        messages=[
-            ChatMessage(role="user", content="Hello"),
-            ChatMessage(role="assistant", content="Hi! How can I help?"),
-        ],
-    )
-
-    mock_answer = "Recursion is a programming technique where a function calls itself to solve smaller instances of the same problem."
-
-    with patch.object(
-        service._gemini_provider,
-        "generate_response",
-        new=AsyncMock(return_value=mock_answer),
-    ):
-        response: ChatResponse = asyncio.run(service.process_chat(request))
-
-        assert response.model_id == "gemini-1.5-flash"
-        assert response.conversation_id == "test-conv-123"
-        assert response.response == mock_answer
-        assert response.latency_ms >= 0
-        assert response.timestamp is not None
-

@@ -12,10 +12,12 @@ from app.providers.base import (
     ProviderTimeoutError,
 )
 from app.providers.gemini_provider import GeminiProvider
+from app.providers.groq_provider import GroqProvider
 
 __all__ = [
     "BaseLLMProvider",
     "GeminiProvider",
+    "GroqProvider",
     "ProviderError",
     "ProviderConfigError",
     "ProviderAuthError",

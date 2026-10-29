@@ -45,6 +45,7 @@ class ChatResponse(BaseModel):
     """Schema for POST /api/chat successful response."""
     conversation_id: Optional[str] = Field(default=None, description="Associated conversation identifier")
     model_id: str = Field(..., description="Model that produced the response")
+    provider: Optional[str] = Field(default=None, description="Name of the backend provider adapter used")
     response: str = Field(..., description="Actual text response from the AI provider")
     latency_ms: int = Field(..., description="Provider round-trip latency in milliseconds")
     timestamp: str = Field(
@@ -52,3 +53,17 @@ class ChatResponse(BaseModel):
         description="ISO 8601 UTC timestamp of response generation",
     )
 
+
+class ModelItemResponse(BaseModel):
+    """Schema for individual model in registry response."""
+    id: str
+    name: str
+    provider: str
+    description: str
+    tag: str
+    is_available: bool
+
+
+class ModelRegistryResponse(BaseModel):
+    """Schema for GET /api/models response."""
+    models: List[ModelItemResponse]

@@ -3,7 +3,7 @@ import React from 'react';
 const SUGGESTIONS = [
   {
     title: 'Explain a programming concept',
-    prompt: 'Explain the Transformer self-attention mechanism and why it revolutionized Natural Language Processing in simple terms.',
+    prompt: 'Explain how Groq LPUs differ from GPUs for LLM inference and why SRAM bandwidth matters.',
     icon: (
       <svg className="w-5 h-5 text-purple-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -55,7 +55,7 @@ export function WelcomeScreen({ onSelectPrompt }) {
           Your AI workspace, all in one place.
         </h1>
         <p className="text-sm text-[#9CA3AF] max-w-lg mx-auto leading-relaxed">
-          Ask a question, explore ideas, or compare answers from different AI models.
+          Ask a question, explore ideas, or switch models to compare answers from different AI architectures.
         </p>
       </div>
 
@@ -83,12 +83,11 @@ export function WelcomeScreen({ onSelectPrompt }) {
 
       {/* College Project Evaluation Note */}
       <div className="w-full p-3.5 rounded-xl bg-[#10131A] border border-[#282D38]/80 text-[11px] text-slate-400 flex items-start gap-3">
-        <span className="text-blue-400 font-bold shrink-0 mt-0.5">ℹ️ Day 3 Status:</span>
+        <span className="text-purple-400 font-bold shrink-0 mt-0.5">ℹ️ Day 4 Multi-Model Status:</span>
         <div className="leading-relaxed">
-          The first real AI model integration is active! OmniAI is connected to the <strong>Google Gemini API (Gemini 1.5 Flash)</strong> via FastAPI backend routing. Messages submitted here are processed live through Google AI Studio.
+          Multi-model routing is live! Switch between <strong>Google Gemini (Gemini 1.5 Flash / Pro)</strong> and <strong>Groq Cloud (Llama 3.1 8B / Mixtral 8x7B)</strong> using the model selector at the bottom left. Each response displays its provider and round-trip latency.
         </div>
       </div>
     </div>
   );
 }
-

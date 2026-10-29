@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import { AVAILABLE_MODELS } from '../components/ModelSelector';
 import { sendChatMessage } from '../services/api';
 
-// Realistic demo conversation data preserved from Day 2
+// Realistic demo conversation data
 const INITIAL_DEMO_CONVERSATIONS = [
   {
     id: 'demo-binary-search',
@@ -14,7 +14,7 @@ const INITIAL_DEMO_CONVERSATIONS = [
     id: 'demo-fastapi-arch',
     title: 'FastAPI Decoupled Architecture',
     dateLabel: 'Yesterday',
-    modelId: 'gemini-1.5-flash',
+    modelId: 'llama-3.1-8b-instant',
   },
   {
     id: 'demo-neural-loss',
@@ -36,7 +36,8 @@ const INITIAL_DEMO_MESSAGES = {
       id: 'msg-bs-2',
       sender: 'assistant',
       modelName: 'Gemini 1.5 Flash',
-      modelTag: 'Demo Session',
+      modelTag: 'Google Free Tier',
+      provider: 'gemini',
       latencyMs: 385,
       content: `Here is an optimal iterative implementation of Binary Search in Python:
 
@@ -74,21 +75,22 @@ print(binary_search(numbers, 23))  # Output: 5
     {
       id: 'msg-fa-1',
       sender: 'user',
-      content: 'What are the main advantages of using FastAPI with Pydantic for an AI gateway?',
+      content: 'What are the main advantages of using Groq LPUs compared to traditional GPUs for LLM inference?',
       timestamp: new Date(Date.now() - 86400000).toISOString(),
     },
     {
       id: 'msg-fa-2',
       sender: 'assistant',
-      modelName: 'Gemini 1.5 Flash',
-      modelTag: 'Demo Session',
-      latencyMs: 412,
-      content: `Key benefits of FastAPI for multi-model AI gateways include:
+      modelName: 'Llama 3.1 8B',
+      modelTag: 'Groq LPU Free Tier',
+      provider: 'groq',
+      latencyMs: 142,
+      content: `Key architectural advantages of Groq Language Processing Units (LPUs) include:
 
-1. **Native Asynchronous I/O**: High-concurrency routing to multiple LLM APIs via \`asyncio\` and \`httpx\`.
-2. **Pydantic Validation**: Strict schema enforcement for prompts, model parameters, and provider responses.
-3. **Automatic OpenAPI Docs**: Live interactive Swagger documentation generated automatically from Python type hints.
-4. **CORS Security**: Robust middleware protecting backend endpoints against unauthorized cross-origin requests.`,
+1. **Deterministic Execution**: LPUs feature a Tensor Streaming Processor (TSP) architecture with no instruction cache or hardware branch prediction, eliminating variable scheduling overhead.
+2. **SRAM-Centric Bandwidth**: Instead of relying solely on external HBM memory bottlenecks, Groq uses hundreds of megabytes of on-die SRAM providing up to 80 TB/s memory bandwidth.
+3. **Ultra-Low Latency**: Generates tokens at 300–800 tokens per second for Llama 3 models, making real-time voice and agentic loops feasible.
+4. **Energy Efficiency**: Predictable static scheduling minimizes power consumption compared to dynamic GPU warp schedulers.`,
       timestamp: new Date(Date.now() - 86400000 + 60000).toISOString(),
     },
   ],
@@ -103,7 +105,8 @@ print(binary_search(numbers, 23))  # Output: 5
       id: 'msg-nl-2',
       sender: 'assistant',
       modelName: 'Gemini 1.5 Pro',
-      modelTag: 'Demo Session',
+      modelTag: 'Google Pro',
+      provider: 'gemini',
       latencyMs: 640,
       content: `In multi-class classification, Cross-Entropy Loss with Softmax is preferred because:
 
@@ -162,10 +165,14 @@ export function useChat() {
     setActiveConversationId(current => (current === convId ? null : current));
   }, []);
 
-  // Action: Send Message to Real Backend AI Provider
-  const sendMessage = useCallback(async (textToSend) => {
+  // Action: Send Message
+  const sendMessage = useCallback(async (textToSend, overrideModelId) => {
     const messageContent = (textToSend !== undefined ? textToSend : input).trim();
     if (!messageContent || isLoading) return;
+
+    // Lock in the model for THIS specific request closure
+    const targetModelId = overrideModelId || selectedModelId;
+    const targetModel = AVAILABLE_MODELS.find(m => m.id === targetModelId) || selectedModel;
 
     let targetConvId = activeConversationId;
     const isNewSession = !targetConvId;
@@ -181,7 +188,7 @@ export function useChat() {
         id: targetConvId,
         title: autoTitle,
         dateLabel: 'Just now',
-        modelId: selectedModelId,
+        modelId: targetModelId,
       };
 
       setConversations(prev => [newConv, ...prev]);
@@ -218,7 +225,7 @@ export function useChat() {
       // Real API request to FastAPI POST /api/chat
       const result = await sendChatMessage({
         message: messageContent,
-        model_id: selectedModelId,
+        model_id: targetModelId,
         conversation_id: targetConvId,
         messages: priorMessages,
       });
@@ -228,8 +235,10 @@ export function useChat() {
         id: `assist-${Date.now()}`,
         sender: 'assistant',
         content: result.response,
-        modelName: selectedModel.name,
-        modelTag: selectedModel.tag,
+        modelId: result.model_id,
+        provider: result.provider || targetModel.provider,
+        modelName: targetModel.name,
+        modelTag: targetModel.tag,
         latencyMs: result.latency_ms,
         timestamp: result.timestamp || new Date().toISOString(),
       };
@@ -242,13 +251,19 @@ export function useChat() {
       console.error('[OmniAI Chat] Model request failed:', err);
       const errorMessage = err instanceof Error ? err.message : 'Unknown communication error occurred.';
 
+      const keyName = targetModel.provider.toLowerCase().includes('groq') ? 'GROQ_API_KEY' : 'GEMINI_API_KEY';
+      const portalUrl = targetModel.provider.toLowerCase().includes('groq')
+        ? 'https://console.groq.com/keys'
+        : 'https://aistudio.google.com/app/apikey';
+
       // Construct informative error message
       const errorNotice = {
         id: `err-${Date.now()}`,
         sender: 'assistant',
-        content: `⚠️ **AI Provider Request Failed**\n\n${errorMessage}\n\n*Evaluation Guide*: If \`GEMINI_API_KEY\` is not yet configured in \`backend/.env\`, please obtain a free key at [Google AI Studio](https://aistudio.google.com/app/apikey), add it to \`backend/.env\`, and restart the FastAPI backend server.`,
+        content: `⚠️ **${targetModel.name} Request Failed**\n\n${errorMessage}\n\n*Evaluation Guide*: If \`${keyName}\` is not configured in \`backend/.env\`, obtain a free key at [${targetModel.provider}](${portalUrl}), add \`${keyName}=\` to \`backend/.env\`, and restart the FastAPI server.`,
         isError: true,
-        modelName: selectedModel.name,
+        modelId: targetModelId,
+        modelName: targetModel.name,
         modelTag: 'Error',
         originalUserMessage: messageContent,
         timestamp: new Date().toISOString(),
