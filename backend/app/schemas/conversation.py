@@ -40,6 +40,7 @@ class MessageResponse(BaseModel):
     routed: bool = False
     routing_category: Optional[str] = None
     routing_explanation: Optional[str] = None
+    effort: Optional[str] = "medium"
     created_at: str
 
 

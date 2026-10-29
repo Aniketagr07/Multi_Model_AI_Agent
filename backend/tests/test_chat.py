@@ -181,3 +181,18 @@ def test_groq_timeout_error_handling():
 
         assert exc_info.value.status_code == 504
         assert "timed out" in exc_info.value.detail
+
+
+def test_chat_request_effort_parameter():
+    """Verify effort parameter accepts 'low', 'medium', 'high' and rejects invalid values."""
+    req_low = ChatRequest(message="Test", model_id="gemini-3.5-flash", effort="low")
+    assert req_low.effort == "low"
+
+    req_high = ChatRequest(message="Test", model_id="llama-3.1-8b-instant", effort="high")
+    assert req_high.effort == "high"
+
+    req_default = ChatRequest(message="Test", model_id="gemini-3.8-flash")
+    assert req_default.effort == "medium"
+
+    with pytest.raises(ValueError):
+        ChatRequest(message="Test", effort="ultra_extreme")

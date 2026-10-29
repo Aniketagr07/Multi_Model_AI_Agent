@@ -30,6 +30,7 @@ class ComparisonService:
         self,
         model_id: str,
         prompt: str,
+        effort: str = "medium",
     ) -> ModelComparisonResult:
         """Execute query against one model, measuring latency and capturing failures safely."""
         model_info, provider = self.chat_service.resolve_model_and_provider(model_id)
@@ -42,6 +43,7 @@ class ComparisonService:
             response_text = await provider.generate_response(
                 messages=messages,
                 model_id=model_info.provider_model_id,
+                effort=effort,
             )
             elapsed_ms = int((time.perf_counter() - start_time) * 1000)
             return ModelComparisonResult(
@@ -51,6 +53,7 @@ class ComparisonService:
                 success=True,
                 response=response_text,
                 latency_ms=elapsed_ms,
+                effort=effort,
                 error=None,
             )
         except ProviderConfigError as e:
@@ -63,6 +66,7 @@ class ComparisonService:
                 success=False,
                 response=None,
                 latency_ms=elapsed_ms,
+                effort=effort,
                 error=e.message,
             )
         except ProviderAuthError as e:
@@ -75,6 +79,7 @@ class ComparisonService:
                 success=False,
                 response=None,
                 latency_ms=elapsed_ms,
+                effort=effort,
                 error=e.message,
             )
         except ProviderRateLimitError as e:
@@ -87,6 +92,7 @@ class ComparisonService:
                 success=False,
                 response=None,
                 latency_ms=elapsed_ms,
+                effort=effort,
                 error=e.message,
             )
         except ProviderTimeoutError as e:
@@ -99,6 +105,7 @@ class ComparisonService:
                 success=False,
                 response=None,
                 latency_ms=elapsed_ms,
+                effort=effort,
                 error=e.message,
             )
         except ProviderError as e:
@@ -111,6 +118,7 @@ class ComparisonService:
                 success=False,
                 response=None,
                 latency_ms=elapsed_ms,
+                effort=effort,
                 error=e.message,
             )
         except Exception as e:
@@ -131,14 +139,16 @@ class ComparisonService:
         Broadcast the same user prompt concurrently to both models via asyncio.gather.
         Ensures partial failures are captured without aborting successful tasks.
         """
-        task_a = self._execute_single_model(request.model_a_id, request.prompt)
-        task_b = self._execute_single_model(request.model_b_id, request.prompt)
+        effort = getattr(request, "effort", "medium") or "medium"
+        task_a = self._execute_single_model(request.model_a_id, request.prompt, effort=effort)
+        task_b = self._execute_single_model(request.model_b_id, request.prompt, effort=effort)
 
         # Parallel concurrent execution
         result_a, result_b = await asyncio.gather(task_a, task_b)
 
         return CompareResponse(
             prompt=request.prompt,
+            effort=effort,
             model_a=result_a,
             model_b=result_b,
         )

@@ -1,5 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { ModelSelector } from './ModelSelector';
+import { EffortSelector } from './EffortSelector';
 
 export function MessageComposer({
   input,
@@ -8,6 +9,8 @@ export function MessageComposer({
   isLoading,
   selectedModelId,
   onSelectModel,
+  effort = 'medium',
+  onSelectEffort,
 }) {
   const textareaRef = useRef(null);
 
@@ -50,11 +53,16 @@ export function MessageComposer({
 
         {/* Bottom Toolbar: Model Selector & Send Button */}
         <div className="flex items-center justify-between pt-2 mt-1 border-t border-[#282D38]/60">
-          {/* Model Selector component */}
-          <div className="flex items-center gap-2">
+          {/* Model Selector & Effort Selector */}
+          <div className="flex items-center gap-2 flex-wrap">
             <ModelSelector
               selectedModelId={selectedModelId}
               onSelectModel={onSelectModel}
+              disabled={isLoading}
+            />
+            <EffortSelector
+              selectedEffort={effort}
+              onSelectEffort={onSelectEffort}
               disabled={isLoading}
             />
           </div>

@@ -66,7 +66,7 @@ export async function fetchModelRegistry() {
  * Dispatches a chat message to the FastAPI backend.
  * Target: POST /api/chat
  */
-export async function sendChatMessage({ message, model_id, conversation_id, messages }) {
+export async function sendChatMessage({ message, model_id, conversation_id, messages, effort }) {
   const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/chat`;
 
   const payload = {
@@ -74,6 +74,7 @@ export async function sendChatMessage({ message, model_id, conversation_id, mess
     model_id,
     conversation_id: conversation_id || null,
     messages: messages && messages.length > 0 ? messages : null,
+    effort: effort || 'medium',
   };
 
   let response;
@@ -114,13 +115,14 @@ export async function sendChatMessage({ message, model_id, conversation_id, mess
  * Dispatches a multi-model comparison request to the FastAPI backend.
  * Target: POST /api/compare
  */
-export async function sendCompareRequest({ prompt, model_a_id, model_b_id }) {
+export async function sendCompareRequest({ prompt, model_a_id, model_b_id, effort }) {
   const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/compare`;
 
   const payload = {
     prompt,
     model_a_id,
     model_b_id,
+    effort: effort || 'medium',
   };
 
   let response;

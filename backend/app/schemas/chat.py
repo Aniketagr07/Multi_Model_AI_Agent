@@ -23,6 +23,10 @@ class ChatRequest(BaseModel):
     model_id: str = Field(default="auto", description="Target model identifier or 'auto' for intelligent routing")
     conversation_id: Optional[str] = Field(default=None, description="Client conversation identifier")
     messages: Optional[List[ChatMessage]] = Field(default=None, description="Prior conversational context")
+    effort: Literal["low", "medium", "high"] = Field(
+        default="medium",
+        description="Inference effort level ('low', 'medium', 'high') modulating reasoning depth and sampling"
+    )
 
     @field_validator("message")
     @classmethod
@@ -52,6 +56,7 @@ class ChatResponse(BaseModel):
     routing_category: Optional[str] = Field(default=None, description="Classified task category if auto-routed")
     routing_explanation: Optional[str] = Field(default=None, description="Explainable rationale for model selection")
     fallback_used: bool = Field(default=False, description="Whether a fallback model was used after primary error")
+    effort: Optional[str] = Field(default="medium", description="Effort level applied during inference")
     timestamp: str = Field(
         default_factory=lambda: datetime.now(timezone.utc).isoformat(),
         description="ISO 8601 UTC timestamp of response generation",

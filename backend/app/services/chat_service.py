@@ -129,11 +129,13 @@ class ChatService:
         provider: BaseLLMProvider,
         messages_payload: List[Dict[str, str]],
         provider_model_id: str,
+        effort: str = "medium",
     ) -> str:
         """Call provider adapter with exception normalization."""
         return await provider.generate_response(
             messages=messages_payload,
             model_id=provider_model_id,
+            effort=effort,
         )
 
     def _find_fallback_model(
@@ -204,11 +206,13 @@ class ChatService:
         final_model_info = model_info
 
         # 5. Execute Provider with Fallback Handling
+        effort = getattr(request, "effort", "medium") or "medium"
         try:
             response_text = await self._execute_provider(
                 provider=provider,
                 messages_payload=messages_payload,
                 provider_model_id=model_info.provider_model_id,
+                effort=effort,
             )
         except (ProviderConfigError, ProviderAuthError) as e:
             # Conservative Policy: Do not retry configuration or authentication failures
@@ -252,6 +256,7 @@ class ChatService:
                     provider=fallback_provider,
                     messages_payload=messages_payload,
                     provider_model_id=fallback_model.provider_model_id,
+                    effort=effort,
                 )
                 fallback_used = True
                 final_model_info = fallback_model
@@ -280,6 +285,7 @@ class ChatService:
             routed=is_auto_mode,
             routing_category=routing_decision.category if routing_decision else None,
             routing_explanation=final_explanation,
+            effort=effort,
         )
 
         return ChatResponse(
@@ -292,6 +298,7 @@ class ChatService:
             routing_category=routing_decision.category if routing_decision else None,
             routing_explanation=final_explanation,
             fallback_used=fallback_used,
+            effort=effort,
         )
 
 

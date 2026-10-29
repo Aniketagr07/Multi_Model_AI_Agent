@@ -38,7 +38,7 @@ class BaseLLMProvider(ABC):
     """Abstract base class establishing the contract for all AI model adapters."""
 
     @abstractmethod
-    async def generate_response(self, messages: List[Dict[str, str]], model_id: str) -> str:
+    async def generate_response(self, messages: List[Dict[str, str]], model_id: str, effort: str = "medium") -> str:
         """
         Generate a text completion from the provider.
 

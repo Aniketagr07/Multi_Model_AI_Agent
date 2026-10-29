@@ -138,10 +138,12 @@ class ConversationRepository:
         routed: bool = False,
         routing_category: Optional[str] = None,
         routing_explanation: Optional[str] = None,
+        effort: Optional[str] = "medium",
     ) -> Dict[str, Any]:
         """Insert a message record and update the parent conversation's updated_at."""
         mid = msg_id or f"msg-{uuid.uuid4().hex[:12]}"
         now = _utc_now_iso()
+        eff = effort or "medium"
 
         with get_db_connection() as conn:
             conn.execute(
@@ -149,9 +151,9 @@ class ConversationRepository:
                 INSERT INTO messages (
                     id, conversation_id, role, content, model_id,
                     provider, latency_ms, routed, routing_category,
-                    routing_explanation, created_at
+                    routing_explanation, effort, created_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
                 """,
                 (
                     mid,
@@ -164,6 +166,7 @@ class ConversationRepository:
                     1 if routed else 0,
                     routing_category,
                     routing_explanation,
+                    eff,
                     now,
                 ),
             )
@@ -184,6 +187,7 @@ class ConversationRepository:
             "routed": routed,
             "routing_category": routing_category,
             "routing_explanation": routing_explanation,
+            "effort": eff,
             "created_at": now,
         }
 
@@ -192,7 +196,7 @@ class ConversationRepository:
         """Retrieve all messages for a conversation ordered chronologically."""
         query = """
             SELECT id, conversation_id, role, content, model_id, provider,
-                   latency_ms, routed, routing_category, routing_explanation, created_at
+                   latency_ms, routed, routing_category, routing_explanation, effort, created_at
             FROM messages
             WHERE conversation_id = ?
             ORDER BY created_at ASC

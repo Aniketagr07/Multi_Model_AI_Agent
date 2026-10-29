@@ -17,6 +17,8 @@ export default function App() {
     activeTitle,
     selectedModelId,
     selectedModel,
+    effort,
+    setEffort,
     input,
     setInput,
     isLoading,
@@ -98,6 +100,8 @@ export default function App() {
               isLoading={isLoading}
               selectedModelId={selectedModelId}
               onSelectModel={setSelectedModelId}
+              effort={effort}
+              onSelectEffort={setEffort}
             />
           </main>
         )}

@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Optional, Literal
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 
@@ -8,6 +8,10 @@ class CompareRequest(BaseModel):
     prompt: str = Field(..., min_length=1, max_length=4000, description="The prompt to broadcast to both models")
     model_a_id: str = Field(..., description="First model identifier to evaluate")
     model_b_id: str = Field(..., description="Second model identifier to evaluate")
+    effort: Literal["low", "medium", "high"] = Field(
+        default="medium",
+        description="Inference effort level ('low', 'medium', 'high') applied to both models"
+    )
 
     @field_validator("prompt")
     @classmethod
@@ -40,12 +44,14 @@ class ModelComparisonResult(BaseModel):
     success: bool = Field(..., description="Whether the model request completed successfully")
     response: Optional[str] = Field(default=None, description="Actual AI output text if successful")
     latency_ms: int = Field(..., description="Model round-trip execution latency in milliseconds")
+    effort: Optional[str] = Field(default="medium", description="Effort level applied during execution")
     error: Optional[str] = Field(default=None, description="Error message if request failed")
 
 
 class CompareResponse(BaseModel):
     """Schema for POST /api/compare response containing concurrent outputs."""
     prompt: str = Field(..., description="The original prompt evaluated")
+    effort: Optional[str] = Field(default="medium", description="Inference effort level applied across models")
     model_a: ModelComparisonResult = Field(..., description="Results for Model A")
     model_b: ModelComparisonResult = Field(..., description="Results for Model B")
     timestamp: str = Field(

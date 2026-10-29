@@ -163,6 +163,17 @@ export function MessageBubble({ message, onRetry }) {
               ⚠️ Fallback Model
             </span>
           )}
+          {message.effort && !isUser && (
+            <span className={`text-[10px] px-1.5 py-0.2 rounded border font-medium ${
+              message.effort === 'high'
+                ? 'bg-rose-500/10 text-rose-400 border-rose-500/30'
+                : message.effort === 'low'
+                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                : 'bg-purple-500/10 text-purple-400 border-purple-500/30'
+            }`}>
+              {message.effort === 'high' ? '🧠 High Effort' : message.effort === 'low' ? '⚡ Low Effort' : '⚖️ Med Effort'}
+            </span>
+          )}
           {typeof message.latencyMs === 'number' && (
             <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">
               ⚡ {message.latencyMs}ms

@@ -213,6 +213,14 @@ export function ModelSelector({ selectedModelId, onSelectModel, disabled = false
                     <p className="text-[11px] text-slate-400 line-clamp-1 mt-0.5">
                       {model.description}
                     </p>
+                    <div className="flex items-center gap-1.5 mt-1 text-[10px] text-slate-400 select-none">
+                      <span className="text-slate-500 font-mono">Effort:</span>
+                      <span className="text-emerald-400 font-medium">Low ⚡</span>
+                      <span className="text-slate-600">·</span>
+                      <span className="text-purple-400 font-medium">Med ⚖️</span>
+                      <span className="text-slate-600">·</span>
+                      <span className="text-rose-400 font-medium">High 🧠</span>
+                    </div>
                   </div>
                   {isSelected && (
                     <svg className="w-4 h-4 text-[#8B5CF6] shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

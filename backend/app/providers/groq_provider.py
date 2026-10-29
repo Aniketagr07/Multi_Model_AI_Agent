@@ -43,7 +43,7 @@ class GroqProvider(BaseLLMProvider):
                 })
         return formatted
 
-    async def generate_response(self, messages: List[Dict[str, str]], model_id: str = "llama-3.1-8b-instant") -> str:
+    async def generate_response(self, messages: List[Dict[str, str]], model_id: str = "llama-3.1-8b-instant", effort: str = "medium") -> str:
         """
         Send formatted prompt to Groq API and extract response text.
         """
@@ -57,10 +57,22 @@ class GroqProvider(BaseLLMProvider):
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
         }
+        effort_level = (effort or "medium").lower()
+        if effort_level == "low":
+            temperature = 0.2
+            max_tokens = 1024
+        elif effort_level == "high":
+            temperature = 0.9
+            max_tokens = 8192
+        else:
+            temperature = 0.7
+            max_tokens = 4096
+
         payload = {
             "model": model_id,
             "messages": self._format_messages(messages),
-            "temperature": 0.7,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
         }
 
         try:

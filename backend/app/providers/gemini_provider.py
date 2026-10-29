@@ -45,7 +45,7 @@ class GeminiProvider(BaseLLMProvider):
                 })
         return formatted
 
-    async def generate_response(self, messages: List[Dict[str, str]], model_id: str = "gemini-1.5-flash") -> str:
+    async def generate_response(self, messages: List[Dict[str, str]], model_id: str = "gemini-3.5-flash", effort: str = "medium") -> str:
         """
         Send formatted prompt to Google Gemini API and extract response text.
         """
@@ -57,8 +57,25 @@ class GeminiProvider(BaseLLMProvider):
         # Gemini model endpoint
         endpoint = f"{self.base_url}/models/{model_id}:generateContent"
         params = {"key": self.api_key}
+        effort_level = (effort or "medium").lower()
+        if effort_level == "low":
+            temperature = 0.2
+            max_output_tokens = 1024
+        elif effort_level == "high":
+            temperature = 0.9
+            max_output_tokens = 8192
+        else:
+            temperature = 0.7
+            max_output_tokens = 4096
+
+        generation_config: Dict[str, Any] = {
+            "temperature": temperature,
+            "maxOutputTokens": max_output_tokens,
+        }
+
         payload = {
             "contents": self._format_messages(messages),
+            "generationConfig": generation_config,
         }
 
         try:

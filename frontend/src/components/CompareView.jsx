@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { AVAILABLE_MODELS } from './ModelSelector';
+import { EffortSelector } from './EffortSelector';
 import { sendCompareRequest } from '../services/api';
 
 /**
@@ -97,6 +98,7 @@ export function CompareView() {
   const [isLoading, setIsLoading] = useState(false);
   const [compareResult, setCompareResult] = useState(null);
   const [generalError, setGeneralError] = useState(null);
+  const [effort, setEffort] = useState('medium');
 
   const textareaRef = useRef(null);
 
@@ -127,6 +129,7 @@ export function CompareView() {
         prompt: textToCompare,
         model_a_id: modelAId,
         model_b_id: modelBId,
+        effort,
       });
       setCompareResult(result);
     } catch (err) {
@@ -269,10 +272,16 @@ export function CompareView() {
         </div>
 
         {/* Action Button */}
-        <div className="flex items-center justify-between pt-2 border-t border-[#282D38]/60">
-          <span className="text-[11px] text-slate-500">
-            Press <kbd className="px-1.5 py-0.5 rounded bg-[#10131A] border border-[#282D38] text-[10px]">Enter</kbd> to broadcast
-          </span>
+        <div className="flex items-center justify-between pt-2 border-t border-[#282D38]/60 flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-slate-400 font-medium">Effort:</span>
+            <EffortSelector
+              selectedEffort={effort}
+              onSelectEffort={setEffort}
+              disabled={isLoading}
+              compact
+            />
+          </div>
 
           <button
             type="button"

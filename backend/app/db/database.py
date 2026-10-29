@@ -54,6 +54,7 @@ def init_db() -> None:
         routed INTEGER DEFAULT 0,
         routing_category TEXT,
         routing_explanation TEXT,
+        effort TEXT DEFAULT 'medium',
         created_at TEXT NOT NULL,
         FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
     );
@@ -71,6 +72,14 @@ def init_db() -> None:
         conn.execute("PRAGMA journal_mode = WAL;")
         conn.execute("PRAGMA busy_timeout = 5000;")
         conn.executescript(schema_sql)
+        # Migrate existing messages table if effort column is missing
+        cursor = conn.execute("PRAGMA table_info(messages);")
+        cols = [r[1] for r in cursor.fetchall()]
+        if "effort" not in cols and cols:
+            try:
+                conn.execute("ALTER TABLE messages ADD COLUMN effort TEXT DEFAULT 'medium';")
+            except Exception:
+                pass
         conn.commit()
         _db_initialized = True
     finally:

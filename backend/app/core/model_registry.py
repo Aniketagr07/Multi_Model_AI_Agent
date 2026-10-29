@@ -29,6 +29,14 @@ class ModelInfo(BaseModel):
         default="Free tier",
         description="Current verified pricing/quota tier"
     )
+    effort_levels: List[str] = Field(
+        default_factory=lambda: ["low", "medium", "high"],
+        description="Supported reasoning/effort tiers"
+    )
+    default_effort: str = Field(
+        default="medium",
+        description="Default effort tier applied if unspecified"
+    )
 
 
 # Master Server-Side Registry Definition with verified capabilities

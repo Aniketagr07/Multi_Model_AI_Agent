@@ -13,6 +13,7 @@ export function useChat() {
   const [activeConversationId, setActiveConversationId] = useState(null); // null = new chat
   const [activeMessages, setActiveMessages] = useState([]);
   const [selectedModelId, setSelectedModelId] = useState('auto'); // Default to Auto Smart Router
+  const [effort, setEffort] = useState('medium'); // 'low' | 'medium' | 'high'
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -74,6 +75,7 @@ export function useChat() {
           routed: Boolean(m.routed),
           routingCategory: m.routing_category,
           routingExplanation: m.routing_explanation,
+          effort: m.effort || 'medium',
           timestamp: m.created_at,
           modelName: actualModel ? actualModel.name : (m.model_id || 'OmniAI Assistant'),
           modelTag: actualModel ? actualModel.tag : (m.provider === 'groq' ? 'Groq Cloud' : 'Google AI Studio'),
@@ -122,18 +124,20 @@ export function useChat() {
   }, [activeConversationId]);
 
   // Action: Send Message
-  const sendMessage = useCallback(async (textToSend, overrideModelId) => {
+  const sendMessage = useCallback(async (textToSend, overrideModelId, overrideEffort) => {
     const messageContent = (textToSend !== undefined ? textToSend : input).trim();
     if (!messageContent || isLoading) return;
 
     const targetModelId = overrideModelId || selectedModelId;
     const targetModel = AVAILABLE_MODELS.find(m => m.id === targetModelId) || selectedModel;
+    const targetEffort = overrideEffort || effort;
 
     // Temporary optimistic user message
     const tempUserMessage = {
       id: `user-${Date.now()}`,
       sender: 'user',
       content: messageContent,
+      effort: targetEffort,
       timestamp: new Date().toISOString(),
     };
 
@@ -147,6 +151,7 @@ export function useChat() {
         message: messageContent,
         model_id: targetModelId,
         conversation_id: activeConversationId,
+        effort: targetEffort,
       });
 
       // Update active conversation ID from backend response
@@ -173,6 +178,7 @@ export function useChat() {
         routingCategory: result.routing_category,
         routingExplanation: result.routing_explanation,
         fallbackUsed: Boolean(result.fallback_used),
+        effort: result.effort || targetEffort,
         timestamp: result.timestamp || new Date().toISOString(),
       };
 
@@ -207,7 +213,7 @@ export function useChat() {
     } finally {
       setIsLoading(false);
     }
-  }, [input, isLoading, activeConversationId, selectedModelId, selectedModel, refreshConversations]);
+  }, [input, isLoading, activeConversationId, selectedModelId, selectedModel, effort, refreshConversations]);
 
   return {
     conversations,
@@ -216,6 +222,8 @@ export function useChat() {
     activeTitle,
     selectedModelId,
     selectedModel,
+    effort,
+    setEffort,
     input,
     setInput,
     isLoading,
