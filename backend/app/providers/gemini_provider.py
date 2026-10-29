@@ -70,6 +70,24 @@ class GeminiProvider(BaseLLMProvider):
                     headers={"Content-Type": "application/json"},
                 )
 
+            # Handle 404 (model deprecated or catalog update on Gemini)
+            if response.status_code == 404:
+                fallback_candidates = ["gemini-3.5-flash", "gemini-flash-latest"]
+                for fb_model in fallback_candidates:
+                    if fb_model != model_id:
+                        logger.info("Gemini model '%s' not found. Retrying with active model '%s'...", model_id, fb_model)
+                        fb_endpoint = f"{self.base_url}/models/{fb_model}:generateContent"
+                        async with httpx.AsyncClient(timeout=self.timeout) as client:
+                            fb_resp = await client.post(
+                                fb_endpoint,
+                                params=params,
+                                json=payload,
+                                headers={"Content-Type": "application/json"},
+                            )
+                            if fb_resp.status_code == 200:
+                                response = fb_resp
+                                break
+
             # Handle error status codes
             if response.status_code == 400:
                 try:

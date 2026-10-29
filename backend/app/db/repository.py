@@ -270,3 +270,4 @@ class ConversationRepository:
     @classmethod
     async def a_get_recent_context(cls, conv_id: str, limit: int = 10) -> List[Dict[str, str]]:
         return await asyncio.to_thread(cls.get_recent_context, conv_id, limit)
+

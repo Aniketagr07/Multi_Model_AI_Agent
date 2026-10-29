@@ -64,3 +64,4 @@ class ConversationDetailResponse(BaseModel):
 class ConversationListResponse(BaseModel):
     """Schema for listing user conversations."""
     conversations: List[ConversationResponse]
+

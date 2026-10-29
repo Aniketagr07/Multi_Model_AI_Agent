@@ -182,3 +182,4 @@ def test_chat_service_persists_messages_in_db():
     assert messages[1]["role"] == "assistant"
     assert messages[1]["content"] == "Persistent response from Gemini 1.5 Flash."
     assert messages[1]["model_id"] == "gemini-1.5-flash"
+

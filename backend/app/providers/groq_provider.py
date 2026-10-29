@@ -71,6 +71,19 @@ class GroqProvider(BaseLLMProvider):
                     headers=headers,
                 )
 
+            # Handle 404 (model deprecated or catalog update on Groq)
+            if response.status_code == 404:
+                fallback_candidates = ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.8-27b"]
+                for fb_model in fallback_candidates:
+                    if fb_model != model_id:
+                        logger.info("Groq model '%s' not found. Retrying with active model '%s'...", model_id, fb_model)
+                        payload["model"] = fb_model
+                        async with httpx.AsyncClient(timeout=self.timeout) as client:
+                            fb_resp = await client.post(endpoint, json=payload, headers=headers)
+                            if fb_resp.status_code == 200:
+                                response = fb_resp
+                                break
+
             # Handle error status codes
             if response.status_code == 400:
                 try:
@@ -110,25 +123,24 @@ class GroqProvider(BaseLLMProvider):
 
             first_choice = choices[0]
             message_obj = first_choice.get("message", {})
-            content = message_obj.get("content", "").strip()
+            content = message_obj.get("content", "")
 
             if not content:
-                raise ProviderError("Groq returned empty text content in completion message.")
+                raise ProviderError("Groq API returned an empty message content string.")
 
-            return content
+            return content.strip()
 
         except httpx.TimeoutException:
-            logger.warning("Groq API request timed out after %.1f seconds", self.timeout)
+            logger.warning("Groq API request timed out after %s seconds.", self.timeout)
             raise ProviderTimeoutError(
-                f"Groq API request timed out after {self.timeout} seconds."
+                f"Groq API request timed out after {self.timeout}s."
             )
-        except httpx.RequestError as req_err:
-            logger.error("HTTP network error communicating with Groq API: %s", str(req_err))
-            raise ProviderError(
-                "Network connection failure communicating with Groq API.",
-                status_code=502,
-            )
+        except (ProviderError, ProviderConfigError, ProviderAuthError, ProviderRateLimitError, ProviderTimeoutError):
+            raise
+        except Exception as e:
+            logger.exception("Unexpected error communicating with Groq API: %s", str(e))
+            raise ProviderError(f"Unexpected error communicating with Groq: {str(e)}")
 
     async def check_availability(self) -> bool:
-        """Check if GROQ_API_KEY is configured and service is reachable."""
+        """Check if Groq API key is present and configured."""
         return bool(self.api_key and self.api_key.strip())

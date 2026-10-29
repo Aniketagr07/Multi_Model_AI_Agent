@@ -1,7 +1,12 @@
 import os
 from functools import lru_cache
+from pathlib import Path
 from typing import List, Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_backend_dir = Path(__file__).resolve().parent.parent.parent
+_backend_env = _backend_dir / ".env"
+_root_env = _backend_dir.parent / ".env"
 
 
 class Settings(BaseSettings):
@@ -43,7 +48,7 @@ class Settings(BaseSettings):
     MAX_HISTORY_MESSAGES: int = 20
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=(_backend_env, _root_env, ".env"),
         env_file_encoding="utf-8",
         extra="ignore",
     )

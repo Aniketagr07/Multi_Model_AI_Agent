@@ -145,3 +145,4 @@ async def delete_conversation(conversation_id: str) -> None:
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Conversation '{conversation_id}' was not found in persistent storage.",
         )
+
