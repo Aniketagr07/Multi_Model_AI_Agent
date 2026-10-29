@@ -46,27 +46,66 @@ export async function fetchRootInfo() {
 }
 
 /**
- * Proposed interface for future chat completion requests (Day 3+).
+ * Dispatches a chat completion request to the FastAPI backend.
  * 
- * Proposed Contract:
+ * Contract:
  * POST /api/chat
  * Payload:
  * {
  *   "message": string,
  *   "model_id": string,
- *   "conversation_id": string
+ *   "conversation_id": string | null,
+ *   "messages": Array<{ role: "user" | "assistant", content: string }> | null
  * }
  * 
- * In Day 2, this function represents the clean architectural boundary
- * between UI components and backend communication.
+ * @param {Object} params
+ * @param {string} params.message
+ * @param {string} params.model_id
+ * @param {string} [params.conversation_id]
+ * @param {Array<{role: string, content: string}>} [params.messages]
+ * @returns {Promise<{conversation_id: string, model_id: string, response: string, latency_ms: number, timestamp: string}>}
  */
-export async function sendChatMessage({ message, model_id, conversation_id }) {
-  // Day 2 Boundary: Model orchestration endpoint will be introduced in Day 3.
-  console.info('[OmniAI API] Chat dispatch requested (Day 2 Mock Boundary):', {
-    message,
-    model_id,
-    conversation_id,
-  });
+export async function sendChatMessage({ message, model_id, conversation_id, messages }) {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/chat`;
 
-  throw new Error('AI Provider Integrations scheduled for Day 3. No live endpoint called.');
+  const payload = {
+    message,
+    model_id: model_id || 'gemini-1.5-flash',
+    conversation_id: conversation_id || null,
+    messages: messages && messages.length > 0 ? messages : null,
+  };
+
+  let response;
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+  } catch (networkError) {
+    throw new Error(
+      `Network connection failure: Unable to reach OmniAI backend at ${API_BASE_URL}. Ensure the FastAPI server is running.`
+    );
+  }
+
+  if (!response.ok) {
+    let errorMessage = `Server error (HTTP ${response.status})`;
+    try {
+      const errorJson = await response.json();
+      if (errorJson && errorJson.detail) {
+        // detail can be a string or array of validation errors
+        errorMessage = typeof errorJson.detail === 'string'
+          ? errorJson.detail
+          : JSON.stringify(errorJson.detail);
+      }
+    } catch {
+      // Non-JSON error body fallback
+    }
+    throw new Error(errorMessage);
+  }
+
+  return await response.json();
 }

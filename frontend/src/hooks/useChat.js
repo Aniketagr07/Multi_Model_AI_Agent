@@ -1,25 +1,26 @@
 import { useState, useCallback } from 'react';
 import { AVAILABLE_MODELS } from '../components/ModelSelector';
+import { sendChatMessage } from '../services/api';
 
-// Realistic demo conversation data for Day 2 demonstration
+// Realistic demo conversation data preserved from Day 2
 const INITIAL_DEMO_CONVERSATIONS = [
   {
     id: 'demo-binary-search',
     title: 'Binary Search in Python',
     dateLabel: 'Earlier today',
-    modelId: 'gpt-4o-demo',
+    modelId: 'gemini-1.5-flash',
   },
   {
     id: 'demo-fastapi-arch',
     title: 'FastAPI Decoupled Architecture',
     dateLabel: 'Yesterday',
-    modelId: 'claude-3-5-sonnet-demo',
+    modelId: 'gemini-1.5-flash',
   },
   {
     id: 'demo-neural-loss',
     title: 'Cross-Entropy Loss Derivation',
     dateLabel: 'Oct 27',
-    modelId: 'gemini-1-5-pro-demo',
+    modelId: 'gemini-1.5-pro',
   },
 ];
 
@@ -34,8 +35,9 @@ const INITIAL_DEMO_MESSAGES = {
     {
       id: 'msg-bs-2',
       sender: 'assistant',
-      modelName: 'GPT-4o',
+      modelName: 'Gemini 1.5 Flash',
       modelTag: 'Demo Session',
+      latencyMs: 385,
       content: `Here is an optimal iterative implementation of Binary Search in Python:
 
 \`\`\`python
@@ -64,7 +66,7 @@ print(binary_search(numbers, 23))  # Output: 5
 
 ### Complexity Analysis
 * **Time Complexity**: $\\mathcal{O}(\\log n)$ since the search space is halved every iteration.
-* **Space Complexity**: $\\mathcal{O}(1)$ as only pointers are stored in memory.`,
+* **Space Complexity**: $\\mathcal{O}(1)$ as only pointer indices are stored in memory.`,
       timestamp: new Date(Date.now() - 3600000 * 3 + 120000).toISOString(),
     },
   ],
@@ -78,8 +80,9 @@ print(binary_search(numbers, 23))  # Output: 5
     {
       id: 'msg-fa-2',
       sender: 'assistant',
-      modelName: 'Claude 3.5 Sonnet',
+      modelName: 'Gemini 1.5 Flash',
       modelTag: 'Demo Session',
+      latencyMs: 412,
       content: `Key benefits of FastAPI for multi-model AI gateways include:
 
 1. **Native Asynchronous I/O**: High-concurrency routing to multiple LLM APIs via \`asyncio\` and \`httpx\`.
@@ -101,6 +104,7 @@ print(binary_search(numbers, 23))  # Output: 5
       sender: 'assistant',
       modelName: 'Gemini 1.5 Pro',
       modelTag: 'Demo Session',
+      latencyMs: 640,
       content: `In multi-class classification, Cross-Entropy Loss with Softmax is preferred because:
 
 * **Convex Optimization**: Cross-entropy produces a steeper gradient when predictions are confident and wrong, preventing saturation and vanishing gradients during backpropagation.
@@ -120,7 +124,7 @@ export function useChat() {
   const [conversations, setConversations] = useState(INITIAL_DEMO_CONVERSATIONS);
   const [messagesByConv, setMessagesByConv] = useState(INITIAL_DEMO_MESSAGES);
   const [activeConversationId, setActiveConversationId] = useState(null); // null = new chat
-  const [selectedModelId, setSelectedModelId] = useState('gpt-4o-demo');
+  const [selectedModelId, setSelectedModelId] = useState('gemini-1.5-flash');
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -158,7 +162,7 @@ export function useChat() {
     setActiveConversationId(current => (current === convId ? null : current));
   }, []);
 
-  // Action: Send Message
+  // Action: Send Message to Real Backend AI Provider
   const sendMessage = useCallback(async (textToSend) => {
     const messageContent = (textToSend !== undefined ? textToSend : input).trim();
     if (!messageContent || isLoading) return;
@@ -192,48 +196,72 @@ export function useChat() {
       timestamp: new Date().toISOString(),
     };
 
+    // Extract prior conversational messages for multi-turn context
+    const priorMessages = (messagesByConv[targetConvId] || [])
+      .filter(m => !m.isError && !m.isNotice && m.content)
+      .map(m => ({
+        role: m.sender === 'user' ? 'user' : 'assistant',
+        content: m.content,
+      }));
+
     // Append user message immediately
     setMessagesByConv(prev => ({
       ...prev,
       [targetConvId]: [...(prev[targetConvId] || []), userMessage],
     }));
 
-    // Clear input field
+    // Clear input field and set loading state
     setInput('');
     setIsLoading(true);
 
-    // Simulate standard asynchronous request pipeline (Day 2 boundary)
-    setTimeout(() => {
-      // Clean, honest Day 2 status notice (No fake AI responses)
-      const assistantNotice = {
+    try {
+      // Real API request to FastAPI POST /api/chat
+      const result = await sendChatMessage({
+        message: messageContent,
+        model_id: selectedModelId,
+        conversation_id: targetConvId,
+        messages: priorMessages,
+      });
+
+      // Append real AI assistant response
+      const assistantMessage = {
         id: `assist-${Date.now()}`,
         sender: 'assistant',
+        content: result.response,
         modelName: selectedModel.name,
-        modelTag: `${selectedModel.tag}`,
-        isNotice: true,
-        status: 'unconnected',
+        modelTag: selectedModel.tag,
+        latencyMs: result.latency_ms,
+        timestamp: result.timestamp || new Date().toISOString(),
+      };
+
+      setMessagesByConv(prev => ({
+        ...prev,
+        [targetConvId]: [...(prev[targetConvId] || []), assistantMessage],
+      }));
+    } catch (err) {
+      console.error('[OmniAI Chat] Model request failed:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Unknown communication error occurred.';
+
+      // Construct informative error message
+      const errorNotice = {
+        id: `err-${Date.now()}`,
+        sender: 'assistant',
+        content: `⚠️ **AI Provider Request Failed**\n\n${errorMessage}\n\n*Evaluation Guide*: If \`GEMINI_API_KEY\` is not yet configured in \`backend/.env\`, please obtain a free key at [Google AI Studio](https://aistudio.google.com/app/apikey), add it to \`backend/.env\`, and restart the FastAPI backend server.`,
+        isError: true,
+        modelName: selectedModel.name,
+        modelTag: 'Error',
         originalUserMessage: messageContent,
-        content: `**Day 2 Interface Verification Active**
-
-Your message has been successfully received by the OmniAI UI state pipeline:
-> "${messageContent}"
-
-**Status Disclosure for Project Evaluation:**
-* **Frontend Composer & State Pipeline**: Fully functional.
-* **Target Model Selected**: **${selectedModel.name}** (${selectedModel.provider}).
-* **Model Orchestration Layer**: Live model API calls (OpenAI, Anthropic Claude, Google Gemini, Ollama) will be connected to the backend in **Day 3**.
-* No fake AI tokens or simulated outputs have been generated.`,
         timestamp: new Date().toISOString(),
       };
 
       setMessagesByConv(prev => ({
         ...prev,
-        [targetConvId]: [...(prev[targetConvId] || []), assistantNotice],
+        [targetConvId]: [...(prev[targetConvId] || []), errorNotice],
       }));
-
+    } finally {
       setIsLoading(false);
-    }, 600);
-  }, [input, isLoading, activeConversationId, selectedModelId, selectedModel]);
+    }
+  }, [input, isLoading, activeConversationId, selectedModelId, selectedModel, messagesByConv]);
 
   return {
     conversations,
@@ -254,4 +282,3 @@ Your message has been successfully received by the OmniAI UI state pipeline:
     sendMessage,
   };
 }
-

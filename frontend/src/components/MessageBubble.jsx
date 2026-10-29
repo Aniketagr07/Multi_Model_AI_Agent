@@ -89,7 +89,8 @@ function CodeBlock({ code, language }) {
 
 export function MessageBubble({ message, onRetry }) {
   const isUser = message.sender === 'user';
-  const isSystemNotice = message.isNotice || message.status === 'unconnected';
+  const isError = Boolean(message.isError);
+  const isSystemNotice = Boolean(message.isNotice || message.status === 'unconnected');
 
   const formattedTime = message.timestamp
     ? new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -103,12 +104,24 @@ export function MessageBubble({ message, onRetry }) {
     >
       {/* Assistant Avatar */}
       {!isUser && (
-        <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-[#8B5CF6] to-indigo-600 flex items-center justify-center text-white shrink-0 shadow-md shadow-purple-500/20 mt-0.5">
-          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-            <polygon points="12 2 2 7 12 12 22 7 12 2" />
-            <polyline points="2 17 12 22 22 17" />
-            <polyline points="2 12 12 17 22 12" />
-          </svg>
+        <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white shrink-0 shadow-md mt-0.5 ${
+          isError
+            ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+            : 'bg-gradient-to-tr from-[#8B5CF6] to-indigo-600 shadow-purple-500/20'
+        }`}>
+          {isError ? (
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="12" />
+              <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+          ) : (
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="12 2 2 7 12 12 22 7 12 2" />
+              <polyline points="2 17 12 22 22 17" />
+              <polyline points="2 12 12 17 22 12" />
+            </svg>
+          )}
         </div>
       )}
 
@@ -118,14 +131,23 @@ export function MessageBubble({ message, onRetry }) {
           isUser ? 'items-end' : 'items-start'
         }`}
       >
-        {/* Header tag: Model name & timestamp */}
-        <div className="flex items-center gap-2 text-[11px] text-[#9CA3AF] px-1">
+        {/* Header tag: Model name, latency & timestamp */}
+        <div className="flex items-center gap-2 text-[11px] text-[#9CA3AF] px-1 flex-wrap">
           <span className="font-semibold text-slate-300">
             {isUser ? 'You' : message.modelName || 'OmniAI Assistant'}
           </span>
           {message.modelTag && (
-            <span className="text-[10px] px-1.5 py-0.2 rounded bg-[#10131A] text-purple-400 border border-[#282D38]">
+            <span className={`text-[10px] px-1.5 py-0.2 rounded border ${
+              isError
+                ? 'bg-red-500/10 text-red-400 border-red-500/20'
+                : 'bg-[#10131A] text-purple-400 border-[#282D38]'
+            }`}>
               {message.modelTag}
+            </span>
+          )}
+          {typeof message.latencyMs === 'number' && (
+            <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">
+              ⚡ {message.latencyMs}ms
             </span>
           )}
           {formattedTime && <span className="text-slate-500">• {formattedTime}</span>}
@@ -136,6 +158,8 @@ export function MessageBubble({ message, onRetry }) {
           className={`p-4 rounded-2xl ${
             isUser
               ? 'bg-[#1E2330] text-[#F3F4F6] border border-[#282D38] rounded-tr-sm'
+              : isError
+              ? 'bg-red-950/20 text-red-200 border border-red-500/30 rounded-tl-sm'
               : isSystemNotice
               ? 'bg-[#151923] border border-purple-500/30 text-[#F3F4F6] rounded-tl-sm'
               : 'bg-[#151923] text-[#F3F4F6] border border-[#282D38] rounded-tl-sm'
@@ -143,20 +167,36 @@ export function MessageBubble({ message, onRetry }) {
         >
           <FormattedContent text={message.content} />
 
-          {/* If this is the Day 2 informational notice */}
-          {isSystemNotice && (
+          {/* Error Retry Action */}
+          {isError && onRetry && message.originalUserMessage && (
+            <div className="mt-3 pt-3 border-t border-red-500/20 flex flex-wrap items-center justify-between gap-2 text-xs">
+              <span className="text-red-400 text-[11px]">
+                Target: {message.modelName || 'Gemini 1.5 Flash'}
+              </span>
+              <button
+                type="button"
+                onClick={() => onRetry(message.originalUserMessage)}
+                className="px-2.5 py-1 rounded bg-[#10131A] hover:bg-red-900/30 text-red-300 border border-red-500/30 text-[11px] font-medium transition-colors cursor-pointer"
+              >
+                Retry Request
+              </button>
+            </div>
+          )}
+
+          {/* Day 2 Informational Notice (if present in historical session) */}
+          {isSystemNotice && !isError && (
             <div className="mt-3 pt-3 border-t border-[#282D38] flex flex-wrap items-center justify-between gap-2 text-xs">
               <span className="inline-flex items-center gap-1.5 text-purple-400 text-[11px]">
                 <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse"></span>
-                Day 3: Model Orchestration Layer
+                Day 3: Live Model Orchestration
               </span>
-              {onRetry && (
+              {onRetry && message.originalUserMessage && (
                 <button
                   type="button"
                   onClick={() => onRetry(message.originalUserMessage)}
                   className="px-2.5 py-1 rounded bg-[#10131A] hover:bg-[#1E2330] text-slate-300 border border-[#282D38] text-[11px] font-medium transition-colors cursor-pointer"
                 >
-                  Retry Prompt
+                  Submit with Real AI Model
                 </button>
               )}
             </div>
@@ -176,4 +216,3 @@ export function MessageBubble({ message, onRetry }) {
     </article>
   );
 }
-

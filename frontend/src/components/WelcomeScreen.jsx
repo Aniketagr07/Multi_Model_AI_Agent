@@ -83,10 +83,9 @@ export function WelcomeScreen({ onSelectPrompt }) {
 
       {/* College Project Evaluation Note */}
       <div className="w-full p-3.5 rounded-xl bg-[#10131A] border border-[#282D38]/80 text-[11px] text-slate-400 flex items-start gap-3">
-        <span className="text-purple-400 font-bold shrink-0 mt-0.5">ℹ️ Day 2 UI Status:</span>
+        <span className="text-blue-400 font-bold shrink-0 mt-0.5">ℹ️ Day 3 Status:</span>
         <div className="leading-relaxed">
-          The chat interface, model selection controls, and conversation state management are fully operational.
-          Live external LLM provider routing (OpenAI, Anthropic, Gemini, Ollama) will be connected in <strong>Day 3</strong>.
+          The first real AI model integration is active! OmniAI is connected to the <strong>Google Gemini API (Gemini 1.5 Flash)</strong> via FastAPI backend routing. Messages submitted here are processed live through Google AI Studio.
         </div>
       </div>
     </div>

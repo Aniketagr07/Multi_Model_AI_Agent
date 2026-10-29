@@ -1,7 +1,24 @@
 """Providers Package.
 
-This package will contain provider abstraction interfaces and concrete adapters
-for interacting with LLM providers (e.g. OpenAI, Anthropic, Gemini, Ollama).
-Implementation scheduled for upcoming development phases.
+Contains LLM provider abstraction interfaces and concrete provider adapters.
 """
 
+from app.providers.base import (
+    BaseLLMProvider,
+    ProviderError,
+    ProviderConfigError,
+    ProviderAuthError,
+    ProviderRateLimitError,
+    ProviderTimeoutError,
+)
+from app.providers.gemini_provider import GeminiProvider
+
+__all__ = [
+    "BaseLLMProvider",
+    "GeminiProvider",
+    "ProviderError",
+    "ProviderConfigError",
+    "ProviderAuthError",
+    "ProviderRateLimitError",
+    "ProviderTimeoutError",
+]
