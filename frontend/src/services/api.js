@@ -72,6 +72,7 @@ export async function sendChatMessage({
   messages,
   effort,
   document_id,
+  custom_instructions,
   custom_api_key,
   custom_provider,
   custom_base_url,
@@ -86,6 +87,7 @@ export async function sendChatMessage({
     messages: messages && messages.length > 0 ? messages : null,
     effort: effort || 'medium',
     document_id: document_id || null,
+    custom_instructions: custom_instructions || null,
     custom_api_key: custom_api_key || null,
     custom_provider: custom_provider || null,
     custom_base_url: custom_base_url || null,
@@ -137,6 +139,7 @@ export async function streamChatMessage({
   messages,
   effort,
   document_id,
+  custom_instructions,
   custom_api_key,
   custom_provider,
   custom_base_url,
@@ -156,6 +159,7 @@ export async function streamChatMessage({
     messages: messages && messages.length > 0 ? messages : null,
     effort: effort || 'medium',
     document_id: document_id || null,
+    custom_instructions: custom_instructions || null,
     custom_api_key: custom_api_key || null,
     custom_provider: custom_provider || null,
     custom_base_url: custom_base_url || null,
@@ -604,4 +608,55 @@ export async function exportConversationApi(conversationId, format = 'markdown')
   window.URL.revokeObjectURL(blobUrl);
 
   return filename;
+}
+
+/**
+ * Fetches user settings, preferences, and custom instructions from backend.
+ * Target: GET /api/settings
+ */
+export async function fetchUserSettings() {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/settings`;
+
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'Accept': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to load settings: HTTP ${response.status}`);
+  }
+
+  return await response.json();
+}
+
+/**
+ * Persists updated user preferences, theme, and custom instructions to backend SQLite.
+ * Target: PUT /api/settings
+ */
+export async function saveUserSettings(settingsPayload) {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/settings`;
+
+  const response = await fetch(url, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    },
+    body: JSON.stringify(settingsPayload),
+  });
+
+  if (!response.ok) {
+    let errorDetail = `Failed to save settings: HTTP ${response.status}`;
+    try {
+      const errJson = await response.json();
+      if (errJson && errJson.detail) {
+        errorDetail = typeof errJson.detail === 'string' ? errJson.detail : JSON.stringify(errJson.detail);
+      }
+    } catch (_) {}
+    throw new Error(errorDetail);
+  }
+
+  return await response.json();
 }

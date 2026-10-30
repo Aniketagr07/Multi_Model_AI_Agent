@@ -39,6 +39,7 @@ def get_model_registry() -> ModelRegistryResponse:
             strengths=m.strengths,
             context_window=m.context_window,
             cost_tier=m.cost_tier,
+            streaming_supported=getattr(m, "streaming_supported", True),
         )
         for m in models_list
     ]

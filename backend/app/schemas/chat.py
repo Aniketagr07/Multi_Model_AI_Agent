@@ -28,6 +28,11 @@ class ChatRequest(BaseModel):
         description="Inference effort level ('low', 'medium', 'high') modulating reasoning depth and sampling"
     )
     document_id: Optional[str] = Field(default=None, description="Optional attached document ID for AI document analysis")
+    custom_instructions: Optional[str] = Field(
+        default=None,
+        max_length=2000,
+        description="Optional user custom style instructions or persona preferences"
+    )
     custom_api_key: Optional[str] = Field(default=None, description="Optional user-supplied API key")
     custom_provider: Optional[str] = Field(default=None, description="Optional provider identifier ('gemini', 'groq', 'openai_compatible')")
     custom_base_url: Optional[str] = Field(default=None, description="Optional custom base URL endpoint")
@@ -82,6 +87,7 @@ class ModelItemResponse(BaseModel):
     strengths: List[str]
     context_window: int
     cost_tier: str
+    streaming_supported: bool = True
 
 
 class ModelRegistryResponse(BaseModel):

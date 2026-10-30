@@ -4,14 +4,23 @@ import { ChatHeader } from './components/ChatHeader';
 import { ChatWindow } from './components/ChatWindow';
 import { MessageComposer } from './components/MessageComposer';
 import { CompareView } from './components/CompareView';
+import { SettingsView } from './components/SettingsView';
 import { ApiKeyModal } from './components/ApiKeyModal';
 import { useChat } from './hooks/useChat';
 import { useHealthCheck } from './hooks/useHealthCheck';
 import { useCustomKeys } from './hooks/useCustomKeys';
+import { useSettings } from './hooks/useSettings';
 
 export default function App() {
-  const [activeView, setActiveView] = useState('chat'); // 'chat' | 'compare'
+  const [activeView, setActiveView] = useState('chat'); // 'chat' | 'compare' | 'settings'
   const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
+
+  const {
+    settings,
+    updateSettings,
+    saveStatus,
+    saveError,
+  } = useSettings();
 
   const {
     customKeys,
@@ -52,7 +61,7 @@ export default function App() {
     uploadProgress,
     attachFile,
     removeDocument,
-  } = useChat({ customModels, customKeys });
+  } = useChat({ customModels, customKeys, userSettings: settings });
 
   const { status: healthStatus, checkHealth: onCheckHealth } = useHealthCheck();
 
@@ -97,16 +106,40 @@ export default function App() {
       <div className="flex-1 flex flex-col h-full min-w-0 relative bg-[#0B0D12]">
         {/* Top Header */}
         <ChatHeader
-          activeTitle={activeView === 'compare' ? 'Compare Models' : activeTitle}
-          selectedModelName={activeView === 'compare' ? 'Parallel Dual-Model Benchmark' : selectedModel.name}
+          activeTitle={
+            activeView === 'settings'
+              ? 'Settings & Personalization'
+              : activeView === 'compare'
+              ? 'Compare Models'
+              : activeTitle
+          }
+          selectedModelName={
+            activeView === 'settings'
+              ? 'User Configuration'
+              : activeView === 'compare'
+              ? 'Parallel Dual-Model Benchmark'
+              : selectedModel.name
+          }
           onToggleSidebar={handleToggleSidebar}
           healthStatus={healthStatus}
           onCheckHealth={onCheckHealth}
           onOpenApiKeyModal={() => setIsApiKeyModalOpen(true)}
+          onOpenSettings={() => setActiveView('settings')}
         />
 
         {/* Dynamic Main View Area */}
-        {activeView === 'compare' ? (
+        {activeView === 'settings' ? (
+          <main className="flex-1 min-h-0 overflow-hidden relative">
+            <SettingsView
+              settings={settings}
+              onUpdateSettings={updateSettings}
+              saveStatus={saveStatus}
+              saveError={saveError}
+              onBackToChat={() => setActiveView('chat')}
+              customModels={customModels}
+            />
+          </main>
+        ) : activeView === 'compare' ? (
           <main className="flex-1 min-h-0 overflow-hidden relative">
             <CompareView customModels={customModels} customKeys={customKeys} />
           </main>

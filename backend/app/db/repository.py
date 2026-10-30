@@ -1,3 +1,4 @@
+import json
 import uuid
 import asyncio
 from datetime import datetime, timezone
@@ -462,6 +463,57 @@ class ConversationRepository:
             return storage_path
 
     # -------------------------------------------------------------------------
+    # User Settings DAO Operations
+    # -------------------------------------------------------------------------
+
+    @staticmethod
+    def get_all_settings() -> Dict[str, Any]:
+        """Fetch all user settings from SQLite as a key-value dictionary."""
+        with get_db_connection() as conn:
+            cursor = conn.execute("SELECT key, value FROM user_settings;")
+            results = {}
+            for row in cursor.fetchall():
+                key = row["key"]
+                raw_val = row["value"]
+                try:
+                    results[key] = json.loads(raw_val)
+                except Exception:
+                    results[key] = raw_val
+            return results
+
+    @staticmethod
+    def set_setting(key: str, value: Any) -> None:
+        """Upsert a single setting into SQLite."""
+        val_str = json.dumps(value) if not isinstance(value, str) else value
+        now = _utc_now_iso()
+        with get_db_connection() as conn:
+            conn.execute(
+                """
+                INSERT INTO user_settings (key, value, updated_at)
+                VALUES (?, ?, ?)
+                ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at;
+                """,
+                (key, val_str, now),
+            )
+
+    @staticmethod
+    def set_multiple_settings(settings_dict: Dict[str, Any]) -> Dict[str, Any]:
+        """Upsert multiple settings in a single transaction and return the updated dictionary."""
+        now = _utc_now_iso()
+        with get_db_connection() as conn:
+            for key, value in settings_dict.items():
+                val_str = json.dumps(value) if not isinstance(value, str) else value
+                conn.execute(
+                    """
+                    INSERT INTO user_settings (key, value, updated_at)
+                    VALUES (?, ?, ?)
+                    ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at;
+                    """,
+                    (key, val_str, now),
+                )
+        return ConversationRepository.get_all_settings()
+
+    # -------------------------------------------------------------------------
     # Asynchronous Non-Blocking Wrappers (via asyncio.to_thread)
     # -------------------------------------------------------------------------
 
@@ -536,3 +588,11 @@ class ConversationRepository:
     @classmethod
     async def a_delete_document(cls, doc_id: str) -> Optional[str]:
         return await asyncio.to_thread(cls.delete_document, doc_id)
+
+    @classmethod
+    async def a_get_all_settings(cls) -> Dict[str, Any]:
+        return await asyncio.to_thread(cls.get_all_settings)
+
+    @classmethod
+    async def a_set_multiple_settings(cls, settings_dict: Dict[str, Any]) -> Dict[str, Any]:
+        return await asyncio.to_thread(cls.set_multiple_settings, settings_dict)

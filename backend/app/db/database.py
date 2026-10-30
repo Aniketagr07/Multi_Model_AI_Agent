@@ -76,6 +76,12 @@ def init_db() -> None:
         FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS user_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    );
+
     CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id);
     CREATE INDEX IF NOT EXISTS idx_conversations_updated_at ON conversations(updated_at DESC);
     CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at ASC);

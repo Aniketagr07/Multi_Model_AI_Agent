@@ -29,6 +29,10 @@ class ModelInfo(BaseModel):
         default="Free tier",
         description="Current verified pricing/quota tier"
     )
+    streaming_supported: bool = Field(
+        default=True,
+        description="Whether real-time streaming is supported and verified"
+    )
     effort_levels: List[str] = Field(
         default_factory=lambda: ["low", "medium", "high"],
         description="Supported reasoning/effort tiers"

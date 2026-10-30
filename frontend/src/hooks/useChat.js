@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { AVAILABLE_MODELS } from '../components/ModelSelector';
 import {
+  sendChatMessage,
   streamChatMessage,
   fetchConversations,
   fetchConversationDetails,
@@ -13,12 +14,17 @@ import {
   deleteDocumentApi,
 } from '../services/api';
 
-export function useChat({ customModels = [], customKeys = {} } = {}) {
+export function useChat({ customModels = [], customKeys = {}, userSettings = {} } = {}) {
   const [conversations, setConversations] = useState([]);
   const [activeConversationId, setActiveConversationId] = useState(null); // null = new chat
   const [activeMessages, setActiveMessages] = useState([]);
-  const [selectedModelId, setSelectedModelId] = useState('auto'); // Default to Auto Smart Router
-  const [effort, setEffort] = useState('medium'); // 'low' | 'medium' | 'high'
+  const [selectedModelId, setSelectedModelId] = useState(() => {
+    if (userSettings?.default_routing_mode === 'manual' && userSettings?.default_model) {
+      return userSettings.default_model;
+    }
+    return 'auto';
+  });
+  const [effort, setEffort] = useState(() => userSettings?.default_effort || 'medium');
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -129,7 +135,15 @@ export function useChat({ customModels = [], customKeys = {} } = {}) {
     setInput('');
     setAttachedDocument(null);
     setIsLoading(false);
-  }, []);
+
+    if (userSettings?.new_chat_behavior === 'clear') {
+      const defModel = userSettings?.default_routing_mode === 'manual' && userSettings?.default_model
+        ? userSettings.default_model
+        : 'auto';
+      setSelectedModelId(defModel);
+      setEffort(userSettings?.default_effort || 'medium');
+    }
+  }, [userSettings]);
 
   // Action: Rename a conversation
   const renameConversationHandler = useCallback(async (convId, newTitle) => {
@@ -341,12 +355,58 @@ export function useChat({ customModels = [], customKeys = {} } = {}) {
     let accumulatedContent = '';
 
     try {
+      if (userSettings?.streaming_enabled === false) {
+        // Non-streaming fallback when user prefers buffered completions
+        const resp = await sendChatMessage({
+          message: messageContent,
+          model_id: targetModelId,
+          conversation_id: activeConversationId,
+          effort: targetEffort,
+          document_id: targetDocId,
+          custom_instructions: userSettings?.custom_instructions,
+          custom_api_key: customKey,
+          custom_provider: customProvider,
+          custom_base_url: customBaseUrl,
+          custom_provider_model_id: customProviderModelId,
+        });
+
+        if (resp.conversation_id && resp.conversation_id !== activeConversationId) {
+          setActiveConversationId(resp.conversation_id);
+        }
+        const actual = allModels.find(m => m.id === resp.model_id) || targetModel;
+        setActiveMessages(prev =>
+          prev.map(msg =>
+            msg.id === assistantMsgId
+              ? {
+                  ...msg,
+                  isStreaming: false,
+                  content: resp.response,
+                  latencyMs: resp.latency_ms,
+                  modelId: resp.model_id,
+                  modelName: actual.name,
+                  modelTag: actual.tag,
+                  provider: resp.provider,
+                  routed: Boolean(resp.routed),
+                  routingCategory: resp.routing_category,
+                  routingExplanation: resp.routing_explanation,
+                  effort: resp.effort || targetEffort,
+                  documentId: resp.document_id || targetDocId,
+                  documentName: resp.document_name || targetDocName,
+                }
+              : msg
+          )
+        );
+        refreshConversations();
+        return;
+      }
+
       await streamChatMessage({
         message: messageContent,
         model_id: targetModelId,
         conversation_id: activeConversationId,
         effort: targetEffort,
         document_id: targetDocId,
+        custom_instructions: userSettings?.custom_instructions,
         custom_api_key: customKey,
         custom_provider: customProvider,
         custom_base_url: customBaseUrl,

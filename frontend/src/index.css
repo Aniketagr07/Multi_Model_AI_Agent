@@ -16,6 +16,21 @@
   --error: #EF4444;
 }
 
+[data-theme="light"],
+.light {
+  color-scheme: light;
+  --bg-main: #F8FAFC;
+  --bg-sidebar: #FFFFFF;
+  --bg-panel: #F1F5F9;
+  --text-primary: #0F172A;
+  --text-secondary: #475569;
+  --border-color: #E2E8F0;
+  --accent: #7C3AED;
+  --accent-hover: #6D28D9;
+  --success: #16A34A;
+  --error: #DC2626;
+}
+
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
@@ -23,9 +38,71 @@ body {
   background-color: var(--bg-main);
   color: var(--text-primary);
   overflow-x: hidden;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
-/* Custom subtle dark scrollbar */
+/* Light theme overrides for fixed dark classes */
+[data-theme="light"] .bg-\[\#0B0D12\],
+.light .bg-\[\#0B0D12\] {
+  background-color: #F8FAFC !important;
+}
+
+[data-theme="light"] .bg-\[\#10131A\],
+.light .bg-\[\#10131A\] {
+  background-color: #FFFFFF !important;
+}
+
+[data-theme="light"] .bg-\[\#151923\],
+.light .bg-\[\#151923\] {
+  background-color: #F1F5F9 !important;
+}
+
+[data-theme="light"] .bg-\[\#1E2330\],
+.light .bg-\[\#1E2330\] {
+  background-color: #E2E8F0 !important;
+}
+
+[data-theme="light"] .border-\[\#282D38\],
+.light .border-\[\#282D38\] {
+  border-color: #E2E8F0 !important;
+}
+
+[data-theme="light"] .text-\[\#F3F4F6\],
+.light .text-\[\#F3F4F6\] {
+  color: #0F172A !important;
+}
+
+[data-theme="light"] .text-\[\#9CA3AF\],
+.light .text-\[\#9CA3AF\] {
+  color: #64748B !important;
+}
+
+[data-theme="light"] .text-slate-400,
+.light .text-slate-400 {
+  color: #64748B !important;
+}
+
+[data-theme="light"] .text-slate-200,
+.light .text-slate-200 {
+  color: #1E293B !important;
+}
+
+[data-theme="light"] .text-slate-300,
+.light .text-slate-300 {
+  color: #334155 !important;
+}
+
+[data-theme="light"] .text-slate-100,
+.light .text-slate-100 {
+  color: #0F172A !important;
+}
+
+[data-theme="light"] .text-white,
+.light .text-white {
+  color: #0F172A !important;
+}
+
+/* Custom subtle scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -36,12 +113,12 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #282D38;
+  background: var(--border-color);
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #3D4454;
+  background: var(--text-secondary);
 }
 
 /* Code block formatting */

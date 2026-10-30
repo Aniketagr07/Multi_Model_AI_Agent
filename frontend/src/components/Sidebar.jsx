@@ -520,6 +520,29 @@ export function Sidebar({
             </div>
             {activeView === 'compare' && <span className="w-1.5 h-1.5 rounded-full bg-purple-400"></span>}
           </button>
+
+          {/* Settings & Personalization Navigation Button */}
+          <button
+            type="button"
+            onClick={() => {
+              if (onSelectView) onSelectView('settings');
+              if (window.innerWidth < 768) onClose();
+            }}
+            className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+              activeView === 'settings'
+                ? 'bg-[#151923] text-purple-300 border border-purple-500/20'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-[#151923]/50 border border-transparent'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <svg className={`w-4 h-4 ${activeView === 'settings' ? 'text-purple-400' : 'text-slate-400'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="3" />
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+              </svg>
+              <span>Settings</span>
+            </div>
+            {activeView === 'settings' && <span className="w-1.5 h-1.5 rounded-full bg-purple-400"></span>}
+          </button>
         </div>
 
         {/* TASK 3: Conversation History List Organized into Pinned, Recent, and Archived */}

@@ -141,13 +141,33 @@ class ChatService:
         created = await ConversationRepository.a_create_conversation(title=title)
         return created["id"]
 
+    def _sanitize_custom_instructions(self, instructions: Optional[str]) -> Optional[str]:
+        """Sanitize custom user instructions and neutralize prompt injection attempts."""
+        if not instructions or not instructions.strip():
+            return None
+        clean = instructions.strip()[:2000]
+        prohibited_phrases = [
+            "ignore all previous instructions",
+            "ignore previous instructions",
+            "disregard all previous directions",
+            "override system prompt",
+            "bypass safety filters",
+        ]
+        for p in prohibited_phrases:
+            clean = clean.replace(p, "").replace(p.upper(), "").replace(p.title(), "")
+        clean = clean.strip()
+        if not clean:
+            return None
+        return f"[User Style Instructions]: {clean}\n[Security Policy: System core safety rules, access boundaries, and grounding policies remain in full effect.]"
+
     async def _prepare_history(
         self,
         conv_id: str,
         current_message: str,
         history: Optional[List[ChatMessage]] = None,
+        custom_instructions: Optional[str] = None,
     ) -> List[Dict[str, str]]:
-        """Consolidate conversational history and latest message up to the maximum context limit."""
+        """Consolidate conversational history, custom instructions, and latest message up to context limit."""
         settings = get_settings()
         max_history = settings.MAX_HISTORY_MESSAGES
 
@@ -168,6 +188,18 @@ class ChatService:
             formatted_messages.append({
                 "role": "user",
                 "content": current_message,
+            })
+
+        # Inject sanitized custom instructions at the start of context
+        sanitized = self._sanitize_custom_instructions(custom_instructions)
+        if sanitized:
+            formatted_messages.insert(0, {
+                "role": "user",
+                "content": sanitized,
+            })
+            formatted_messages.insert(1, {
+                "role": "assistant",
+                "content": "Understood. I will strictly adhere to your style instructions while maintaining safety and accuracy.",
             })
 
         return formatted_messages
@@ -238,7 +270,12 @@ class ChatService:
         )
 
         # 4. Prepare sliding-window context history
-        messages_payload = await self._prepare_history(conv_id, request.message, request.messages)
+        messages_payload = await self._prepare_history(
+            conv_id,
+            request.message,
+            request.messages,
+            custom_instructions=request.custom_instructions,
+        )
 
         # Ground the current prompt with document context if document attached
         if request.document_id and doc_name:
@@ -387,7 +424,12 @@ class ChatService:
         )
 
         # 4. Prepare sliding-window context history
-        messages_payload = await self._prepare_history(conv_id, request.message, request.messages)
+        messages_payload = await self._prepare_history(
+            conv_id,
+            request.message,
+            request.messages,
+            custom_instructions=request.custom_instructions,
+        )
 
         # Ground current prompt with document context if document attached
         if request.document_id and doc_name:
