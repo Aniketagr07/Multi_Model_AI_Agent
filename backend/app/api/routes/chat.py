@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, status
+from fastapi.responses import StreamingResponse
 from app.core.model_registry import ModelRegistry
 from app.schemas.chat import (
     ChatRequest,
@@ -72,3 +73,25 @@ async def chat_completion(
 ) -> ChatResponse:
     """Process incoming chat request and generate AI model completion."""
     return await chat_service.process_chat(request)
+
+
+@router.post(
+    "/chat/stream",
+    status_code=status.HTTP_200_OK,
+    summary="Generate Progressive Streaming Chat Completion via SSE",
+    description="Streams real-time response tokens using Server-Sent Events (SSE). Emits meta, token, done, and error events.",
+)
+async def chat_stream(
+    request: ChatRequest,
+    chat_service: ChatService = Depends(get_chat_service),
+) -> StreamingResponse:
+    """Stream AI model completion tokens progressively via Server-Sent Events."""
+    return StreamingResponse(
+        chat_service.stream_chat(request),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )

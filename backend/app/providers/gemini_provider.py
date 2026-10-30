@@ -1,5 +1,6 @@
+import json
 import logging
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, AsyncGenerator
 import httpx
 
 from app.providers.base import (
@@ -15,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 class GeminiProvider(BaseLLMProvider):
-    """Adapter for Google Gemini API via official REST interface."""
+    """Adapter for Google Gemini API via official REST interface with streaming SSE support."""
 
     def __init__(
         self,
@@ -35,7 +36,6 @@ class GeminiProvider(BaseLLMProvider):
         formatted = []
         for msg in messages:
             role = msg.get("role", "user")
-            # Map assistant role to Gemini's expected 'model' role
             gemini_role = "model" if role == "assistant" else "user"
             content_text = msg.get("content", "")
             if content_text.strip():
@@ -45,40 +45,30 @@ class GeminiProvider(BaseLLMProvider):
                 })
         return formatted
 
+    def _get_generation_config(self, effort: str) -> Dict[str, Any]:
+        """Derive generation parameters from effort tier."""
+        effort_level = (effort or "medium").lower()
+        if effort_level == "low":
+            return {"temperature": 0.2, "maxOutputTokens": 1024}
+        elif effort_level == "high":
+            return {"temperature": 0.9, "maxOutputTokens": 8192}
+        else:
+            return {"temperature": 0.7, "maxOutputTokens": 4096}
+
     async def generate_response(self, messages: List[Dict[str, str]], model_id: str = "gemini-3.5-flash", effort: str = "medium") -> str:
-        """
-        Send formatted prompt to Google Gemini API and extract response text.
-        """
+        """Send formatted prompt to Google Gemini API and extract complete response text."""
         if not self.api_key or not self.api_key.strip():
             raise ProviderConfigError(
                 "Gemini API key is not configured. Please set GEMINI_API_KEY in backend/.env"
             )
 
-        # Gemini model endpoint
         endpoint = f"{self.base_url}/models/{model_id}:generateContent"
         params = {"key": self.api_key}
-        effort_level = (effort or "medium").lower()
-        if effort_level == "low":
-            temperature = 0.2
-            max_output_tokens = 1024
-        elif effort_level == "high":
-            temperature = 0.9
-            max_output_tokens = 8192
-        else:
-            temperature = 0.7
-            max_output_tokens = 4096
-
-        generation_config: Dict[str, Any] = {
-            "temperature": temperature,
-            "maxOutputTokens": max_output_tokens,
-        }
-
         payload = {
             "contents": self._format_messages(messages),
-            "generationConfig": generation_config,
+            "generationConfig": self._get_generation_config(effort),
         }
 
-        # For experimental/preview models like 3.8, use a responsive timeout so users aren't left waiting 30s
         call_timeout = 8.0 if "3.8" in model_id else self.timeout
 
         try:
@@ -125,7 +115,6 @@ class GeminiProvider(BaseLLMProvider):
                         except Exception as fb_err:
                             logger.warning("Fallback model '%s' failed: %s", fb_model, fb_err)
 
-            # Handle error status codes
             if response.status_code == 400:
                 try:
                     err_json = response.json()
@@ -133,73 +122,135 @@ class GeminiProvider(BaseLLMProvider):
                 except Exception:
                     err_msg = "Invalid request format."
                 raise ProviderError(f"Gemini API error: {err_msg}", status_code=400)
-
             elif response.status_code in (401, 403):
-                raise ProviderAuthError(
-                    "Authentication failed with Google Gemini API. Please verify your GEMINI_API_KEY."
-                )
-
+                raise ProviderAuthError("Authentication failed with Google Gemini API. Please verify your GEMINI_API_KEY.")
             elif response.status_code == 429:
-                raise ProviderRateLimitError(
-                    "Google Gemini API free tier rate limit or quota exceeded. Please wait a moment and retry."
-                )
-
+                raise ProviderRateLimitError("Google Gemini API free tier rate limit or quota exceeded. Please wait a moment and retry.")
             elif response.status_code >= 500:
-                raise ProviderError(
-                    "Google Gemini API servers encountered an internal error. Please try again later.",
-                    status_code=502,
-                )
-
+                raise ProviderError("Google Gemini API servers encountered an internal error. Please try again later.", status_code=502)
             elif response.status_code != 200:
-                raise ProviderError(
-                    f"Unexpected status from Gemini API (HTTP {response.status_code}).",
-                    status_code=502,
-                )
+                raise ProviderError(f"Unexpected status from Gemini API (HTTP {response.status_code}).", status_code=502)
 
-            # Parse successful 200 response
             data = response.json()
             candidates = data.get("candidates", [])
             if not candidates:
-                # Check for prompt feedback block
                 feedback = data.get("promptFeedback", {})
                 block_reason = feedback.get("blockReason")
                 if block_reason:
                     raise ProviderError(f"Prompt blocked by Google safety filters: {block_reason}")
                 raise ProviderError("Gemini returned an empty response with no candidates.")
 
-            first_candidate = candidates[0]
-            finish_reason = first_candidate.get("finishReason")
-            if finish_reason and finish_reason not in ("STOP", "MAX_TOKENS"):
-                if finish_reason == "SAFETY":
-                    raise ProviderError("Response blocked by Google safety policies.")
-                elif finish_reason == "RECITATION":
-                    raise ProviderError("Response withheld due to recitation check.")
-
-            content = first_candidate.get("content", {})
-            parts = content.get("parts", [])
+            parts = candidates[0].get("content", {}).get("parts", [])
             if not parts:
                 raise ProviderError("Gemini candidate contains no text parts.")
 
-            # Combine parts into string
-            text_chunks = [p.get("text", "") for p in parts if "text" in p]
-            result_text = "".join(text_chunks).strip()
-
+            result_text = "".join(p.get("text", "") for p in parts if "text" in p).strip()
             if not result_text:
                 raise ProviderError("Gemini returned empty text content.")
-
             return result_text
 
         except httpx.TimeoutException:
             logger.warning("Gemini API request timed out after %.1f seconds", self.timeout)
-            raise ProviderTimeoutError(
-                f"Google Gemini API request timed out after {self.timeout} seconds."
-            )
+            raise ProviderTimeoutError(f"Google Gemini API request timed out after {self.timeout} seconds.")
         except httpx.RequestError as req_err:
             logger.error("HTTP network error communicating with Gemini API: %s", str(req_err))
-            raise ProviderError(
-                "Network connection failure communicating with Google Gemini API.",
-                status_code=502,
+            raise ProviderError("Network connection failure communicating with Google Gemini API.", status_code=502)
+
+    async def stream_response(
+        self,
+        messages: List[Dict[str, str]],
+        model_id: str = "gemini-3.5-flash",
+        effort: str = "medium",
+    ) -> AsyncGenerator[str, None]:
+        """
+        Progressively stream text tokens from Google Gemini API via official Server-Sent Events (?alt=sse).
+        """
+        if not self.api_key or not self.api_key.strip():
+            raise ProviderConfigError(
+                "Gemini API key is not configured. Please set GEMINI_API_KEY in backend/.env"
             )
+
+        target_model = model_id
+        # For preview models, prefer fast responsive model
+        if target_model in ("gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash"):
+            target_model = "gemini-3.5-flash"
+
+        endpoint = f"{self.base_url}/models/{target_model}:streamGenerateContent"
+        params = {"key": self.api_key, "alt": "sse"}
+        payload = {
+            "contents": self._format_messages(messages),
+            "generationConfig": self._get_generation_config(effort),
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=45.0) as client:
+                async with client.stream(
+                    "POST",
+                    endpoint,
+                    params=params,
+                    json=payload,
+                    headers={"Content-Type": "application/json"},
+                ) as stream_resp:
+                    # Check for 404 or deprecation fallback
+                    if stream_resp.status_code in (404, 503) and target_model != "gemini-3.5-flash":
+                        logger.info("Streaming Gemini '%s' gave %s. Switching stream to gemini-3.5-flash...", target_model, stream_resp.status_code)
+                        fb_endpoint = f"{self.base_url}/models/gemini-3.5-flash:streamGenerateContent"
+                        async with client.stream(
+                            "POST",
+                            fb_endpoint,
+                            params=params,
+                            json=payload,
+                            headers={"Content-Type": "application/json"},
+                        ) as fb_stream:
+                            if fb_stream.status_code == 200:
+                                async for line in fb_stream.aiter_lines():
+                                    if line.startswith("data:"):
+                                        data_str = line[5:].strip()
+                                        if data_str:
+                                            try:
+                                                chunk = json.loads(data_str)
+                                                candidates = chunk.get("candidates", [])
+                                                if candidates:
+                                                    parts = candidates[0].get("content", {}).get("parts", [])
+                                                    token_text = "".join(p.get("text", "") for p in parts if "text" in p)
+                                                    if token_text:
+                                                        yield token_text
+                                            except json.JSONDecodeError:
+                                                pass
+                                return
+
+                    if stream_resp.status_code == 400:
+                        raise ProviderError("Gemini API rejected request format.", status_code=400)
+                    elif stream_resp.status_code in (401, 403):
+                        raise ProviderAuthError("Authentication failed with Google Gemini API.")
+                    elif stream_resp.status_code == 429:
+                        raise ProviderRateLimitError("Google Gemini API quota or rate limit exceeded.")
+                    elif stream_resp.status_code >= 500:
+                        raise ProviderError("Gemini servers encountered an internal error.", status_code=502)
+                    elif stream_resp.status_code != 200:
+                        raise ProviderError(f"Unexpected status from Gemini API (HTTP {stream_resp.status_code}).", status_code=502)
+
+                    async for line in stream_resp.aiter_lines():
+                        if line.startswith("data:"):
+                            data_str = line[5:].strip()
+                            if data_str:
+                                try:
+                                    chunk = json.loads(data_str)
+                                    candidates = chunk.get("candidates", [])
+                                    if candidates:
+                                        parts = candidates[0].get("content", {}).get("parts", [])
+                                        token_text = "".join(p.get("text", "") for p in parts if "text" in p)
+                                        if token_text:
+                                            yield token_text
+                                except json.JSONDecodeError:
+                                    pass
+
+        except httpx.TimeoutException:
+            logger.warning("Gemini streaming request timed out.")
+            raise ProviderTimeoutError("Google Gemini API streaming request timed out.")
+        except httpx.RequestError as req_err:
+            logger.error("HTTP network error during Gemini stream: %s", str(req_err))
+            raise ProviderError("Network connection failure communicating with Google Gemini API.", status_code=502)
 
     async def check_availability(self) -> bool:
         """Check if GEMINI_API_KEY is configured and service is reachable."""

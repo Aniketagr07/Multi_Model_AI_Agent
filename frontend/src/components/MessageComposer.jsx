@@ -6,6 +6,7 @@ export function MessageComposer({
   input,
   setInput,
   onSend,
+  onStop,
   isLoading,
   selectedModelId,
   onSelectModel,
@@ -30,6 +31,7 @@ export function MessageComposer({
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
+      // Strictly prevent duplicate submissions while loading or streaming
       if (!isLoading && input.trim()) {
         onSend();
       }
@@ -49,11 +51,15 @@ export function MessageComposer({
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           disabled={isLoading}
-          placeholder="Ask anything or request code... (Shift + Enter for new line)"
-          className="w-full bg-transparent resize-none text-sm text-[#F3F4F6] placeholder-slate-500 focus:outline-none leading-relaxed min-h-[44px] max-h-[160px] px-1 py-1"
+          placeholder={
+            isLoading
+              ? "Generating response... Click Stop to halt."
+              : "Ask anything or request code... (Shift + Enter for new line)"
+          }
+          className="w-full bg-transparent resize-none text-sm text-[#F3F4F6] placeholder-slate-500 focus:outline-none leading-relaxed min-h-[44px] max-h-[160px] px-1 py-1 disabled:opacity-60"
         />
 
-        {/* Bottom Toolbar: Model Selector & Send Button */}
+        {/* Bottom Toolbar: Model Selector, Effort, Stop & Send Button */}
         <div className="flex items-center justify-between pt-2 mt-1 border-t border-[#282D38]/60">
           {/* Model Selector, Effort Selector & API Key Button */}
           <div className="flex items-center gap-2 flex-wrap">
@@ -80,23 +86,48 @@ export function MessageComposer({
             </button>
           </div>
 
-          <div className="flex items-center gap-3">
-            {/* Keyboard shortcut hint */}
-            <span className="hidden sm:inline-block text-[11px] text-slate-500 select-none">
-              Press <kbd className="px-1.5 py-0.5 rounded bg-[#10131A] border border-[#282D38] text-[10px]">Enter</kbd> to send
-            </span>
+          <div className="flex items-center gap-2.5">
+            {/* Active Stop Generation Action */}
+            {isLoading && onStop && (
+              <button
+                type="button"
+                onClick={onStop}
+                title="Stop generation"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-950/40 hover:bg-red-900/60 text-red-300 hover:text-red-100 border border-red-500/40 text-xs font-medium transition-all shadow-sm shadow-red-950/50 cursor-pointer animate-pulse"
+              >
+                <span className="w-2 h-2 rounded-xs bg-red-400"></span>
+                <span>Stop</span>
+              </button>
+            )}
 
-            {/* Send Button */}
-            <button
-              type="button"
-              onClick={onSend}
-              disabled={isSendDisabled}
-              aria-label="Send message"
-              className="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-[#8B5CF6] hover:bg-[#7C3AED] active:scale-95 text-white transition-all disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-[#8B5CF6] shadow-sm shadow-purple-500/20 cursor-pointer"
-            >
-              {isLoading ? (
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
+            {/* Keyboard shortcut hint */}
+            {!isLoading && (
+              <span className="hidden sm:inline-block text-[11px] text-slate-500 select-none">
+                Press <kbd className="px-1.5 py-0.5 rounded bg-[#10131A] border border-[#282D38] text-[10px]">Enter</kbd> to send
+              </span>
+            )}
+
+            {/* Send / Stop Button */}
+            {isLoading ? (
+              <button
+                type="button"
+                onClick={onStop}
+                title="Stop generation"
+                aria-label="Stop generation"
+                className="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-red-600/90 hover:bg-red-600 active:scale-95 text-white transition-all shadow-sm shadow-red-500/30 cursor-pointer"
+              >
+                <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                  <rect x="5" y="5" width="14" height="14" rx="2" />
+                </svg>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={onSend}
+                disabled={isSendDisabled}
+                aria-label="Send message"
+                className="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-[#8B5CF6] hover:bg-[#7C3AED] active:scale-95 text-white transition-all disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-[#8B5CF6] shadow-sm shadow-purple-500/20 cursor-pointer"
+              >
                 <svg
                   className="w-4 h-4 translate-x-0.5 -translate-y-0.5"
                   viewBox="0 0 24 24"
@@ -109,12 +140,11 @@ export function MessageComposer({
                   <line x1="22" y1="2" x2="11" y2="13" />
                   <polygon points="22 2 15 22 11 13 2 9 22 2" />
                 </svg>
-              )}
-            </button>
+              </button>
+            )}
           </div>
         </div>
       </div>
     </div>
   );
 }
-

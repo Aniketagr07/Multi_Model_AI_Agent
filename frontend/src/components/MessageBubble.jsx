@@ -1,100 +1,26 @@
 import React, { useState } from 'react';
+import { MarkdownRenderer } from './MarkdownRenderer';
 
-/**
- * Helper to render message content with support for code blocks (```code```)
- * and preserve line breaks without external heavy dependencies.
- */
-function FormattedContent({ text }) {
-  if (!text) return null;
-
-  // Split on code block delimiters: ```[language]\n...\n```
-  const parts = text.split(/(```[\s\S]*?```)/g);
-
-  return (
-    <div className="space-y-2 text-sm leading-relaxed text-[#F3F4F6] break-words">
-      {parts.map((part, index) => {
-        if (part.startsWith('```') && part.endsWith('```')) {
-          // Extract language (if any) and code body
-          const lines = part.slice(3, -3).trim().split('\n');
-          let language = 'code';
-          let codeContent = part.slice(3, -3);
-
-          if (lines[0] && !lines[0].includes(' ') && lines.length > 1) {
-            language = lines[0].trim();
-            codeContent = lines.slice(1).join('\n');
-          }
-
-          return <CodeBlock key={index} code={codeContent.trim()} language={language} />;
-        }
-
-        // Render normal paragraph text with line breaks preserved
-        return (
-          <p key={index} className="whitespace-pre-wrap">
-            {part}
-          </p>
-        );
-      })}
-    </div>
-  );
-}
-
-function CodeBlock({ code, language }) {
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(code);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.warn('Failed to copy code to clipboard', err);
-    }
-  };
-
-  return (
-    <div className="my-3 rounded-xl overflow-hidden border border-[#282D38] bg-[#0B0D12] text-xs">
-      <div className="flex items-center justify-between px-3.5 py-1.5 bg-[#10131A] border-b border-[#282D38] text-slate-400">
-        <span className="font-mono text-[11px] uppercase tracking-wider text-purple-400 font-semibold">
-          {language}
-        </span>
-        <button
-          type="button"
-          onClick={handleCopy}
-          className="flex items-center gap-1 text-[11px] hover:text-white px-2 py-0.5 rounded hover:bg-[#151923] transition-colors"
-        >
-          {copied ? (
-            <>
-              <svg className="w-3.5 h-3.5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
-              <span className="text-emerald-400">Copied</span>
-            </>
-          ) : (
-            <>
-              <svg className="w-3.5 h-3.5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-              </svg>
-              <span>Copy</span>
-            </>
-          )}
-        </button>
-      </div>
-      <pre className="p-3.5 overflow-x-auto font-mono text-[12px] leading-relaxed text-slate-200">
-        <code>{code}</code>
-      </pre>
-    </div>
-  );
-}
-
-export function MessageBubble({ message, onRetry }) {
+export function MessageBubble({ message, onRetry, onRegenerate, isLastAssistant = false }) {
+  const [copiedFull, setCopiedFull] = useState(false);
   const isUser = message.sender === 'user';
   const isError = Boolean(message.isError);
+  const isStreaming = Boolean(message.isStreaming);
   const isSystemNotice = Boolean(message.isNotice || message.status === 'unconnected');
 
   const formattedTime = message.timestamp
     ? new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     : '';
+
+  const handleCopyFull = async () => {
+    try {
+      await navigator.clipboard.writeText(message.content);
+      setCopiedFull(true);
+      setTimeout(() => setCopiedFull(false), 2000);
+    } catch (err) {
+      console.warn('Failed to copy message to clipboard:', err);
+    }
+  };
 
   // Determine distinctive badge styling per provider
   const isGroq = message.provider === 'groq' ||
@@ -108,7 +34,7 @@ export function MessageBubble({ message, onRetry }) {
 
   return (
     <article
-      className={`flex gap-3 max-w-4xl w-full mx-auto p-4 transition-colors ${
+      className={`flex gap-3 max-w-4xl w-full mx-auto p-4 transition-colors group ${
         isUser ? 'justify-end' : 'justify-start'
       }`}
     >
@@ -117,6 +43,8 @@ export function MessageBubble({ message, onRetry }) {
         <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white shrink-0 shadow-md mt-0.5 ${
           isError
             ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+            : isStreaming
+            ? 'bg-gradient-to-tr from-purple-600 to-indigo-600 animate-pulse shadow-purple-500/30 ring-2 ring-purple-500/40'
             : isGroq
             ? 'bg-gradient-to-tr from-amber-500 to-orange-600 shadow-amber-500/20'
             : 'bg-gradient-to-tr from-[#8B5CF6] to-indigo-600 shadow-purple-500/20'
@@ -127,6 +55,8 @@ export function MessageBubble({ message, onRetry }) {
               <line x1="12" y1="8" x2="12" y2="12" />
               <line x1="12" y1="16" x2="12.01" y2="16" />
             </svg>
+          ) : isStreaming ? (
+            <span className="w-2.5 h-2.5 rounded-full bg-white animate-ping" />
           ) : (
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <polygon points="12 2 2 7 12 12 22 7 12 2" />
@@ -139,7 +69,7 @@ export function MessageBubble({ message, onRetry }) {
 
       {/* Bubble Container */}
       <div
-        className={`flex flex-col space-y-1.5 max-w-[85%] sm:max-w-[78%] ${
+        className={`flex flex-col space-y-1.5 max-w-[88%] sm:max-w-[82%] ${
           isUser ? 'items-end' : 'items-start'
         }`}
       >
@@ -153,7 +83,13 @@ export function MessageBubble({ message, onRetry }) {
               {message.modelTag}
             </span>
           )}
-          {message.routed && (
+          {isStreaming && (
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/40 font-medium flex items-center gap-1.5 animate-pulse">
+              <span className="w-1.5 h-1.5 rounded-full bg-purple-400"></span>
+              Streaming...
+            </span>
+          )}
+          {message.routed && !isStreaming && (
             <span className="text-[10px] px-1.5 py-0.2 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20 font-medium">
               🎯 Auto: {message.routingCategory ? message.routingCategory.toUpperCase() : 'ROUTED'}
             </span>
@@ -174,7 +110,7 @@ export function MessageBubble({ message, onRetry }) {
               {message.effort === 'high' ? '🧠 High Effort' : message.effort === 'low' ? '⚡ Low Effort' : '⚖️ Med Effort'}
             </span>
           )}
-          {typeof message.latencyMs === 'number' && (
+          {typeof message.latencyMs === 'number' && !isStreaming && (
             <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">
               ⚡ {message.latencyMs}ms
             </span>
@@ -184,20 +120,24 @@ export function MessageBubble({ message, onRetry }) {
 
         {/* Content Box */}
         <div
-          className={`p-4 rounded-2xl ${
+          className={`p-4 rounded-2xl w-full transition-all ${
             isUser
               ? 'bg-[#1E2330] text-[#F3F4F6] border border-[#282D38] rounded-tr-sm'
               : isError
               ? 'bg-red-950/20 text-red-200 border border-red-500/30 rounded-tl-sm'
               : isSystemNotice
               ? 'bg-[#151923] border border-purple-500/30 text-[#F3F4F6] rounded-tl-sm'
-              : 'bg-[#151923] text-[#F3F4F6] border border-[#282D38] rounded-tl-sm'
+              : 'bg-[#151923] text-[#F3F4F6] border border-[#282D38] rounded-tl-sm shadow-md'
           }`}
         >
-          <FormattedContent text={message.content} />
+          {/* Secure Markdown Rendering */}
+          <MarkdownRenderer
+            content={message.content}
+            isStreaming={isStreaming}
+          />
 
           {/* Explainable Routing Rationale Banner */}
-          {message.routingExplanation && (
+          {message.routingExplanation && !isStreaming && (
             <div className="mt-3 pt-2.5 border-t border-[#282D38]/80 text-[11px] text-purple-300 flex items-start gap-2 bg-[#10131A]/70 px-3 py-2 rounded-xl border border-purple-500/20">
               <span className="shrink-0 text-purple-400 text-xs">🎯</span>
               <span className="leading-relaxed">
@@ -214,31 +154,60 @@ export function MessageBubble({ message, onRetry }) {
               </span>
               <button
                 type="button"
-                onClick={() => onRetry(message.originalUserMessage, message.modelId)}
-                className="px-2.5 py-1 rounded bg-[#10131A] hover:bg-red-900/30 text-red-300 border border-red-500/30 text-[11px] font-medium transition-colors cursor-pointer"
+                onClick={() => onRetry(message.originalUserMessage, message.modelId, message.effort)}
+                className="px-3 py-1.5 rounded-lg bg-red-950/40 hover:bg-red-900/50 text-red-300 border border-red-500/40 text-[11px] font-medium transition-colors cursor-pointer flex items-center gap-1.5"
               >
-                Retry with {message.modelName || 'Model'}
-              </button>
-            </div>
-          )}
-
-          {/* Historical notice */}
-          {isSystemNotice && !isError && onRetry && message.originalUserMessage && (
-            <div className="mt-3 pt-3 border-t border-[#282D38] flex flex-wrap items-center justify-between gap-2 text-xs">
-              <span className="inline-flex items-center gap-1.5 text-purple-400 text-[11px]">
-                <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse"></span>
-                Day 6: Intelligent Model Router
-              </span>
-              <button
-                type="button"
-                onClick={() => onRetry(message.originalUserMessage, message.modelId)}
-                className="px-2.5 py-1 rounded bg-[#10131A] hover:bg-[#1E2330] text-slate-300 border border-[#282D38] text-[11px] font-medium transition-colors cursor-pointer"
-              >
-                Submit with Active AI Model
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
+                </svg>
+                <span>Retry Message</span>
               </button>
             </div>
           )}
         </div>
+
+        {/* Message Action Bar (Copy full assistant answer & Regenerate) */}
+        {!isUser && !isError && !isStreaming && message.content && (
+          <div className="flex items-center gap-2 pt-1 px-1 opacity-75 group-hover:opacity-100 transition-opacity">
+            <button
+              type="button"
+              onClick={handleCopyFull}
+              title="Copy entire response"
+              className="flex items-center gap-1.5 text-[11px] text-slate-400 hover:text-white px-2 py-1 rounded-md bg-[#10131A] hover:bg-[#151923] border border-[#282D38] transition-colors cursor-pointer"
+            >
+              {copiedFull ? (
+                <>
+                  <svg className="w-3.5 h-3.5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                  <span className="text-emerald-400">Copied</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                  </svg>
+                  <span>Copy</span>
+                </>
+              )}
+            </button>
+
+            {onRegenerate && (
+              <button
+                type="button"
+                onClick={() => onRegenerate(message)}
+                title="Regenerate this response"
+                className="flex items-center gap-1.5 text-[11px] text-slate-400 hover:text-purple-300 px-2 py-1 rounded-md bg-[#10131A] hover:bg-[#151923] border border-[#282D38] transition-colors cursor-pointer"
+              >
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
+                </svg>
+                <span>Regenerate</span>
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* User Avatar */}

@@ -40,6 +40,8 @@ export default function App() {
     deleteConversation,
     setSelectedModelId,
     sendMessage,
+    stopGeneration,
+    regenerateResponse,
   } = useChat({ customModels, customKeys });
 
   const { status: healthStatus, checkHealth: onCheckHealth } = useHealthCheck();
@@ -52,9 +54,9 @@ export default function App() {
     sendMessage(promptText);
   };
 
-  const handleRetryMessage = (promptText) => {
+  const handleRetryMessage = (promptText, modelId, effortTier) => {
     if (promptText) {
-      sendMessage(promptText);
+      sendMessage(promptText, modelId, effortTier);
     }
   };
 
@@ -101,6 +103,7 @@ export default function App() {
               selectedModelName={selectedModel.name}
               onSelectPrompt={handleSelectPrompt}
               onRetryMessage={handleRetryMessage}
+              onRegenerate={regenerateResponse}
             />
 
             {/* Bottom Message Composer */}
@@ -108,6 +111,7 @@ export default function App() {
               input={input}
               setInput={setInput}
               onSend={() => sendMessage()}
+              onStop={stopGeneration}
               isLoading={isLoading}
               selectedModelId={selectedModelId}
               onSelectModel={setSelectedModelId}

@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any
+from typing import List, Dict, Any, AsyncGenerator
 
 
 class ProviderError(Exception):
@@ -45,6 +45,7 @@ class BaseLLMProvider(ABC):
         Args:
             messages: List of message dicts with 'role' ('user' or 'assistant') and 'content'.
             model_id: Specific model identifier to target.
+            effort: Reasoning/effort tier ('low', 'medium', 'high').
 
         Returns:
             The raw text response from the model.
@@ -55,7 +56,26 @@ class BaseLLMProvider(ABC):
         pass
 
     @abstractmethod
+    async def stream_response(
+        self,
+        messages: List[Dict[str, str]],
+        model_id: str,
+        effort: str = "medium",
+    ) -> AsyncGenerator[str, None]:
+        """
+        Stream text chunks progressively from the provider via asynchronous generator.
+
+        Args:
+            messages: List of message dicts.
+            model_id: Model identifier.
+            effort: Reasoning effort tier.
+
+        Yields:
+            Text token deltas progressively.
+        """
+        pass
+
+    @abstractmethod
     async def check_availability(self) -> bool:
         """Verify provider availability and credentials."""
         pass
-

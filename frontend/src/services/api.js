@@ -63,7 +63,7 @@ export async function fetchModelRegistry() {
 }
 
 /**
- * Dispatches a chat message to the FastAPI backend.
+ * Dispatches a chat message to the FastAPI backend (Synchronous non-streaming).
  * Target: POST /api/chat
  */
 export async function sendChatMessage({
@@ -123,6 +123,111 @@ export async function sendChatMessage({
   }
 
   return await response.json();
+}
+
+/**
+ * Streams real-time chat completion tokens via Server-Sent Events (SSE).
+ * Target: POST /api/chat/stream
+ */
+export async function streamChatMessage({
+  message,
+  model_id,
+  conversation_id,
+  messages,
+  effort,
+  custom_api_key,
+  custom_provider,
+  custom_base_url,
+  custom_provider_model_id,
+  signal,
+  onMeta,
+  onToken,
+  onDone,
+  onError,
+}) {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/chat/stream`;
+
+  const payload = {
+    message,
+    model_id: model_id || 'auto',
+    conversation_id: conversation_id || null,
+    messages: messages && messages.length > 0 ? messages : null,
+    effort: effort || 'medium',
+    custom_api_key: custom_api_key || null,
+    custom_provider: custom_provider || null,
+    custom_base_url: custom_base_url || null,
+    custom_provider_model_id: custom_provider_model_id || null,
+  };
+
+  let response;
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'text/event-stream',
+      },
+      body: JSON.stringify(payload),
+      signal,
+    });
+  } catch (networkError) {
+    if (signal?.aborted) {
+      throw new Error('Generation stopped by user.');
+    }
+    throw new Error(
+      `Network connection failure: Unable to reach OmniAI backend at ${API_BASE_URL}. Ensure the FastAPI server is running.`
+    );
+  }
+
+  if (!response.ok) {
+    let errorMessage = `Streaming request failed with HTTP ${response.status}`;
+    try {
+      const errorJson = await response.json();
+      if (errorJson && errorJson.detail) {
+        errorMessage = typeof errorJson.detail === 'string'
+          ? errorJson.detail
+          : JSON.stringify(errorJson.detail);
+      }
+    } catch {
+      // Non-JSON error fallback
+    }
+    throw new Error(errorMessage);
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder('utf-8');
+  let buffer = '';
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || !trimmed.startsWith('data: ')) continue;
+        const jsonStr = trimmed.slice(6);
+        try {
+          const event = JSON.parse(jsonStr);
+          if (event.type === 'meta' && onMeta) onMeta(event);
+          else if (event.type === 'token' && onToken) onToken(event.token);
+          else if (event.type === 'done' && onDone) onDone(event);
+          else if (event.type === 'error' && onError) onError(event.error);
+        } catch (parseErr) {
+          console.warn('[OmniAI Stream] SSE JSON parse warning:', parseErr);
+        }
+      }
+    }
+  } catch (streamReadErr) {
+    if (signal?.aborted) {
+      throw new Error('Generation stopped by user.');
+    }
+    throw streamReadErr;
+  }
 }
 
 /**

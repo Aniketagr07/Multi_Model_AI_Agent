@@ -1,6 +1,8 @@
 import time
+import json
+import asyncio
 import logging
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, AsyncGenerator
 from fastapi import HTTPException
 
 from app.core.config import get_settings
@@ -125,9 +127,7 @@ class ChatService:
         return model_info, provider
 
     async def _resolve_conversation(self, conv_id: Optional[str], initial_prompt: str) -> str:
-        """
-        Ensure conversation exists in SQLite. If missing or None, creates it.
-        """
+        """Ensure conversation exists in SQLite. If missing or None, creates it."""
         title = initial_prompt.strip()[:35] + ("..." if len(initial_prompt.strip()) > 35 else "")
         if not title:
             title = "New Conversation"
@@ -136,7 +136,6 @@ class ChatService:
             existing = await ConversationRepository.a_get_conversation(conv_id)
             if existing:
                 return conv_id
-            # If specified ID does not exist, initialize it with that ID
             created = await ConversationRepository.a_create_conversation(conv_id=conv_id, title=title)
             return created["id"]
 
@@ -149,10 +148,7 @@ class ChatService:
         current_message: str,
         history: Optional[List[ChatMessage]] = None,
     ) -> List[Dict[str, str]]:
-        """
-        Consolidate conversational history and latest message up to the maximum context limit.
-        Loads from SQLite if history is not provided by the client.
-        """
+        """Consolidate conversational history and latest message up to the maximum context limit."""
         settings = get_settings()
         max_history = settings.MAX_HISTORY_MESSAGES
 
@@ -166,11 +162,9 @@ class ChatService:
                     "content": msg.content,
                 })
         else:
-            # Load chronological recent history from SQLite database
             db_history = await ConversationRepository.a_get_recent_context(conv_id, limit=max_history)
             formatted_messages.extend(db_history)
 
-        # Append current user prompt if not already the last item
         if not formatted_messages or formatted_messages[-1]["content"] != current_message:
             formatted_messages.append({
                 "role": "user",
@@ -198,30 +192,148 @@ class ChatService:
         primary_model_id: str,
         available_models: List[ModelInfo],
     ) -> Optional[ModelInfo]:
-        """
-        Locate an eligible secondary model when auto-routed primary encounters a transient error.
-        Prioritizes a different provider to bypass provider-level outages or rate limits.
-        """
+        """Locate eligible secondary model when auto-routed primary encounters a transient error."""
         primary_info = ModelRegistry.get_model(primary_model_id)
         primary_provider = primary_info.provider if primary_info else None
 
-        # Prefer an alternate provider first
         for model in available_models:
             if model.id != primary_model_id and model.provider != primary_provider:
                 return model
 
-        # Otherwise pick any other available model
         for model in available_models:
             if model.id != primary_model_id:
                 return model
 
         return None
 
+    async def stream_chat(self, request: ChatRequest) -> AsyncGenerator[str, None]:
+        """
+        Stream progressive real-time SSE tokens from the resolved model adapter.
+        Handles client disconnections, abort cancellation, auto-routing, and saves
+        completed assistant responses to SQLite.
+        """
+        is_auto_mode = request.model_id.lower() == "auto"
+        routing_decision: Optional[RoutingDecision] = None
+
+        # 1. Resolve or create persistent conversation in SQLite
+        conv_id = await self._resolve_conversation(request.conversation_id, request.message)
+
+        # 2. Save user message to persistent storage immediately
+        await ConversationRepository.a_add_message(
+            conv_id=conv_id,
+            role="user",
+            content=request.message,
+        )
+
+        # 3. Prepare sliding-window context history
+        messages_payload = await self._prepare_history(conv_id, request.message, request.messages)
+
+        # 4. Resolve Model & Provider
+        if is_auto_mode:
+            available_models = ModelRegistry.get_available_models()
+            if not available_models:
+                error_event = {
+                    "type": "error",
+                    "error": "No configured AI models are available. Please configure GEMINI_API_KEY or GROQ_API_KEY.",
+                }
+                yield f"data: {json.dumps(error_event)}\n\n"
+                return
+
+            routing_decision = self._router.route_request(request.message, available_models)
+            model_info = routing_decision.chosen_model
+            provider = self._providers.get(model_info.provider)
+            if not provider:
+                error_event = {"type": "error", "error": f"Provider adapter '{model_info.provider}' missing."}
+                yield f"data: {json.dumps(error_event)}\n\n"
+                return
+        else:
+            try:
+                model_info, provider = self.resolve_model_and_provider(
+                    request.model_id,
+                    custom_api_key=request.custom_api_key,
+                    custom_provider=request.custom_provider,
+                    custom_base_url=request.custom_base_url,
+                    custom_provider_model_id=request.custom_provider_model_id,
+                )
+            except Exception as e:
+                err_text = getattr(e, "detail", str(e))
+                yield f"data: {json.dumps({'type': 'error', 'error': err_text})}\n\n"
+                return
+
+        effort = getattr(request, "effort", "medium") or "medium"
+        start_time = time.perf_counter()
+
+        # Emit initial metadata event
+        meta_event = {
+            "type": "meta",
+            "conversation_id": conv_id,
+            "model_id": model_info.id,
+            "model_name": model_info.name,
+            "model_tag": model_info.tag,
+            "provider": model_info.provider,
+            "routed": is_auto_mode,
+            "routing_category": routing_decision.category if routing_decision else None,
+            "routing_explanation": routing_decision.explanation if routing_decision else None,
+            "effort": effort,
+        }
+        yield f"data: {json.dumps(meta_event)}\n\n"
+
+        accumulated_chunks: List[str] = []
+        is_completed = False
+
+        try:
+            async for token in provider.stream_response(
+                messages=messages_payload,
+                model_id=model_info.provider_model_id,
+                effort=effort,
+            ):
+                accumulated_chunks.append(token)
+                token_event = {"type": "token", "token": token}
+                yield f"data: {json.dumps(token_event)}\n\n"
+
+            is_completed = True
+        except (GeneratorExit, asyncio.CancelledError):
+            logger.info("Stream was cancelled by client abort. Partial response is not saved as completed.")
+            # Do NOT save incomplete responses as completed answers
+            return
+        except Exception as stream_err:
+            logger.error("Streaming error on %s: %s", model_info.id, stream_err)
+            err_msg = stream_err.message if isinstance(stream_err, ProviderError) else str(stream_err)
+            yield f"data: {json.dumps({'type': 'error', 'error': err_msg})}\n\n"
+            return
+
+        # 5. Save completed response to SQLite and emit final done event
+        if is_completed and accumulated_chunks:
+            full_response = "".join(accumulated_chunks).strip()
+            elapsed_ms = int((time.perf_counter() - start_time) * 1000)
+
+            await ConversationRepository.a_add_message(
+                conv_id=conv_id,
+                role="assistant",
+                content=full_response,
+                model_id=model_info.id,
+                provider=model_info.provider,
+                latency_ms=elapsed_ms,
+                routed=is_auto_mode,
+                routing_category=routing_decision.category if routing_decision else None,
+                routing_explanation=routing_decision.explanation if routing_decision else None,
+                effort=effort,
+            )
+
+            done_event = {
+                "type": "done",
+                "conversation_id": conv_id,
+                "response": full_response,
+                "latency_ms": elapsed_ms,
+                "effort": effort,
+            }
+            yield f"data: {json.dumps(done_event)}\n\n"
+
     async def process_chat(self, request: ChatRequest) -> ChatResponse:
         """
-        Process chat request, performing automatic model routing when model_id == 'auto',
-        persisting messages into SQLite, executing with monotonic latency timing,
-        and applying a conservative fallback policy.
+        Process chat request synchronously (non-streaming), performing automatic model routing
+        when model_id == 'auto', persisting messages into SQLite, executing with monotonic
+        latency timing, and applying a conservative fallback policy.
         """
         is_auto_mode = request.model_id.lower() == "auto"
         routing_decision: Optional[RoutingDecision] = None
@@ -276,11 +388,9 @@ class ChatService:
                 effort=effort,
             )
         except (ProviderConfigError, ProviderAuthError) as e:
-            # Conservative Policy: Do not retry configuration or authentication failures
             logger.error("[%s] Config/Auth error: %s", model_info.provider, e.message)
             raise HTTPException(status_code=e.status_code, detail=e.message)
         except (ProviderRateLimitError, ProviderTimeoutError, ProviderError, Exception) as primary_err:
-            # Conservative Fallback: Only permitted for Auto Mode on transient/quota errors
             err_msg = primary_err.message if isinstance(primary_err, ProviderError) else str(primary_err)
             logger.warning(
                 "Primary model '%s' failed (%s). Evaluating fallback policy...",
@@ -289,7 +399,6 @@ class ChatService:
             )
 
             if not is_auto_mode:
-                # Manual mode: return exact failure without unexpected model substitution
                 if isinstance(primary_err, ProviderError):
                     raise HTTPException(status_code=primary_err.status_code, detail=primary_err.message)
                 raise HTTPException(
@@ -297,7 +406,6 @@ class ChatService:
                     detail=f"An internal error occurred with {model_info.name}: {err_msg}",
                 )
 
-            # Auto Mode Fallback Attempt
             available_models = ModelRegistry.get_available_models()
             fallback_model = self._find_fallback_model(model_info.id, available_models)
 

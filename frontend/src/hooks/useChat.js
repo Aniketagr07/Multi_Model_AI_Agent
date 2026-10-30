@@ -1,7 +1,7 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { AVAILABLE_MODELS } from '../components/ModelSelector';
 import {
-  sendChatMessage,
+  streamChatMessage,
   fetchConversations,
   fetchConversationDetails,
   renameConversation as apiRenameConversation,
@@ -17,6 +17,8 @@ export function useChat({ customModels = [], customKeys = {} } = {}) {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
+  const abortControllerRef = useRef(null);
 
   // Active conversation metadata
   const activeConversation = conversations.find(c => c.id === activeConversationId);
@@ -58,6 +60,12 @@ export function useChat({ customModels = [], customKeys = {} } = {}) {
 
   // Action: Select an existing conversation and load its messages
   const selectConversation = useCallback(async (convId) => {
+    // If generation is active, abort it when switching conversations
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+
     setActiveConversationId(convId);
     setInput('');
     setIsLoading(true);
@@ -92,9 +100,14 @@ export function useChat({ customModels = [], customKeys = {} } = {}) {
 
   // Action: Start a brand-new chat
   const startNewChat = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
     setActiveConversationId(null);
     setActiveMessages([]);
     setInput('');
+    setIsLoading(false);
   }, []);
 
   // Action: Rename a conversation
@@ -124,10 +137,32 @@ export function useChat({ customModels = [], customKeys = {} } = {}) {
     }
   }, [activeConversationId]);
 
-  // Action: Send Message
+  // Action: Stop Generation (TASK 2)
+  const stopGeneration = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setIsLoading(false);
+    setActiveMessages(prev =>
+      prev.map(msg =>
+        msg.isStreaming
+          ? {
+              ...msg,
+              isStreaming: false,
+              content: msg.content
+                ? `${msg.content}\n\n*[Generation stopped by user]*`
+                : '*[Generation stopped by user]*',
+            }
+          : msg
+      )
+    );
+  }, []);
+
+  // Action: Send Message with Real-Time SSE Streaming (TASK 1 & TASK 4)
   const sendMessage = useCallback(async (textToSend, overrideModelId, overrideEffort) => {
     const messageContent = (textToSend !== undefined ? textToSend : input).trim();
-    if (!messageContent || isLoading) return;
+    if (!messageContent || isLoading) return; // Prevent duplicate submissions
 
     const targetModelId = overrideModelId || selectedModelId;
     const targetModel = allModels.find(m => m.id === targetModelId) || selectedModel;
@@ -138,7 +173,14 @@ export function useChat({ customModels = [], customKeys = {} } = {}) {
     const customProvider = targetModel.customProvider || targetModel.provider || null;
     const customProviderModelId = targetModel.provider_model_id || null;
 
-    // Temporary optimistic user message
+    // Abort any existing running stream
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    // 1. Optimistic User Message
     const tempUserMessage = {
       id: `user-${Date.now()}`,
       sender: 'user',
@@ -147,13 +189,29 @@ export function useChat({ customModels = [], customKeys = {} } = {}) {
       timestamp: new Date().toISOString(),
     };
 
-    setActiveMessages(prev => [...prev, tempUserMessage]);
+    // 2. Optimistic Assistant Placeholder
+    const assistantMsgId = `assist-${Date.now()}`;
+    const initialAssistantMessage = {
+      id: assistantMsgId,
+      sender: 'assistant',
+      content: '',
+      isStreaming: true,
+      modelId: targetModelId,
+      provider: targetModel.provider,
+      modelName: targetModel.name,
+      modelTag: targetModel.tag,
+      effort: targetEffort,
+      timestamp: new Date().toISOString(),
+    };
+
+    setActiveMessages(prev => [...prev, tempUserMessage, initialAssistantMessage]);
     setInput('');
     setIsLoading(true);
 
+    let accumulatedContent = '';
+
     try {
-      // Real API request to FastAPI POST /api/chat
-      const result = await sendChatMessage({
+      await streamChatMessage({
         message: messageContent,
         model_id: targetModelId,
         conversation_id: activeConversationId,
@@ -162,42 +220,70 @@ export function useChat({ customModels = [], customKeys = {} } = {}) {
         custom_provider: customProvider,
         custom_base_url: customBaseUrl,
         custom_provider_model_id: customProviderModelId,
+        signal: controller.signal,
+
+        onMeta: (meta) => {
+          if (meta.conversation_id && meta.conversation_id !== activeConversationId) {
+            setActiveConversationId(meta.conversation_id);
+          }
+          const actual = allModels.find(m => m.id === meta.model_id) || targetModel;
+          setActiveMessages(prev =>
+            prev.map(msg =>
+              msg.id === assistantMsgId
+                ? {
+                    ...msg,
+                    modelId: meta.model_id,
+                    modelName: meta.model_name || actual.name,
+                    modelTag: meta.model_tag || actual.tag,
+                    provider: meta.provider,
+                    routed: Boolean(meta.routed),
+                    routingCategory: meta.routing_category,
+                    routingExplanation: meta.routing_explanation,
+                    effort: meta.effort || targetEffort,
+                  }
+                : msg
+            )
+          );
+        },
+
+        onToken: (token) => {
+          accumulatedContent += token;
+          setActiveMessages(prev =>
+            prev.map(msg =>
+              msg.id === assistantMsgId
+                ? { ...msg, content: accumulatedContent, isStreaming: true }
+                : msg
+            )
+          );
+        },
+
+        onDone: (doneEvent) => {
+          setActiveMessages(prev =>
+            prev.map(msg =>
+              msg.id === assistantMsgId
+                ? {
+                    ...msg,
+                    isStreaming: false,
+                    content: doneEvent.response || accumulatedContent,
+                    latencyMs: doneEvent.latency_ms,
+                    effort: doneEvent.effort || targetEffort,
+                  }
+                : msg
+            )
+          );
+          refreshConversations();
+        },
+
+        onError: (errorText) => {
+          throw new Error(errorText);
+        },
       });
-
-      // Update active conversation ID from backend response
-      if (result.conversation_id && result.conversation_id !== activeConversationId) {
-        setActiveConversationId(result.conversation_id);
-      }
-
-      // Map actual model metadata
-      const actualModel = allModels.find(m => m.id === result.model_id) || {
-        name: result.model_id,
-        tag: result.provider === 'groq' ? 'Groq Cloud' : 'Google AI Studio',
-      };
-
-      const assistantMessage = {
-        id: `assist-${Date.now()}`,
-        sender: 'assistant',
-        content: result.response,
-        modelId: result.model_id,
-        provider: result.provider || targetModel.provider,
-        modelName: actualModel.name,
-        modelTag: actualModel.tag,
-        latencyMs: result.latency_ms,
-        routed: Boolean(result.routed),
-        routingCategory: result.routing_category,
-        routingExplanation: result.routing_explanation,
-        fallbackUsed: Boolean(result.fallback_used),
-        effort: result.effort || targetEffort,
-        timestamp: result.timestamp || new Date().toISOString(),
-      };
-
-      setActiveMessages(prev => [...prev, assistantMessage]);
-
-      // Refresh sidebar list to reflect new conversation title and updated timestamp
-      await refreshConversations();
     } catch (err) {
-      console.error('[OmniAI Chat] Model request failed:', err);
+      if (controller.signal.aborted) {
+        // Handled cleanly by stopGeneration()
+        return;
+      }
+      console.error('[OmniAI Chat Stream] Error:', err);
       const errorMessage = err instanceof Error ? err.message : 'Unknown communication error occurred.';
 
       const keyName = targetModel.provider && targetModel.provider.toLowerCase().includes('groq')
@@ -207,23 +293,52 @@ export function useChat({ customModels = [], customKeys = {} } = {}) {
         ? 'https://console.groq.com/keys'
         : 'https://aistudio.google.com/app/apikey';
 
-      const errorNotice = {
-        id: `err-${Date.now()}`,
-        sender: 'assistant',
-        content: `⚠️ **${targetModel.name} Request Failed**\n\n${errorMessage}\n\n*Evaluation Guide*: If \`${keyName}\` is not configured in \`backend/.env\`, obtain a free key at [${targetModel.provider}](${portalUrl}), add \`${keyName}=\` to \`backend/.env\`, and restart the FastAPI server.`,
-        isError: true,
-        modelId: targetModelId,
-        modelName: targetModel.name,
-        modelTag: 'Error',
-        originalUserMessage: messageContent,
-        timestamp: new Date().toISOString(),
-      };
-
-      setActiveMessages(prev => [...prev, errorNotice]);
+      setActiveMessages(prev =>
+        prev.map(msg =>
+          msg.id === assistantMsgId
+            ? {
+                ...msg,
+                isStreaming: false,
+                isError: true,
+                modelTag: 'Error',
+                originalUserMessage: messageContent,
+                content: `⚠️ **${targetModel.name} Request Failed**\n\n${errorMessage}\n\n*Evaluation Guide*: If \`${keyName}\` is not configured in \`backend/.env\`, obtain a free key at [${targetModel.provider}](${portalUrl}), add \`${keyName}=\` to \`backend/.env\`, and restart the FastAPI server.`,
+              }
+            : msg
+        )
+      );
     } finally {
       setIsLoading(false);
+      abortControllerRef.current = null;
     }
   }, [input, isLoading, activeConversationId, selectedModelId, selectedModel, effort, allModels, customKeys, refreshConversations]);
+
+  // Action: Regenerate Response (TASK 2)
+  const regenerateResponse = useCallback((assistantMessage) => {
+    if (!assistantMessage || isLoading) return;
+
+    // Find the message in activeMessages to get the preceding user prompt
+    const msgIndex = activeMessages.findIndex(m => m.id === assistantMessage.id);
+    let promptToReplay = assistantMessage.originalUserMessage;
+
+    if (!promptToReplay && msgIndex > 0) {
+      const priorUserMsg = [...activeMessages.slice(0, msgIndex)].reverse().find(m => m.sender === 'user');
+      if (priorUserMsg) {
+        promptToReplay = priorUserMsg.content;
+      }
+    }
+
+    if (!promptToReplay) {
+      console.warn('Could not locate original user message to regenerate.');
+      return;
+    }
+
+    // Remove the assistant message that's being regenerated
+    setActiveMessages(prev => prev.filter(m => m.id !== assistantMessage.id));
+
+    // Re-trigger sendMessage with the retrieved prompt
+    sendMessage(promptToReplay, assistantMessage.modelId, assistantMessage.effort);
+  }, [activeMessages, isLoading, sendMessage]);
 
   return {
     conversations,
@@ -245,5 +360,7 @@ export function useChat({ customModels = [], customKeys = {} } = {}) {
     deleteConversation: deleteConversationHandler,
     setSelectedModelId,
     sendMessage,
+    stopGeneration,
+    regenerateResponse,
   };
 }

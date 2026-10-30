@@ -239,3 +239,4 @@ def get_discovery_service() -> ModelDiscoveryService:
     if _discovery_service is None:
         _discovery_service = ModelDiscoveryService()
     return _discovery_service
+

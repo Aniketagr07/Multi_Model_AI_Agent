@@ -37,3 +37,4 @@ class ModelDiscoveryResponse(BaseModel):
     count: int
     models: List[DiscoveredModelItem]
     message: str
+
