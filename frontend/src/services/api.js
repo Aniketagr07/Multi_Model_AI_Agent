@@ -12,7 +12,8 @@ const API_BASE_URL = rawApiUrl !== undefined ? rawApiUrl : 'http://127.0.0.1:800
  */
 export function getAuthHeaders() {
   if (typeof window === 'undefined') return {};
-  const token = localStorage.getItem('omniai_access_token') || import.meta.env.VITE_ACCESS_TOKEN || '';
+  const userToken = localStorage.getItem('omniai_user_token');
+  const token = userToken || localStorage.getItem('omniai_access_token') || import.meta.env.VITE_ACCESS_TOKEN || '';
   if (token && token.trim()) {
     return {
       'X-OmniAI-Token': token.trim(),
@@ -715,5 +716,154 @@ export async function saveUserSettings(settingsPayload) {
     throw new Error(errorDetail);
   }
 
+  return await response.json();
+}
+
+
+// ----------------------------------------------------------------------------
+// User Authentication API
+// ----------------------------------------------------------------------------
+
+export async function registerUser(email, username, password) {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/auth/register`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    body: JSON.stringify({ email, username, password }),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ detail: 'Registration failed' }));
+    throw new Error(err.detail || 'Registration failed');
+  }
+  return await response.json();
+}
+
+export async function loginUser(email, password) {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/auth/login`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ detail: 'Login failed' }));
+    throw new Error(err.detail || 'Invalid email or password');
+  }
+  return await response.json();
+}
+
+export async function logoutUser() {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/auth/logout`;
+  try {
+    await authFetch(url, { method: 'POST' });
+  } catch (_) {}
+  localStorage.removeItem('omniai_user_token');
+}
+
+export async function fetchCurrentUser() {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/auth/me`;
+  const response = await authFetch(url, { method: 'GET', headers: { 'Accept': 'application/json' } });
+  if (!response.ok) {
+    throw new Error('Not authenticated');
+  }
+  return await response.json();
+}
+
+export async function deleteUserAccount() {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/auth/account`;
+  const response = await authFetch(url, { method: 'DELETE' });
+  if (!response.ok) {
+    throw new Error('Failed to delete account');
+  }
+  localStorage.removeItem('omniai_user_token');
+  return await response.json();
+}
+
+// ----------------------------------------------------------------------------
+// Skills Marketplace API
+// ----------------------------------------------------------------------------
+
+export async function fetchSkillsCatalog(category = null, query = null, installedOnly = false, featuredOnly = false) {
+  const params = new URLSearchParams();
+  if (category && category !== 'All') params.append('category', category);
+  if (query && query.trim()) params.append('q', query.trim());
+  if (installedOnly) params.append('installed_only', 'true');
+  if (featuredOnly) params.append('featured_only', 'true');
+
+  const qs = params.toString() ? `?${params.toString()}` : '';
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/skills${qs}`;
+  const response = await authFetch(url, { method: 'GET', headers: { 'Accept': 'application/json' } });
+  if (!response.ok) {
+    throw new Error(`Failed to load skills: HTTP ${response.status}`);
+  }
+  return await response.json();
+}
+
+export async function fetchSkillDetail(skillId) {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/skills/${encodeURIComponent(skillId)}`;
+  const response = await authFetch(url, { method: 'GET', headers: { 'Accept': 'application/json' } });
+  if (!response.ok) {
+    throw new Error('Skill not found');
+  }
+  return await response.json();
+}
+
+export async function installSkill(skillId, consent = true, config = null) {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/skills/${encodeURIComponent(skillId)}/install`;
+  const response = await authFetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    body: JSON.stringify({ consent, config }),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ detail: 'Installation failed' }));
+    throw new Error(err.detail || 'Installation failed');
+  }
+  return await response.json();
+}
+
+export async function uninstallSkill(skillId) {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/skills/${encodeURIComponent(skillId)}/install`;
+  const response = await authFetch(url, { method: 'DELETE' });
+  if (!response.ok) {
+    throw new Error('Failed to uninstall skill');
+  }
+  return await response.json();
+}
+
+export async function toggleSkillStatus(skillId, enabled) {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/skills/${encodeURIComponent(skillId)}/toggle`;
+  const response = await authFetch(url, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    body: JSON.stringify({ enabled }),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ detail: 'Failed to update skill' }));
+    throw new Error(err.detail || 'Failed to update skill status');
+  }
+  return await response.json();
+}
+
+export async function executeSkill(skillId, params = {}, conversationId = null) {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/skills/${encodeURIComponent(skillId)}/execute`;
+  const response = await authFetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    body: JSON.stringify({ params, conversation_id: conversationId }),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ detail: 'Skill execution failed' }));
+    throw new Error(err.detail || 'Skill execution failed');
+  }
+  return await response.json();
+}
+
+export async function fetchSkillExecutionHistory(limit = 20) {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/skills/executions/history?limit=${limit}`;
+  const response = await authFetch(url, { method: 'GET', headers: { 'Accept': 'application/json' } });
+  if (!response.ok) {
+    throw new Error('Failed to load execution history');
+  }
   return await response.json();
 }

@@ -25,6 +25,7 @@ class ConversationRepository:
     def create_conversation(
         conv_id: Optional[str] = None,
         title: str = "New Conversation",
+        user_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Insert a new conversation record."""
         cid = conv_id or f"conv-{uuid.uuid4().hex[:12]}"
@@ -33,14 +34,15 @@ class ConversationRepository:
         with get_db_connection() as conn:
             conn.execute(
                 """
-                INSERT INTO conversations (id, title, is_pinned, is_archived, pinned_at, created_at, updated_at)
-                VALUES (?, ?, 0, 0, NULL, ?, ?);
+                INSERT INTO conversations (id, user_id, title, is_pinned, is_archived, pinned_at, created_at, updated_at)
+                VALUES (?, ?, ?, 0, 0, NULL, ?, ?);
                 """,
-                (cid, title.strip() or "New Conversation", now, now),
+                (cid, user_id, title.strip() or "New Conversation", now, now),
             )
 
         return {
             "id": cid,
+            "user_id": user_id,
             "title": title.strip() or "New Conversation",
             "is_pinned": False,
             "is_archived": False,
@@ -79,6 +81,7 @@ class ConversationRepository:
         include_archived: bool = True,
         archived_only: bool = False,
         search_query: Optional[str] = None,
+        user_id: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """
         Retrieve conversations ordered by pinned status (descending) and last activity (descending).
@@ -87,6 +90,12 @@ class ConversationRepository:
         with get_db_connection() as conn:
             params: List[Any] = []
             where_clauses: List[str] = []
+
+            if user_id:
+                where_clauses.append("c.user_id = ?")
+                params.append(user_id)
+            else:
+                where_clauses.append("(c.user_id IS NULL OR c.user_id = 'guest')")
 
             if archived_only:
                 where_clauses.append("c.is_archived = 1")
@@ -206,13 +215,19 @@ class ConversationRepository:
             )
 
     @staticmethod
-    def delete_conversation(conv_id: str) -> bool:
+    def delete_conversation(conv_id: str, user_id: Optional[str] = None) -> bool:
         """Delete conversation by ID (foreign keys cascade delete messages and documents)."""
         with get_db_connection() as conn:
-            cursor = conn.execute(
-                "DELETE FROM conversations WHERE id = ?;",
-                (conv_id,),
-            )
+            if user_id:
+                cursor = conn.execute(
+                    "DELETE FROM conversations WHERE id = ? AND user_id = ?;",
+                    (conv_id, user_id),
+                )
+            else:
+                cursor = conn.execute(
+                    "DELETE FROM conversations WHERE id = ?;",
+                    (conv_id,),
+                )
             return cursor.rowcount > 0
 
     @staticmethod
@@ -518,8 +533,8 @@ class ConversationRepository:
     # -------------------------------------------------------------------------
 
     @classmethod
-    async def a_create_conversation(cls, conv_id: Optional[str] = None, title: str = "New Conversation") -> Dict[str, Any]:
-        return await asyncio.to_thread(cls.create_conversation, conv_id, title)
+    async def a_create_conversation(cls, conv_id: Optional[str] = None, title: str = "New Conversation", user_id: Optional[str] = None) -> Dict[str, Any]:
+        return await asyncio.to_thread(cls.create_conversation, conv_id, title, user_id)
 
     @classmethod
     async def a_get_conversation(cls, conv_id: str) -> Optional[Dict[str, Any]]:
@@ -532,6 +547,7 @@ class ConversationRepository:
         include_archived: bool = True,
         archived_only: bool = False,
         search_query: Optional[str] = None,
+        user_id: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         return await asyncio.to_thread(
             cls.list_conversations,
@@ -539,6 +555,7 @@ class ConversationRepository:
             include_archived=include_archived,
             archived_only=archived_only,
             search_query=search_query,
+            user_id=user_id,
         )
 
     @classmethod
@@ -554,8 +571,8 @@ class ConversationRepository:
         return await asyncio.to_thread(cls.update_conversation_title, conv_id, title)
 
     @classmethod
-    async def a_delete_conversation(cls, conv_id: str) -> bool:
-        return await asyncio.to_thread(cls.delete_conversation, conv_id)
+    async def a_delete_conversation(cls, conv_id: str, user_id: Optional[str] = None) -> bool:
+        return await asyncio.to_thread(cls.delete_conversation, conv_id, user_id)
 
     @classmethod
     async def a_add_message(cls, **kwargs) -> Dict[str, Any]:

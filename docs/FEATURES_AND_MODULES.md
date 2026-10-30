@@ -78,3 +78,28 @@ This document provides a comprehensive inventory of all user-facing features, ba
 | `app.services.export_service`| N/A (Service) | Formatting conversation transcripts into Markdown, Text, and JSON. |
 | `app.db.repository` | N/A (DAO) | Parameterized SQLite queries and transaction handling. |
 
+
+
+### 7. Dual-Mode Authentication & Multi-Tenant Data Isolation
+* **Guest Mode**: Instant zero-barrier conversational workbench; saves conversations under local session boundaries with explicit cross-device sync disclaimers.
+* **Registered Accounts**: User registration and login utilizing NIST-compliant PBKDF2-HMAC-SHA256 password hashing with 32-byte cryptographic salts and 100,000 iterations.
+* **Secure Session Tokens**: 30-day cryptographically random session tokens managed via `user_sessions` SQLite table.
+* **Data Scoping & Ownership**: Strict database foreign key cascades and user ID filtering ensuring user A cannot view, mutate, or delete user B's conversations or messages.
+* **Permanent Account Deletion**: Self-service account termination that automatically wipes user profile, sessions, chats, messages, documents, and installed skills.
+
+### 8. Skills Marketplace & Sandboxed Tool Execution
+* **Extensibility Framework**: Dedicated marketplace separating AI model orchestration from tool invocation.
+* **Categorized Discovery**: Search and category filtering across Coding, Research, Productivity, Data Analysis, Documents, Math, Automation, and Integrations.
+* **Permission Consent Dialog**: Displays required permissions (e.g. `read_code`, `compute_metrics`, `web_access`) and mandates explicit confirmation before installation.
+* **Built-in Execution Handlers**:
+  * `math-solver`: AST-validated mathematical evaluator avoiding dangerous `eval`.
+  * `csv-analyzer`: Parses tabular datasets, computing row counts, sums, means, and anomalies.
+  * `code-explainer`: AST-based parser inspecting functions, classes, imports, and loops.
+  * `doc-summarizer`: Extracts structural insights, word counts, and executive bullet points.
+* **Third-Party Integrations**: Architectural foundation for GitHub, Google Drive, Calendar, and Gmail with honest connection states.
+
+### 9. Minimalist Interface Architecture
+* **Clean Top Header**: Completely eliminates redundant title headers, navigation buttons, and status indicators; features a single account profile dropdown `[ User Profile Icon | Guest User / Username ▼ ]`.
+* **Clean Sidebar**: Minimalist layout containing OmniAI branding, New Chat, conversation search, view links, and genuine conversation history with an empty state for new users; zero bottom-left footer clutter.
+* **Integrated Model Selector**: Compact trigger showing `[ Provider Logo ] Short Model Name ▼` with reasoning effort segmented controls and BYOK API key configuration inside the dropdown.
+* **Floating Usage Popover**: Non-intrusive floating popover anchored at the bottom-right displaying 5-hour and 7-day rolling quota windows.

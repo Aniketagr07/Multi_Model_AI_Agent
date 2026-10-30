@@ -6,7 +6,7 @@
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.x-38B2AC?logo=tailwind-css&logoColor=white)](https://tailwindcss.com)
 [![SQLite](https://img.shields.io/badge/SQLite-WAL_Mode-003B57?logo=sqlite&logoColor=white)](https://sqlite.org)
 [![Python](https://img.shields.io/badge/Python-3.11%20|%203.14-3776AB?logo=python&logoColor=white)](https://python.org)
-[![Tests: 101 Passed](https://img.shields.io/badge/Tests-101%20Passed%20(100%25)-brightgreen.svg)](docs/TESTING_AND_RESULTS.md)
+[![Tests: 118 Passed](https://img.shields.io/badge/Tests-118%20Passed%20(100%25)-brightgreen.svg)](docs/TESTING_AND_RESULTS.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-purple.svg)](LICENSE)
 
 OmniAI is an intelligent, multi-model AI chatbot application developed as an advanced B.Tech Capstone Project. OmniAI provides a unified, decoupled interface allowing users to converse with multiple leading AI models (Google Gemini, Groq-hosted Llama 3.1 & Mixtral, and OpenAI-compatible endpoints), stream tokens in real-time via Server-Sent Events (SSE), compare outputs side-by-side concurrently, upload and ground prompts in PDF/TXT/Markdown documents, route queries intelligently via an automatic rule-based classifier, search and manage conversations with pinning and archiving, export chat history, and personalize system behavior with custom instructions and theme preferences.
@@ -25,6 +25,20 @@ Modern AI workflows frequently require switching between different LLMs dependin
 
 ## 2. Key Features
 
+* **🔐 Dual-Mode User Authentication & Account Isolation**:
+  * **Guest Mode**: Instant access with zero registration; conversations persist in local browser sessions with clear notices.
+  * **Registered Accounts**: Email and password registration with PBKDF2-HMAC-SHA256 password hashing (100,000 rounds) and session tokens.
+  * Multi-tenant data isolation: User conversations are strictly scoped by account ID and accessible across devices.
+  * Minimalist profile control `[ User Profile Icon | Guest User / Username ▼ ]` in the top-right header with Sign In, Create Account, Settings, and Account Deletion.
+* **🧩 Skills Marketplace & Tool Execution Framework**:
+  * Modular marketplace featuring categories: Coding & Development, Research & Web, Productivity, Data Analysis, Documents & PDF, Mathematics, Automation, and Third-Party Integrations.
+  * Explicit permission review and user consent confirmation dialogs before skill installation.
+  * Sandboxed execution runners for arithmetic and symbolic algebra (`math-solver`), CSV datasets and statistics (`csv-analyzer`), AST code complexity analysis (`code-explainer`), and document summarization (`doc-summarizer`).
+  * Honest reporting for Third-Party Integrations (GitHub, Google Drive, Calendar, Gmail) requiring server-side OAuth credentials without faking connectivity.
+* **🧹 Clean Minimal UI Layout**:
+  * Uncluttered top header: Removed redundant conversation titles, navigation buttons, and status tags; retained only the account profile menu and sidebar toggle.
+  * Minimalist sidebar: Clean top branding, New Chat, search bar, and secondary navigation (Chat, Compare, Skills, Settings); completely removed bottom cards, version numbers, and footer clutter.
+  * Compact bottom message composer: `[ 📎 Attach ] [ Selected Model ▼ ] [ 🧩 Skills ] ... [ ✈ Send ]` with floating bottom-right **View Usage** popover tracking 5h and weekly rolling quotas.
 * **⚡ Real-Time SSE Token Streaming**:
   * Server-Sent Events (`POST /api/chat/stream`) progressively display token outputs with sub-second time-to-first-token.
   * Interactive controls: Stop Generation, Regenerate, Copy Response, Copy Code Block, and Retry on error.

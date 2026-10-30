@@ -6,6 +6,8 @@ from app.api.routes.conversations import router as conversations_router
 from app.api.routes.documents import router as documents_router
 from app.api.routes.settings import router as settings_router
 from app.api.routes.usage import router as usage_router
+from app.api.routes.auth import router as auth_router
+from app.api.routes.skills import router as skills_router
 
 api_router = APIRouter()
 
@@ -29,3 +31,9 @@ api_router.include_router(settings_router, prefix="/settings", tags=["Settings"]
 
 # Mount model usage analytics at /api/usage
 api_router.include_router(usage_router, prefix="", tags=["Usage"])
+
+# Mount user authentication routes at /api/auth
+api_router.include_router(auth_router, prefix="", tags=["Authentication"])
+
+# Mount skills marketplace routes at /api/skills
+api_router.include_router(skills_router, prefix="", tags=["Skills Marketplace"])

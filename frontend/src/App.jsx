@@ -5,15 +5,30 @@ import { ChatWindow } from './components/ChatWindow';
 import { MessageComposer } from './components/MessageComposer';
 import { CompareView } from './components/CompareView';
 import { SettingsView } from './components/SettingsView';
+import { SkillsMarketplace } from './components/SkillsMarketplace';
 import { ApiKeyModal } from './components/ApiKeyModal';
+import { AuthModal } from './components/AuthModal';
 import { useChat } from './hooks/useChat';
+import { useAuth } from './hooks/useAuth';
 import { useHealthCheck } from './hooks/useHealthCheck';
 import { useCustomKeys } from './hooks/useCustomKeys';
 import { useSettings } from './hooks/useSettings';
 
 export default function App() {
-  const [activeView, setActiveView] = useState('chat'); // 'chat' | 'compare' | 'settings'
+  const [activeView, setActiveView] = useState('chat'); // 'chat' | 'compare' | 'skills' | 'settings'
   const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authModalMode, setAuthModalMode] = useState('signin'); // 'signin' | 'register'
+
+  const {
+    user,
+    token,
+    isGuest,
+    login,
+    register,
+    logout,
+    deleteAccount,
+  } = useAuth();
 
   const {
     settings,
@@ -61,7 +76,12 @@ export default function App() {
     uploadProgress,
     attachFile,
     removeDocument,
-  } = useChat({ customModels, customKeys, userSettings: settings });
+  } = useChat({
+    customModels,
+    customKeys,
+    userSettings: settings,
+    userToken: token,
+  });
 
   const { status: healthStatus, checkHealth: onCheckHealth } = useHealthCheck();
 
@@ -79,9 +99,14 @@ export default function App() {
     }
   };
 
+  const handleOpenAuth = (mode = 'signin') => {
+    setAuthModalMode(mode);
+    setIsAuthModalOpen(true);
+  };
+
   return (
     <div className="flex h-screen h-[100dvh] w-screen overflow-hidden bg-[#0B0D12] text-[#F3F4F6] font-sans antialiased selection:bg-purple-600 selection:text-white">
-      {/* Collapsible / Responsive Sidebar */}
+      {/* Collapsible / Responsive Clean Sidebar */}
       <Sidebar
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
@@ -104,31 +129,14 @@ export default function App() {
 
       {/* Main Interface */}
       <div className="flex-1 flex flex-col h-full min-h-0 min-w-0 relative bg-[#0B0D12]">
-        {/* Top Header */}
+        {/* Clean Top Header (Only Account Control [ Profile Icon | Guest User / Username ▼ ]) */}
         <ChatHeader
-          activeTitle={
-            activeView === 'settings'
-              ? 'Settings & Personalization'
-              : activeView === 'compare'
-              ? 'Compare Models'
-              : activeTitle
-          }
-          selectedModelName={
-            activeView === 'settings'
-              ? 'User Configuration'
-              : activeView === 'compare'
-              ? 'Parallel Dual-Model Benchmark'
-              : selectedModel.name
-          }
-          totalTokens={activeMessages.reduce((acc, m) => acc + (m.tokens || Math.max(1, Math.ceil(((m.content || '').length) / 4))), 0)}
-          showTokenMetrics={settings.show_token_metrics !== false}
+          user={user}
           onToggleSidebar={handleToggleSidebar}
-          healthStatus={healthStatus}
-          onCheckHealth={onCheckHealth}
-          onOpenApiKeyModal={() => setIsApiKeyModalOpen(true)}
+          onOpenAuth={handleOpenAuth}
           onOpenSettings={() => setActiveView('settings')}
-          activeView={activeView}
-          onSelectView={setActiveView}
+          onLogout={logout}
+          onDeleteAccount={deleteAccount}
         />
 
         {/* Dynamic Main View Area */}
@@ -142,6 +150,10 @@ export default function App() {
               onBackToChat={() => setActiveView('chat')}
               customModels={customModels}
             />
+          </main>
+        ) : activeView === 'skills' ? (
+          <main className="flex-1 min-h-0 overflow-hidden relative">
+            <SkillsMarketplace onBackToChat={() => setActiveView('chat')} />
           </main>
         ) : activeView === 'compare' ? (
           <main className="flex-1 min-h-0 overflow-hidden relative">
@@ -179,6 +191,7 @@ export default function App() {
               onAttachFile={attachFile}
               onRemoveDocument={removeDocument}
               onQuickAction={(prompt) => sendMessage(prompt)}
+              onOpenSkills={() => setActiveView('skills')}
             />
           </main>
         )}
@@ -195,6 +208,15 @@ export default function App() {
           setSelectedModelId(modelId);
           setIsApiKeyModalOpen(false);
         }}
+      />
+
+      {/* Clean User Authentication Modal (Sign In & Create Account) */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        initialMode={authModalMode}
+        onLogin={login}
+        onRegister={register}
       />
     </div>
   );

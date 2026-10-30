@@ -1,126 +1,219 @@
-import React from 'react';
-import { ConnectionStatus } from './ConnectionStatus';
+import React, { useState, useRef, useEffect } from 'react';
 
 export function ChatHeader({
-  activeTitle = 'New Conversation',
-  selectedModelName = 'Gemini 3.6 Flash',
-  totalTokens = 0,
-  showTokenMetrics = true,
+  user = null,
   onToggleSidebar,
-  healthStatus,
-  onCheckHealth,
-  onOpenApiKeyModal,
+  onOpenAuth,
   onOpenSettings,
-  activeView = 'chat',
-  onSelectView,
+  onLogout,
+  onDeleteAccount,
 }) {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+
+  // Close menu on outside click or Escape
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setIsMenuOpen(false);
+      }
+    }
+    function handleKeyDown(event) {
+      if (event.key === 'Escape') {
+        setIsMenuOpen(false);
+      }
+    }
+
+    if (isMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleKeyDown);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isMenuOpen]);
+
+  const displayName = user ? user.username : 'Guest User';
+
   return (
-    <header className="h-14 border-b border-[#282D38] bg-[#10131A]/95 backdrop-blur-md px-3 sm:px-4 flex items-center justify-between shrink-0 z-10 select-none">
-      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-        {/* Toggle Sidebar Button */}
+    <header className="h-13 border-b border-[#282D38]/80 bg-[#10131A]/90 backdrop-blur-md px-3 sm:px-4 flex items-center justify-between shrink-0 z-20 select-none">
+      {/* Left: Sidebar Toggle */}
+      <div className="flex items-center gap-2">
         <button
           type="button"
           onClick={onToggleSidebar}
           title="Toggle Sidebar (Ctrl + B)"
           aria-label="Toggle navigation sidebar"
-          className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-[#151923] border border-transparent hover:border-[#282D38] transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
+          className="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-[#151923] border border-transparent hover:border-[#282D38] transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
         >
           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
             <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
             <line x1="9" y1="3" x2="9" y2="21" />
           </svg>
         </button>
-
-        {/* Current Conversation Info */}
-        <div className="flex items-center gap-2 min-w-0">
-          <h2 className="text-xs sm:text-sm font-semibold text-[#F3F4F6] truncate max-w-[140px] sm:max-w-xs md:max-w-sm">
-            {activeTitle}
-          </h2>
-          {showTokenMetrics && totalTokens > 0 && activeView === 'chat' && (
-            <span
-              className="hidden lg:inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-500/30 font-mono"
-              title="Total conversation token usage"
-            >
-              <span>🪙</span>
-              <span>{totalTokens.toLocaleString()} tokens</span>
-            </span>
-          )}
-        </div>
       </div>
 
-      {/* Center Navigation Switcher for Evaluators (Chat / Compare / Settings) */}
-      {onSelectView && (
-        <div className="hidden md:flex items-center gap-1 bg-[#0B0D12] p-1 rounded-xl border border-[#282D38] shadow-inner">
-          <button
-            type="button"
-            onClick={() => onSelectView('chat')}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 ${
-              activeView === 'chat'
-                ? 'bg-[#151923] text-purple-300 border border-purple-500/40 shadow-sm'
-                : 'text-slate-400 hover:text-white border border-transparent'
-            }`}
-          >
-            <span>💬</span>
-            <span>Chat</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => onSelectView('compare')}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 ${
-              activeView === 'compare'
-                ? 'bg-[#151923] text-purple-300 border border-purple-500/40 shadow-sm'
-                : 'text-slate-400 hover:text-white border border-transparent'
-            }`}
-          >
-            <span>⚖️</span>
-            <span>Compare</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => onSelectView('settings')}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 ${
-              activeView === 'settings'
-                ? 'bg-[#151923] text-purple-300 border border-purple-500/40 shadow-sm'
-                : 'text-slate-400 hover:text-white border border-transparent'
-            }`}
-          >
-            <span>⚙️</span>
-            <span>Settings</span>
-          </button>
-        </div>
-      )}
+      {/* Center: Clean & Uncluttered */}
+      <div className="flex-1" />
 
-      {/* Right Controls: API Key Discovery Trigger & Health Status */}
-      <div className="flex items-center gap-2">
+      {/* Right: Only Account Control [ User Profile Icon | Guest User / Username ▼ ] */}
+      <div className="relative inline-block text-left" ref={menuRef}>
         <button
           type="button"
-          onClick={onOpenApiKeyModal}
-          title="Add Custom API Key & Discover Models (BYOK)"
-          aria-label="Connect API Key"
-          className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg bg-purple-950/40 hover:bg-purple-900/50 text-purple-300 hover:text-purple-200 border border-purple-800/50 hover:border-purple-600/60 transition-all shadow-sm cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
+          onClick={() => setIsMenuOpen((prev) => !prev)}
+          aria-haspopup="true"
+          aria-expanded={isMenuOpen}
+          aria-label={`Account menu for ${displayName}`}
+          className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 ${
+            isMenuOpen
+              ? 'bg-[#151923] text-white border border-purple-500/60 shadow-xs'
+              : 'bg-[#12151F] hover:bg-[#181C28] text-slate-300 hover:text-white border border-[#282D38]'
+          }`}
         >
-          <span>🔑</span>
-          <span className="hidden sm:inline">Add Key</span>
+          {/* User Profile Avatar / Icon */}
+          <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center text-white shrink-0 text-[10px] font-bold shadow-xs">
+            {user ? (
+              user.username.charAt(0).toUpperCase()
+            ) : (
+              <svg className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                <circle cx="12" cy="7" r="4" />
+              </svg>
+            )}
+          </div>
+
+          {/* Username / Guest User Label */}
+          <span className="font-semibold text-slate-200 truncate max-w-[120px] sm:max-w-[160px]">
+            {displayName}
+          </span>
+
+          {/* Small Caret / Dropdown Indicator */}
+          <svg
+            className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${
+              isMenuOpen ? 'rotate-180' : ''
+            }`}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
         </button>
 
-        {onOpenSettings && (
-          <button
-            type="button"
-            onClick={onOpenSettings}
-            title="Settings & Personalization"
-            aria-label="Open settings"
-            className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-[#151923] border border-transparent hover:border-[#282D38] transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
+        {/* Account Menu Popover */}
+        {isMenuOpen && (
+          <div
+            role="menu"
+            aria-orientation="vertical"
+            className="absolute right-0 mt-2 w-64 rounded-2xl bg-[#10131A] border border-[#282D38] shadow-2xl p-2 z-50 animate-fade-in backdrop-blur-md"
           >
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="3" />
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
-            </svg>
-          </button>
-        )}
+            {/* User Profile Summary Header */}
+            <div className="px-3 py-2.5 mb-1.5 rounded-xl bg-[#151923] border border-[#282D38]/60">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center text-white text-xs font-bold shadow-sm">
+                  {user ? user.username.charAt(0).toUpperCase() : 'G'}
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs font-bold text-white truncate">
+                    {user ? user.username : 'Guest User'}
+                  </div>
+                  <div className="text-[11px] text-slate-400 truncate">
+                    {user ? user.email : 'Local Session (Unregistered)'}
+                  </div>
+                </div>
+              </div>
+              {!user && (
+                <div className="mt-2 text-[10px] text-amber-300/90 leading-tight">
+                  Guest chats remain on this device. Sign in to synchronize history.
+                </div>
+              )}
+            </div>
 
-        <div className="hidden sm:block">
-          <ConnectionStatus status={healthStatus} onRefresh={onCheckHealth} compact />
-        </div>
+            {/* Account Actions */}
+            <div className="space-y-0.5">
+              {!user ? (
+                <>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setIsMenuOpen(false);
+                      if (onOpenAuth) onOpenAuth('signin');
+                    }}
+                    className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-slate-200 hover:text-white hover:bg-[#151923] transition-colors flex items-center gap-2 cursor-pointer"
+                  >
+                    <span>🔑</span>
+                    <span>Sign In</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setIsMenuOpen(false);
+                      if (onOpenAuth) onOpenAuth('register');
+                    }}
+                    className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-purple-300 hover:text-white hover:bg-purple-600/20 transition-colors flex items-center gap-2 cursor-pointer"
+                  >
+                    <span>✨</span>
+                    <span>Create Account</span>
+                  </button>
+                </>
+              ) : (
+                <>
+                  {onOpenSettings && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                        onOpenSettings();
+                      }}
+                      className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-slate-200 hover:text-white hover:bg-[#151923] transition-colors flex items-center gap-2 cursor-pointer"
+                    >
+                      <span>⚙️</span>
+                      <span>Account Settings</span>
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setIsMenuOpen(false);
+                      if (onLogout) onLogout();
+                    }}
+                    className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-[#151923] transition-colors flex items-center gap-2 cursor-pointer"
+                  >
+                    <span>🚪</span>
+                    <span>Sign Out</span>
+                  </button>
+
+                  {onDeleteAccount && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                        if (window.confirm('Are you sure you want to permanently delete your account and all associated conversations? This action cannot be undone.')) {
+                          onDeleteAccount();
+                        }
+                      }}
+                      className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-red-400 hover:text-red-200 hover:bg-red-950/40 transition-colors flex items-center gap-2 cursor-pointer border-t border-[#282D38]/60 mt-1 pt-1.5"
+                    >
+                      <span>🗑️</span>
+                      <span>Delete Account & Data</span>
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </header>
   );

@@ -1,5 +1,6 @@
-from fastapi import APIRouter, HTTPException, status, Query, Response
+from fastapi import APIRouter, HTTPException, status, Query, Response, Depends
 from typing import Optional
+from app.api.routes.auth import get_current_user_optional
 
 from app.db.repository import ConversationRepository
 from app.schemas.conversation import (
@@ -34,13 +35,16 @@ async def list_conversations(
     q: Optional[str] = Query(default=None, description="Search query across conversation titles and message contents"),
     include_archived: bool = Query(default=True, description="Whether to include archived conversations in the list"),
     archived_only: bool = Query(default=False, description="Filter strictly for archived conversations"),
+    user: Optional[dict] = Depends(get_current_user_optional),
 ) -> ConversationListResponse:
     """Return conversations ordered by pinned state (top) and last update descending."""
+    user_id = user["id"] if user else None
     convs = await ConversationRepository.a_list_conversations(
         limit=limit,
         include_archived=include_archived,
         archived_only=archived_only,
         search_query=q,
+        user_id=user_id,
     )
     items = [
         ConversationResponse(
@@ -65,10 +69,14 @@ async def list_conversations(
     summary="Create Conversation",
     description="Initialize a new conversation session in SQLite.",
 )
-async def create_conversation(payload: Optional[ConversationCreate] = None) -> ConversationResponse:
+async def create_conversation(
+    payload: Optional[ConversationCreate] = None,
+    user: Optional[dict] = Depends(get_current_user_optional),
+) -> ConversationResponse:
     """Create a new conversation session."""
     title = payload.title if payload and payload.title else "New Conversation"
-    created = await ConversationRepository.a_create_conversation(title=title)
+    user_id = user["id"] if user else None
+    created = await ConversationRepository.a_create_conversation(title=title, user_id=user_id)
     return ConversationResponse(
         id=created["id"],
         title=created["title"],
@@ -278,9 +286,13 @@ async def export_conversation(
     summary="Delete Conversation",
     description="Permanently delete a conversation and its message history from SQLite.",
 )
-async def delete_conversation(conversation_id: str) -> None:
+async def delete_conversation(
+    conversation_id: str,
+    user: Optional[dict] = Depends(get_current_user_optional),
+) -> None:
     """Delete conversation and all its cascaded messages."""
-    deleted = await ConversationRepository.a_delete_conversation(conversation_id)
+    user_id = user["id"] if user else None
+    deleted = await ConversationRepository.a_delete_conversation(conversation_id, user_id=user_id)
     if not deleted:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

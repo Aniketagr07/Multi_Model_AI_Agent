@@ -14,7 +14,7 @@ import {
   deleteDocumentApi,
 } from '../services/api';
 
-export function useChat({ customModels = [], customKeys = {}, userSettings = {} } = {}) {
+export function useChat({ customModels = [], customKeys = {}, userSettings = {}, userToken = null } = {}) {
   const [conversations, setConversations] = useState([]);
   const [activeConversationId, setActiveConversationId] = useState(null); // null = new chat
   const [activeMessages, setActiveMessages] = useState([]);
@@ -81,6 +81,13 @@ export function useChat({ customModels = [], customKeys = {}, userSettings = {} 
     }, 200);
     return () => clearTimeout(timer);
   }, [searchQuery, refreshConversations]);
+
+  // Reload conversations when user logs in or out
+  useEffect(() => {
+    refreshConversations();
+    setActiveConversationId(null);
+    setActiveMessages([]);
+  }, [userToken, refreshConversations]);
 
   // Action: Select an existing conversation and load its messages
   const selectConversation = useCallback(async (convId) => {

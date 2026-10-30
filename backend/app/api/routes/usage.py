@@ -14,3 +14,4 @@ router = APIRouter()
 async def get_model_usage() -> Dict[str, Any]:
     """Retrieve sliding window usage tracking across AI model providers."""
     return await ConversationRepository.a_get_usage_analytics()
+

@@ -399,9 +399,6 @@ export function Sidebar({
             <div>
               <div className="flex items-center gap-1.5">
                 <h1 className="text-sm font-bold tracking-tight text-[#F3F4F6]">OmniAI</h1>
-                <span className="text-[10px] px-1.5 py-0.2 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20 font-medium">
-                  Day 7+
-                </span>
               </div>
               <p className="text-[11px] text-[#9CA3AF]">Intelligent Multi-Model</p>
             </div>
@@ -521,6 +518,30 @@ export function Sidebar({
             {activeView === 'compare' && <span className="w-1.5 h-1.5 rounded-full bg-purple-400"></span>}
           </button>
 
+          {/* Skills Marketplace Navigation Button */}
+          <button
+            type="button"
+            onClick={() => {
+              if (onSelectView) onSelectView('skills');
+              if (window.innerWidth < 768) onClose();
+            }}
+            className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+              activeView === 'skills'
+                ? 'bg-[#151923] text-purple-300 border border-purple-500/20'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-[#151923]/50 border border-transparent'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <svg className={`w-4 h-4 ${activeView === 'skills' ? 'text-purple-400' : 'text-slate-400'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                <path d="M2 17l10 5 10-5" />
+                <path d="M2 12l10 5 10-5" />
+              </svg>
+              <span>Skills</span>
+            </div>
+            {activeView === 'skills' && <span className="w-1.5 h-1.5 rounded-full bg-purple-400"></span>}
+          </button>
+
           {/* Settings & Personalization Navigation Button */}
           <button
             type="button"
@@ -562,8 +583,18 @@ export function Sidebar({
           )}
 
           {conversations.length === 0 ? (
-            <div className="p-4 text-center text-xs text-slate-500 italic">
-              {searchQuery ? `No sessions matching "${searchQuery}"` : 'No conversations yet'}
+            <div className="py-12 px-4 text-center">
+              <div className="w-9 h-9 rounded-xl bg-[#151923] text-purple-400 border border-[#282D38] flex items-center justify-center mx-auto mb-2.5">
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </svg>
+              </div>
+              <p className="text-xs font-semibold text-slate-300 mb-0.5">
+                {searchQuery ? `No matches for "${searchQuery}"` : 'No conversations yet'}
+              </p>
+              <p className="text-[11px] text-slate-500">
+                {searchQuery ? 'Try a different search query.' : 'Click New Chat above to start your first session.'}
+              </p>
             </div>
           ) : (
             <>
@@ -642,15 +673,7 @@ export function Sidebar({
           )}
         </div>
 
-        {/* Sidebar Footer: Health Status & Version */}
-        <div className="p-3 border-t border-[#282D38]/80 space-y-2 bg-[#0B0D12]/50">
-          <ConnectionStatus status={healthStatus} onRefresh={onCheckHealth} />
 
-          <div className="flex items-center justify-between text-[11px] text-slate-500 px-1 pt-1">
-            <span>OmniAI • B.Tech AI & ML</span>
-            <span className="font-mono text-slate-400">v0.1.0 (Day 7+)</span>
-          </div>
-        </div>
       </aside>
 
       {/* Permanent Deletion Confirmation Modal */}

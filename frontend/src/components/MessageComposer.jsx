@@ -21,6 +21,7 @@ export function MessageComposer({
   onAttachFile,
   onRemoveDocument,
   onQuickAction,
+  onOpenSkills,
 }) {
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -178,6 +179,18 @@ export function MessageComposer({
               customModels={customModels}
               onOpenApiKeyModal={onOpenApiKeyModal}
             />
+
+            {onOpenSkills && (
+              <button
+                type="button"
+                onClick={onOpenSkills}
+                title="Browse & Install Skills / Integrations"
+                className="px-2.5 py-1.5 rounded-xl text-xs bg-[#10131A] hover:bg-[#1E2330] text-slate-300 hover:text-purple-300 border border-[#282D38] hover:border-purple-500/40 transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <span className="text-purple-400 text-xs">🧩</span>
+                <span className="hidden sm:inline font-medium">Skills</span>
+              </button>
+            )}
 
 
           </div>
