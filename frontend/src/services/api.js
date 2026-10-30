@@ -4,7 +4,38 @@
  * and the FastAPI backend, providing typed payload contracts and error normalization.
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
+const rawApiUrl = import.meta.env.VITE_API_URL !== undefined ? import.meta.env.VITE_API_URL : import.meta.env.VITE_API_BASE_URL;
+const API_BASE_URL = rawApiUrl !== undefined ? rawApiUrl : 'http://127.0.0.1:8000';
+
+/**
+ * Retrieves single-user access token from localStorage or Vite environment if configured.
+ */
+export function getAuthHeaders() {
+  if (typeof window === 'undefined') return {};
+  const token = localStorage.getItem('omniai_access_token') || import.meta.env.VITE_ACCESS_TOKEN || '';
+  if (token && token.trim()) {
+    return {
+      'X-OmniAI-Token': token.trim(),
+      'Authorization': `Bearer ${token.trim()}`,
+    };
+  }
+  return {};
+}
+
+/**
+ * Authenticated fetch wrapper that merges auth headers automatically.
+ */
+export async function authFetch(url, options = {}) {
+  const authHeaders = getAuthHeaders();
+  const headers = {
+    ...authHeaders,
+    ...(options.headers || {}),
+  };
+  return fetch(url, {
+    ...options,
+    headers,
+  });
+}
 
 /**
  * Checks backend health status.
@@ -17,7 +48,7 @@ export async function checkBackendHealth() {
   const timeoutId = setTimeout(() => controller.abort(), 6000);
 
   try {
-    const response = await fetch(url, {
+    const response = await authFetch(url, {
       method: 'GET',
       headers: {
         'Accept': 'application/json',
@@ -47,7 +78,7 @@ export const fetchHealthStatus = checkBackendHealth;
 export async function fetchModelRegistry() {
   const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/models`;
 
-  const response = await fetch(url, {
+  const response = await authFetch(url, {
     method: 'GET',
     headers: {
       'Accept': 'application/json',
@@ -96,7 +127,7 @@ export async function sendChatMessage({
 
   let response;
   try {
-    response = await fetch(url, {
+    response = await authFetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -168,7 +199,7 @@ export async function streamChatMessage({
 
   let response;
   try {
-    response = await fetch(url, {
+    response = await authFetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -248,6 +279,11 @@ export async function uploadDocument(file, conversationId = null, onProgress = n
     const xhr = new XMLHttpRequest();
     xhr.open('POST', url);
 
+    const authHeaders = getAuthHeaders();
+    for (const [headerKey, headerVal] of Object.entries(authHeaders)) {
+      xhr.setRequestHeader(headerKey, headerVal);
+    }
+
     if (xhr.upload && onProgress) {
       xhr.upload.onprogress = (event) => {
         if (event.lengthComputable) {
@@ -295,7 +331,7 @@ export async function uploadDocument(file, conversationId = null, onProgress = n
  */
 export async function deleteDocumentApi(documentId) {
   const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/documents/${documentId}`;
-  const response = await fetch(url, {
+  const response = await authFetch(url, {
     method: 'DELETE',
   });
   if (!response.ok && response.status !== 204 && response.status !== 404) {
@@ -319,7 +355,7 @@ export async function discoverModels({ provider, api_key, base_url }) {
 
   let response;
   try {
-    response = await fetch(url, {
+    response = await authFetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -388,7 +424,7 @@ export async function sendCompareRequest({
 
   let response;
   try {
-    response = await fetch(url, {
+    response = await authFetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -432,7 +468,7 @@ export async function fetchConversations(query = null) {
   const queryString = params.toString() ? `?${params.toString()}` : '';
   const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/conversations${queryString}`;
 
-  const response = await fetch(url, {
+  const response = await authFetch(url, {
     method: 'GET',
     headers: {
       'Accept': 'application/json',
@@ -454,7 +490,7 @@ export async function fetchConversations(query = null) {
 export async function fetchConversationDetails(conversationId) {
   const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/conversations/${conversationId}`;
 
-  const response = await fetch(url, {
+  const response = await authFetch(url, {
     method: 'GET',
     headers: {
       'Accept': 'application/json',
@@ -475,7 +511,7 @@ export async function fetchConversationDetails(conversationId) {
 export async function createConversation(title = 'New Conversation') {
   const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/conversations`;
 
-  const response = await fetch(url, {
+  const response = await authFetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -498,7 +534,7 @@ export async function createConversation(title = 'New Conversation') {
 export async function renameConversation(conversationId, title) {
   const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/conversations/${conversationId}`;
 
-  const response = await fetch(url, {
+  const response = await authFetch(url, {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
@@ -521,7 +557,7 @@ export async function renameConversation(conversationId, title) {
 export async function deleteConversationApi(conversationId) {
   const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/conversations/${conversationId}`;
 
-  const response = await fetch(url, {
+  const response = await authFetch(url, {
     method: 'DELETE',
   });
 
@@ -539,7 +575,7 @@ export async function deleteConversationApi(conversationId) {
 export async function pinConversationApi(conversationId, isPinned) {
   const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/conversations/${conversationId}/pin`;
 
-  const response = await fetch(url, {
+  const response = await authFetch(url, {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
@@ -562,7 +598,7 @@ export async function pinConversationApi(conversationId, isPinned) {
 export async function archiveConversationApi(conversationId, isArchived) {
   const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/conversations/${conversationId}/archive`;
 
-  const response = await fetch(url, {
+  const response = await authFetch(url, {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
@@ -585,7 +621,7 @@ export async function archiveConversationApi(conversationId, isArchived) {
 export async function exportConversationApi(conversationId, format = 'markdown') {
   const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/conversations/${conversationId}/export?format=${encodeURIComponent(format)}`;
 
-  const response = await fetch(url);
+  const response = await authFetch(url);
   if (!response.ok) {
     throw new Error(`Export failed: HTTP ${response.status}`);
   }
@@ -617,7 +653,7 @@ export async function exportConversationApi(conversationId, format = 'markdown')
 export async function fetchUserSettings() {
   const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/settings`;
 
-  const response = await fetch(url, {
+  const response = await authFetch(url, {
     method: 'GET',
     headers: {
       'Accept': 'application/json',
@@ -638,7 +674,7 @@ export async function fetchUserSettings() {
 export async function saveUserSettings(settingsPayload) {
   const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/settings`;
 
-  const response = await fetch(url, {
+  const response = await authFetch(url, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',

@@ -28,3 +28,4 @@ if (!navigator.clipboard) {
     readText: async () => '',
   };
 }
+

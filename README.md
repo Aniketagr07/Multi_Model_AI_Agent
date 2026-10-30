@@ -137,7 +137,11 @@ OmniAI/
 ├── docs/
 │   ├── architecture.md          # Architectural blueprints and component designs
 │   ├── api.md                   # Complete REST & SSE API contract reference
-│   └── setup.md                 # Setup, configuration, and troubleshooting guide
+│   ├── setup.md                 # Setup, configuration, and troubleshooting guide
+│   ├── DEPLOYMENT.md            # Production deployment, Docker, and disaster recovery guide
+│   └── FINAL_PROJECT_AUDIT.md   # Final audit and verification report
+├── docker-compose.yml           # Production container orchestration
+├── Dockerfile                   # Standalone production container
 ├── .gitignore                   # Exclusions for secrets, database, uploads, and node_modules
 ├── LICENSE                      # MIT Open Source License
 └── README.md                    # Project documentation

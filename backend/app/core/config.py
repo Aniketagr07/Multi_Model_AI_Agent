@@ -42,10 +42,20 @@ class Settings(BaseSettings):
     # Database Configuration (Day 7 Persistent SQLite)
     SQLITE_DB_PATH: str = "data/omniai.db"
 
-    # Request Limits & Safeguards
+    # Single-Tenant Access Control (Production Authentication)
+    APP_ACCESS_TOKEN: Optional[str] = None
+
+    # Request Limits, Rate Limiting & Safeguards
     REQUEST_TIMEOUT_SECONDS: float = 45.0
     MAX_MESSAGE_LENGTH: int = 4000
     MAX_HISTORY_MESSAGES: int = 20
+    RATE_LIMIT_ENABLED: bool = True
+    RATE_LIMIT_PER_MINUTE: int = 60
+    MAX_REQUEST_SIZE_BYTES: int = 15 * 1024 * 1024  # 15 MB ceiling
+
+    # Production & Logging Controls
+    ENABLE_DOCS: Optional[bool] = None
+    LOG_LEVEL: str = "INFO"
 
     # Document Upload & Processing Settings
     UPLOAD_DIR: str = "data/uploads"
@@ -57,6 +67,18 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
     )
+
+    @property
+    def is_production(self) -> bool:
+        """Return True if running in production mode."""
+        return self.APP_ENV.lower() == "production"
+
+    @property
+    def docs_enabled(self) -> bool:
+        """Return True if Swagger / OpenAPI documentation UI should be mounted."""
+        if self.ENABLE_DOCS is not None:
+            return self.ENABLE_DOCS
+        return not self.is_production
 
     @property
     def cors_origins_list(self) -> List[str]:

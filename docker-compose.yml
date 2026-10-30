@@ -1,0 +1,75 @@
+# ==============================================================================
+# OmniAI Production Docker Compose Stack
+# ==============================================================================
+version: "3.8"
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: omniai-backend
+    restart: unless-stopped
+    environment:
+      - APP_NAME=OmniAI Backend
+      - APP_ENV=production
+      - DEBUG=false
+      - HOST=0.0.0.0
+      - PORT=8000
+      - SQLITE_DB_PATH=/app/data/omniai.db
+      - UPLOAD_DIR=/app/data/uploads
+      - CORS_ORIGINS=http://localhost,http://localhost:80,http://127.0.0.1,http://127.0.0.1:80
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - APP_ACCESS_TOKEN=${APP_ACCESS_TOKEN:-}
+      - RATE_LIMIT_ENABLED=true
+      - RATE_LIMIT_PER_MINUTE=60
+      - MAX_REQUEST_SIZE_BYTES=15728640
+      - LOG_LEVEL=INFO
+    volumes:
+      - omniai_data:/app/data
+      - omniai_uploads:/app/data/uploads
+    expose:
+      - "8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - omniai-net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_BASE_URL=
+    container_name: omniai-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:80/healthz"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+    networks:
+      - omniai-net
+
+volumes:
+  omniai_data:
+    name: omniai_data
+    driver: local
+  omniai_uploads:
+    name: omniai_uploads
+    driver: local
+
+networks:
+  omniai-net:
+    name: omniai-network
+    driver: bridge
