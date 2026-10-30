@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 
 class ChatService:
-    """Orchestrates model validation, automatic routing, fallback policy, SQLite persistence, and latency measurement."""
+    """Orchestrates model validation, automatic routing, document analysis, fallback policy, SQLite persistence, and latency measurement."""
 
     def __init__(self):
         settings = get_settings()
@@ -87,7 +87,6 @@ class ChatService:
                     detail=f"Model '{model_id}' is not recognized in the server registry. Registered models: {valid_models}",
                 )
 
-        # If user supplied custom_api_key, construct a dedicated provider adapter
         if custom_api_key and custom_api_key.strip():
             prov_type = custom_provider or model_info.provider
             if prov_type == "gemini":
@@ -209,8 +208,8 @@ class ChatService:
     async def stream_chat(self, request: ChatRequest) -> AsyncGenerator[str, None]:
         """
         Stream progressive real-time SSE tokens from the resolved model adapter.
-        Handles client disconnections, abort cancellation, auto-routing, and saves
-        completed assistant responses to SQLite.
+        Supports document analysis context grounding, client disconnections,
+        auto-routing, and saves completed assistant responses to SQLite.
         """
         is_auto_mode = request.model_id.lower() == "auto"
         routing_decision: Optional[RoutingDecision] = None
@@ -218,17 +217,38 @@ class ChatService:
         # 1. Resolve or create persistent conversation in SQLite
         conv_id = await self._resolve_conversation(request.conversation_id, request.message)
 
-        # 2. Save user message to persistent storage immediately
+        # 2. Check for attached document context
+        doc_name: Optional[str] = None
+        if request.document_id:
+            from app.services.document_service import get_document_service
+            doc_service = get_document_service()
+            try:
+                doc_name, doc_context = await doc_service.get_document_context(request.document_id, request.message)
+                await ConversationRepository.a_update_document_conversation(request.document_id, conv_id)
+            except Exception as doc_err:
+                logger.warning("Failed to retrieve document context '%s': %s", request.document_id, doc_err)
+
+        # 3. Save user message to persistent storage immediately
         await ConversationRepository.a_add_message(
             conv_id=conv_id,
             role="user",
             content=request.message,
+            document_id=request.document_id,
+            document_name=doc_name,
         )
 
-        # 3. Prepare sliding-window context history
+        # 4. Prepare sliding-window context history
         messages_payload = await self._prepare_history(conv_id, request.message, request.messages)
 
-        # 4. Resolve Model & Provider
+        # Ground the current prompt with document context if document attached
+        if request.document_id and doc_name:
+            from app.services.document_service import get_document_service
+            doc_service = get_document_service()
+            grounded_message = doc_service.build_grounded_prompt(request.message, doc_name, doc_context)
+            if messages_payload and messages_payload[-1]["role"] == "user":
+                messages_payload[-1]["content"] = grounded_message
+
+        # 5. Resolve Model & Provider
         if is_auto_mode:
             available_models = ModelRegistry.get_available_models()
             if not available_models:
@@ -263,7 +283,7 @@ class ChatService:
         effort = getattr(request, "effort", "medium") or "medium"
         start_time = time.perf_counter()
 
-        # Emit initial metadata event
+        # Emit initial metadata event (including document context info)
         meta_event = {
             "type": "meta",
             "conversation_id": conv_id,
@@ -275,6 +295,8 @@ class ChatService:
             "routing_category": routing_decision.category if routing_decision else None,
             "routing_explanation": routing_decision.explanation if routing_decision else None,
             "effort": effort,
+            "document_id": request.document_id,
+            "document_name": doc_name,
         }
         yield f"data: {json.dumps(meta_event)}\n\n"
 
@@ -294,7 +316,6 @@ class ChatService:
             is_completed = True
         except (GeneratorExit, asyncio.CancelledError):
             logger.info("Stream was cancelled by client abort. Partial response is not saved as completed.")
-            # Do NOT save incomplete responses as completed answers
             return
         except Exception as stream_err:
             logger.error("Streaming error on %s: %s", model_info.id, stream_err)
@@ -302,7 +323,7 @@ class ChatService:
             yield f"data: {json.dumps({'type': 'error', 'error': err_msg})}\n\n"
             return
 
-        # 5. Save completed response to SQLite and emit final done event
+        # 6. Save completed response to SQLite and emit final done event
         if is_completed and accumulated_chunks:
             full_response = "".join(accumulated_chunks).strip()
             elapsed_ms = int((time.perf_counter() - start_time) * 1000)
@@ -318,6 +339,8 @@ class ChatService:
                 routing_category=routing_decision.category if routing_decision else None,
                 routing_explanation=routing_decision.explanation if routing_decision else None,
                 effort=effort,
+                document_id=request.document_id,
+                document_name=doc_name,
             )
 
             done_event = {
@@ -326,13 +349,15 @@ class ChatService:
                 "response": full_response,
                 "latency_ms": elapsed_ms,
                 "effort": effort,
+                "document_id": request.document_id,
+                "document_name": doc_name,
             }
             yield f"data: {json.dumps(done_event)}\n\n"
 
     async def process_chat(self, request: ChatRequest) -> ChatResponse:
         """
-        Process chat request synchronously (non-streaming), performing automatic model routing
-        when model_id == 'auto', persisting messages into SQLite, executing with monotonic
+        Process chat request synchronously (non-streaming), performing automatic model routing,
+        document analysis grounding, persisting messages into SQLite, executing with monotonic
         latency timing, and applying a conservative fallback policy.
         """
         is_auto_mode = request.model_id.lower() == "auto"
@@ -341,17 +366,38 @@ class ChatService:
         # 1. Resolve or create persistent conversation in SQLite
         conv_id = await self._resolve_conversation(request.conversation_id, request.message)
 
-        # 2. Save user message to persistent storage immediately
+        # 2. Check for attached document context
+        doc_name: Optional[str] = None
+        if request.document_id:
+            from app.services.document_service import get_document_service
+            doc_service = get_document_service()
+            try:
+                doc_name, doc_context = await doc_service.get_document_context(request.document_id, request.message)
+                await ConversationRepository.a_update_document_conversation(request.document_id, conv_id)
+            except Exception as doc_err:
+                logger.warning("Failed to retrieve document context '%s': %s", request.document_id, doc_err)
+
+        # 3. Save user message to persistent storage immediately
         await ConversationRepository.a_add_message(
             conv_id=conv_id,
             role="user",
             content=request.message,
+            document_id=request.document_id,
+            document_name=doc_name,
         )
 
-        # 3. Prepare sliding-window context history
+        # 4. Prepare sliding-window context history
         messages_payload = await self._prepare_history(conv_id, request.message, request.messages)
 
-        # 4. Resolve Model & Provider
+        # Ground current prompt with document context if document attached
+        if request.document_id and doc_name:
+            from app.services.document_service import get_document_service
+            doc_service = get_document_service()
+            grounded_message = doc_service.build_grounded_prompt(request.message, doc_name, doc_context)
+            if messages_payload and messages_payload[-1]["role"] == "user":
+                messages_payload[-1]["content"] = grounded_message
+
+        # 5. Resolve Model & Provider
         if is_auto_mode:
             available_models = ModelRegistry.get_available_models()
             if not available_models:
@@ -378,7 +424,7 @@ class ChatService:
         final_explanation = routing_decision.explanation if routing_decision else None
         final_model_info = model_info
 
-        # 5. Execute Provider with Fallback Handling
+        # 6. Execute Provider with Fallback Handling
         effort = getattr(request, "effort", "medium") or "medium"
         try:
             response_text = await self._execute_provider(
@@ -443,7 +489,7 @@ class ChatService:
 
         elapsed_ms = int((time.perf_counter() - start_time) * 1000)
 
-        # 6. Save assistant message into SQLite persistent storage
+        # 7. Save assistant message into SQLite persistent storage
         await ConversationRepository.a_add_message(
             conv_id=conv_id,
             role="assistant",
@@ -455,6 +501,8 @@ class ChatService:
             routing_category=routing_decision.category if routing_decision else None,
             routing_explanation=final_explanation,
             effort=effort,
+            document_id=request.document_id,
+            document_name=doc_name,
         )
 
         return ChatResponse(
@@ -468,6 +516,8 @@ class ChatService:
             routing_explanation=final_explanation,
             fallback_used=fallback_used,
             effort=effort,
+            document_id=request.document_id,
+            document_name=doc_name,
         )
 
 

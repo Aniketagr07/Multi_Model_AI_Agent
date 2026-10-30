@@ -3,6 +3,7 @@ from app.api.routes.health import router as health_router
 from app.api.routes.chat import router as chat_router
 from app.api.routes.compare import router as compare_router
 from app.api.routes.conversations import router as conversations_router
+from app.api.routes.documents import router as documents_router
 
 api_router = APIRouter()
 
@@ -17,3 +18,6 @@ api_router.include_router(compare_router, prefix="", tags=["Compare"])
 
 # Mount conversation routes at /api/conversations
 api_router.include_router(conversations_router, prefix="/conversations", tags=["Conversations"])
+
+# Mount document upload and processing routes at /api/documents
+api_router.include_router(documents_router, prefix="/documents", tags=["Documents"])

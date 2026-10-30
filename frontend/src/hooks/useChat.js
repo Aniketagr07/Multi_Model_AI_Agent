@@ -6,6 +6,8 @@ import {
   fetchConversationDetails,
   renameConversation as apiRenameConversation,
   deleteConversationApi,
+  uploadDocument,
+  deleteDocumentApi,
 } from '../services/api';
 
 export function useChat({ customModels = [], customKeys = {} } = {}) {
@@ -17,6 +19,11 @@ export function useChat({ customModels = [], customKeys = {} } = {}) {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
+  // Document attachment state (TASK 1 & TASK 4)
+  const [attachedDocument, setAttachedDocument] = useState(null);
+  const [isUploadingDocument, setIsUploadingDocument] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const abortControllerRef = useRef(null);
 
@@ -60,7 +67,6 @@ export function useChat({ customModels = [], customKeys = {} } = {}) {
 
   // Action: Select an existing conversation and load its messages
   const selectConversation = useCallback(async (convId) => {
-    // If generation is active, abort it when switching conversations
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
@@ -68,6 +74,7 @@ export function useChat({ customModels = [], customKeys = {} } = {}) {
 
     setActiveConversationId(convId);
     setInput('');
+    setAttachedDocument(null);
     setIsLoading(true);
 
     try {
@@ -85,6 +92,8 @@ export function useChat({ customModels = [], customKeys = {} } = {}) {
           routingCategory: m.routing_category,
           routingExplanation: m.routing_explanation,
           effort: m.effort || 'medium',
+          documentId: m.document_id,
+          documentName: m.document_name,
           timestamp: m.created_at,
           modelName: actualModel ? actualModel.name : (m.model_id || 'OmniAI Assistant'),
           modelTag: actualModel ? actualModel.tag : (m.provider === 'groq' ? 'Groq Cloud' : 'Google AI Studio'),
@@ -107,6 +116,7 @@ export function useChat({ customModels = [], customKeys = {} } = {}) {
     setActiveConversationId(null);
     setActiveMessages([]);
     setInput('');
+    setAttachedDocument(null);
     setIsLoading(false);
   }, []);
 
@@ -131,13 +141,62 @@ export function useChat({ customModels = [], customKeys = {} } = {}) {
       if (activeConversationId === convId) {
         setActiveConversationId(null);
         setActiveMessages([]);
+        setAttachedDocument(null);
       }
     } catch (err) {
       console.error('[OmniAI Storage] Delete failed:', err);
     }
   }, [activeConversationId]);
 
-  // Action: Stop Generation (TASK 2)
+  // Action: Attach Document (TASK 1)
+  const attachFile = useCallback(async (file) => {
+    if (!file) return;
+
+    const validExtensions = ['.pdf', '.txt', '.md', '.markdown'];
+    const fileName = file.name.toLowerCase();
+    const isValid = validExtensions.some(ext => fileName.endsWith(ext));
+
+    if (!isValid) {
+      alert('Only PDF (.pdf), Plain Text (.txt), and Markdown (.md) documents are supported.');
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      alert('File size exceeds the 10MB limit.');
+      return;
+    }
+
+    setIsUploadingDocument(true);
+    setUploadProgress(0);
+
+    try {
+      const doc = await uploadDocument(file, activeConversationId, (pct) => {
+        setUploadProgress(pct);
+      });
+      setAttachedDocument(doc);
+    } catch (err) {
+      console.error('[OmniAI Upload] Document upload failed:', err);
+      alert(`Document upload failed: ${err.message}`);
+    } finally {
+      setIsUploadingDocument(false);
+      setUploadProgress(0);
+    }
+  }, [activeConversationId]);
+
+  // Action: Remove Document (TASK 1 & 4)
+  const removeDocument = useCallback(async () => {
+    if (attachedDocument) {
+      const docId = attachedDocument.id;
+      setAttachedDocument(null);
+      try {
+        await deleteDocumentApi(docId);
+      } catch (err) {
+        console.warn('Failed to delete document from server:', err);
+      }
+    }
+  }, [attachedDocument]);
+
+  // Action: Stop Generation
   const stopGeneration = useCallback(() => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -159,21 +218,25 @@ export function useChat({ customModels = [], customKeys = {} } = {}) {
     );
   }, []);
 
-  // Action: Send Message with Real-Time SSE Streaming (TASK 1 & TASK 4)
-  const sendMessage = useCallback(async (textToSend, overrideModelId, overrideEffort) => {
-    const messageContent = (textToSend !== undefined ? textToSend : input).trim();
-    if (!messageContent || isLoading) return; // Prevent duplicate submissions
+  // Action: Send Message with Real-Time SSE Streaming and Document Grounding
+  const sendMessage = useCallback(async (textToSend, overrideModelId, overrideEffort, overrideDocId) => {
+    const rawContent = (textToSend !== undefined ? textToSend : input).trim();
+    // Default prompt if user attached document without typing text
+    const messageContent = rawContent || (attachedDocument ? `Please analyze and summarize the attached document: ${attachedDocument.filename}` : '');
+
+    if (!messageContent || isLoading || isUploadingDocument) return;
 
     const targetModelId = overrideModelId || selectedModelId;
     const targetModel = allModels.find(m => m.id === targetModelId) || selectedModel;
     const targetEffort = overrideEffort || effort;
+    const targetDocId = overrideDocId !== undefined ? overrideDocId : (attachedDocument?.id || null);
+    const targetDocName = attachedDocument?.filename || null;
 
     const customKey = targetModel.customApiKey || customKeys[targetModel.provider]?.apiKey || null;
     const customBaseUrl = targetModel.customBaseUrl || customKeys[targetModel.provider]?.baseUrl || null;
     const customProvider = targetModel.customProvider || targetModel.provider || null;
     const customProviderModelId = targetModel.provider_model_id || null;
 
-    // Abort any existing running stream
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
@@ -186,6 +249,8 @@ export function useChat({ customModels = [], customKeys = {} } = {}) {
       sender: 'user',
       content: messageContent,
       effort: targetEffort,
+      documentId: targetDocId,
+      documentName: targetDocName,
       timestamp: new Date().toISOString(),
     };
 
@@ -201,6 +266,8 @@ export function useChat({ customModels = [], customKeys = {} } = {}) {
       modelName: targetModel.name,
       modelTag: targetModel.tag,
       effort: targetEffort,
+      documentId: targetDocId,
+      documentName: targetDocName,
       timestamp: new Date().toISOString(),
     };
 
@@ -216,6 +283,7 @@ export function useChat({ customModels = [], customKeys = {} } = {}) {
         model_id: targetModelId,
         conversation_id: activeConversationId,
         effort: targetEffort,
+        document_id: targetDocId,
         custom_api_key: customKey,
         custom_provider: customProvider,
         custom_base_url: customBaseUrl,
@@ -240,6 +308,8 @@ export function useChat({ customModels = [], customKeys = {} } = {}) {
                     routingCategory: meta.routing_category,
                     routingExplanation: meta.routing_explanation,
                     effort: meta.effort || targetEffort,
+                    documentId: meta.document_id || targetDocId,
+                    documentName: meta.document_name || targetDocName,
                   }
                 : msg
             )
@@ -267,6 +337,8 @@ export function useChat({ customModels = [], customKeys = {} } = {}) {
                     content: doneEvent.response || accumulatedContent,
                     latencyMs: doneEvent.latency_ms,
                     effort: doneEvent.effort || targetEffort,
+                    documentId: doneEvent.document_id || targetDocId,
+                    documentName: doneEvent.document_name || targetDocName,
                   }
                 : msg
             )
@@ -280,7 +352,6 @@ export function useChat({ customModels = [], customKeys = {} } = {}) {
       });
     } catch (err) {
       if (controller.signal.aborted) {
-        // Handled cleanly by stopGeneration()
         return;
       }
       console.error('[OmniAI Chat Stream] Error:', err);
@@ -311,13 +382,12 @@ export function useChat({ customModels = [], customKeys = {} } = {}) {
       setIsLoading(false);
       abortControllerRef.current = null;
     }
-  }, [input, isLoading, activeConversationId, selectedModelId, selectedModel, effort, allModels, customKeys, refreshConversations]);
+  }, [input, isLoading, isUploadingDocument, attachedDocument, activeConversationId, selectedModelId, selectedModel, effort, allModels, customKeys, refreshConversations]);
 
-  // Action: Regenerate Response (TASK 2)
+  // Action: Regenerate Response
   const regenerateResponse = useCallback((assistantMessage) => {
     if (!assistantMessage || isLoading) return;
 
-    // Find the message in activeMessages to get the preceding user prompt
     const msgIndex = activeMessages.findIndex(m => m.id === assistantMessage.id);
     let promptToReplay = assistantMessage.originalUserMessage;
 
@@ -333,11 +403,8 @@ export function useChat({ customModels = [], customKeys = {} } = {}) {
       return;
     }
 
-    // Remove the assistant message that's being regenerated
     setActiveMessages(prev => prev.filter(m => m.id !== assistantMessage.id));
-
-    // Re-trigger sendMessage with the retrieved prompt
-    sendMessage(promptToReplay, assistantMessage.modelId, assistantMessage.effort);
+    sendMessage(promptToReplay, assistantMessage.modelId, assistantMessage.effort, assistantMessage.documentId);
   }, [activeMessages, isLoading, sendMessage]);
 
   return {
@@ -362,5 +429,11 @@ export function useChat({ customModels = [], customKeys = {} } = {}) {
     sendMessage,
     stopGeneration,
     regenerateResponse,
+    // Document support
+    attachedDocument,
+    isUploadingDocument,
+    uploadProgress,
+    attachFile,
+    removeDocument,
   };
 }

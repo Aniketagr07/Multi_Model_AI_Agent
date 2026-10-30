@@ -47,6 +47,11 @@ class Settings(BaseSettings):
     MAX_MESSAGE_LENGTH: int = 4000
     MAX_HISTORY_MESSAGES: int = 20
 
+    # Document Upload & Processing Settings
+    UPLOAD_DIR: str = "data/uploads"
+    MAX_UPLOAD_SIZE_BYTES: int = 10 * 1024 * 1024  # 10 MB
+    ALLOWED_DOCUMENT_EXTENSIONS: str = ".pdf,.txt,.md,.markdown"
+
     model_config = SettingsConfigDict(
         env_file=(_backend_env, _root_env, ".env"),
         env_file_encoding="utf-8",
@@ -62,6 +67,11 @@ class Settings(BaseSettings):
     def allowed_models_list(self) -> List[str]:
         """Parse comma-separated ALLOWED_MODELS string into a list of model IDs."""
         return [model.strip() for model in self.ALLOWED_MODELS.split(",") if model.strip()]
+
+    @property
+    def allowed_document_extensions_list(self) -> List[str]:
+        """Parse allowed document extensions into lowercase normalized list."""
+        return [ext.strip().lower() for ext in self.ALLOWED_DOCUMENT_EXTENSIONS.split(",") if ext.strip()]
 
 
 @lru_cache()

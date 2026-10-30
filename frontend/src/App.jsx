@@ -42,6 +42,11 @@ export default function App() {
     sendMessage,
     stopGeneration,
     regenerateResponse,
+    attachedDocument,
+    isUploadingDocument,
+    uploadProgress,
+    attachFile,
+    removeDocument,
   } = useChat({ customModels, customKeys });
 
   const { status: healthStatus, checkHealth: onCheckHealth } = useHealthCheck();
@@ -119,6 +124,12 @@ export default function App() {
               onSelectEffort={setEffort}
               customModels={customModels}
               onOpenApiKeyModal={() => setIsApiKeyModalOpen(true)}
+              attachedDocument={attachedDocument}
+              isUploadingDocument={isUploadingDocument}
+              uploadProgress={uploadProgress}
+              onAttachFile={attachFile}
+              onRemoveDocument={removeDocument}
+              onQuickAction={(prompt) => sendMessage(prompt)}
             />
           </main>
         )}

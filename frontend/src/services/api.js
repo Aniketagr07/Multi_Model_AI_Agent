@@ -38,7 +38,6 @@ export async function checkBackendHealth() {
   }
 }
 
-// Alias for backwards compatibility
 export const fetchHealthStatus = checkBackendHealth;
 
 /**
@@ -72,6 +71,7 @@ export async function sendChatMessage({
   conversation_id,
   messages,
   effort,
+  document_id,
   custom_api_key,
   custom_provider,
   custom_base_url,
@@ -85,6 +85,7 @@ export async function sendChatMessage({
     conversation_id: conversation_id || null,
     messages: messages && messages.length > 0 ? messages : null,
     effort: effort || 'medium',
+    document_id: document_id || null,
     custom_api_key: custom_api_key || null,
     custom_provider: custom_provider || null,
     custom_base_url: custom_base_url || null,
@@ -135,6 +136,7 @@ export async function streamChatMessage({
   conversation_id,
   messages,
   effort,
+  document_id,
   custom_api_key,
   custom_provider,
   custom_base_url,
@@ -153,6 +155,7 @@ export async function streamChatMessage({
     conversation_id: conversation_id || null,
     messages: messages && messages.length > 0 ? messages : null,
     effort: effort || 'medium',
+    document_id: document_id || null,
     custom_api_key: custom_api_key || null,
     custom_provider: custom_provider || null,
     custom_base_url: custom_base_url || null,
@@ -228,6 +231,73 @@ export async function streamChatMessage({
     }
     throw streamReadErr;
   }
+}
+
+/**
+ * Uploads a document (PDF, TXT, MD) to the backend with progress tracking.
+ * Target: POST /api/documents/upload
+ */
+export async function uploadDocument(file, conversationId = null, onProgress = null) {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/documents/upload`;
+
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', url);
+
+    if (xhr.upload && onProgress) {
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          const percent = Math.round((event.loaded / event.total) * 100);
+          onProgress(percent);
+        }
+      };
+    }
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const data = JSON.parse(xhr.responseText);
+          resolve(data);
+        } catch (err) {
+          reject(new Error('Invalid JSON response from server.'));
+        }
+      } else {
+        let errorMsg = `Upload failed with status ${xhr.status}`;
+        try {
+          const errJson = JSON.parse(xhr.responseText);
+          if (errJson.detail) errorMsg = errJson.detail;
+        } catch (_) {}
+        reject(new Error(errorMsg));
+      }
+    };
+
+    xhr.onerror = () => {
+      reject(new Error('Network error uploading document.'));
+    };
+
+    const formData = new FormData();
+    formData.append('file', file);
+    if (conversationId) {
+      formData.append('conversation_id', conversationId);
+    }
+
+    xhr.send(formData);
+  });
+}
+
+/**
+ * Deletes an uploaded document from backend storage.
+ * Target: DELETE /api/documents/{id}
+ */
+export async function deleteDocumentApi(documentId) {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/documents/${documentId}`;
+  const response = await fetch(url, {
+    method: 'DELETE',
+  });
+  if (!response.ok && response.status !== 204 && response.status !== 404) {
+    throw new Error(`Failed to delete document: HTTP ${response.status}`);
+  }
+  return true;
 }
 
 /**

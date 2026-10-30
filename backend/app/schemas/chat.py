@@ -27,6 +27,7 @@ class ChatRequest(BaseModel):
         default="medium",
         description="Inference effort level ('low', 'medium', 'high') modulating reasoning depth and sampling"
     )
+    document_id: Optional[str] = Field(default=None, description="Optional attached document ID for AI document analysis")
     custom_api_key: Optional[str] = Field(default=None, description="Optional user-supplied API key")
     custom_provider: Optional[str] = Field(default=None, description="Optional provider identifier ('gemini', 'groq', 'openai_compatible')")
     custom_base_url: Optional[str] = Field(default=None, description="Optional custom base URL endpoint")
@@ -50,7 +51,7 @@ class ChatRequest(BaseModel):
 
 
 class ChatResponse(BaseModel):
-    """Schema for POST /api/chat successful response with routing metadata."""
+    """Schema for POST /api/chat successful response with routing and document metadata."""
     conversation_id: Optional[str] = Field(default=None, description="Associated conversation identifier")
     model_id: str = Field(..., description="Model that produced the response")
     provider: Optional[str] = Field(default=None, description="Name of the backend provider adapter used")
@@ -61,6 +62,8 @@ class ChatResponse(BaseModel):
     routing_explanation: Optional[str] = Field(default=None, description="Explainable rationale for model selection")
     fallback_used: bool = Field(default=False, description="Whether a fallback model was used after primary error")
     effort: Optional[str] = Field(default="medium", description="Effort level applied during inference")
+    document_id: Optional[str] = Field(default=None, description="ID of document used as context if any")
+    document_name: Optional[str] = Field(default=None, description="Filename of document used as context if any")
     timestamp: str = Field(
         default_factory=lambda: datetime.now(timezone.utc).isoformat(),
         description="ISO 8601 UTC timestamp of response generation",
@@ -75,12 +78,12 @@ class ModelItemResponse(BaseModel):
     description: str
     tag: str
     is_available: bool
-    supported_categories: List[str] = Field(default_factory=list)
-    strengths: List[str] = Field(default_factory=list)
-    context_window: int = 8192
-    cost_tier: str = "Free tier"
+    supported_categories: List[str]
+    strengths: List[str]
+    context_window: int
+    cost_tier: str
 
 
 class ModelRegistryResponse(BaseModel):
-    """Schema for GET /api/models response."""
+    """Schema for GET /api/models response listing all available models."""
     models: List[ModelItemResponse]

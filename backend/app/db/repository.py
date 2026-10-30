@@ -12,8 +12,8 @@ def _utc_now_iso() -> str:
 
 class ConversationRepository:
     """
-    Data Access Object (DAO) providing CRUD operations for conversations and messages
-    in SQLite using parameterized SQL queries.
+    Data Access Object (DAO) providing CRUD operations for conversations, messages,
+    and attached documents in SQLite using parameterized SQL queries.
     """
 
     # -------------------------------------------------------------------------
@@ -68,7 +68,7 @@ class ConversationRepository:
 
     @staticmethod
     def list_conversations(limit: int = 50) -> List[Dict[str, Any]]:
-        """List all conversations ordered by last updated descending."""
+        """Retrieve all conversations ordered by updated_at descending."""
         with get_db_connection() as conn:
             cursor = conn.execute(
                 """
@@ -82,11 +82,11 @@ class ConversationRepository:
                 """,
                 (limit,),
             )
-            return [dict(row) for row in cursor.fetchall()]
+            return [dict(r) for r in cursor.fetchall()]
 
     @staticmethod
     def update_conversation_title(conv_id: str, title: str) -> Optional[Dict[str, Any]]:
-        """Update conversation title and refresh updated_at timestamp."""
+        """Update conversation title."""
         now = _utc_now_iso()
         with get_db_connection() as conn:
             cursor = conn.execute(
@@ -118,7 +118,7 @@ class ConversationRepository:
 
     @staticmethod
     def delete_conversation(conv_id: str) -> bool:
-        """Delete conversation by ID (foreign keys cascade delete messages)."""
+        """Delete conversation by ID (foreign keys cascade delete messages and documents)."""
         with get_db_connection() as conn:
             cursor = conn.execute(
                 "DELETE FROM conversations WHERE id = ?;",
@@ -139,6 +139,8 @@ class ConversationRepository:
         routing_category: Optional[str] = None,
         routing_explanation: Optional[str] = None,
         effort: Optional[str] = "medium",
+        document_id: Optional[str] = None,
+        document_name: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Insert a message record and update the parent conversation's updated_at."""
         mid = msg_id or f"msg-{uuid.uuid4().hex[:12]}"
@@ -151,9 +153,9 @@ class ConversationRepository:
                 INSERT INTO messages (
                     id, conversation_id, role, content, model_id,
                     provider, latency_ms, routed, routing_category,
-                    routing_explanation, effort, created_at
+                    routing_explanation, effort, document_id, document_name, created_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
                 """,
                 (
                     mid,
@@ -167,10 +169,12 @@ class ConversationRepository:
                     routing_category,
                     routing_explanation,
                     eff,
+                    document_id,
+                    document_name,
                     now,
                 ),
             )
-            # Update parent conversation timestamp
+            # Update parent conversation's updated_at timestamp
             conn.execute(
                 "UPDATE conversations SET updated_at = ? WHERE id = ?;",
                 (now, conv_id),
@@ -188,45 +192,45 @@ class ConversationRepository:
             "routing_category": routing_category,
             "routing_explanation": routing_explanation,
             "effort": eff,
+            "document_id": document_id,
+            "document_name": document_name,
             "created_at": now,
         }
 
     @staticmethod
     def get_messages(conv_id: str, limit: Optional[int] = None) -> List[Dict[str, Any]]:
-        """Retrieve all messages for a conversation ordered chronologically."""
+        """Retrieve chronological messages for a given conversation."""
         query = """
-            SELECT id, conversation_id, role, content, model_id, provider,
-                   latency_ms, routed, routing_category, routing_explanation, effort, created_at
+            SELECT id, conversation_id, role, content, model_id,
+                   provider, latency_ms, routed, routing_category,
+                   routing_explanation, effort, document_id, document_name, created_at
             FROM messages
             WHERE conversation_id = ?
             ORDER BY created_at ASC
         """
-        params: list = [conv_id]
-        if limit:
-            query += " LIMIT ?"
+        params: List[Any] = [conv_id]
+        if limit is not None:
+            query += " LIMIT ?;"
             params.append(limit)
+        else:
+            query += ";"
 
         with get_db_connection() as conn:
             cursor = conn.execute(query, tuple(params))
-            rows = cursor.fetchall()
-            result = []
-            for r in rows:
-                d = dict(r)
+            results = []
+            for row in cursor.fetchall():
+                d = dict(row)
                 d["routed"] = bool(d["routed"])
-                result.append(d)
-            return result
+                results.append(d)
+            return results
 
     @staticmethod
     def get_recent_context(conv_id: str, limit: int = 10) -> List[Dict[str, str]]:
-        """
-        Fetch the most recent N messages formatted as [{'role': role, 'content': content}]
-        for LLM sliding-window context, ordered chronologically.
-        """
+        """Retrieve the latest `limit` messages formatted as role/content dicts."""
         with get_db_connection() as conn:
             cursor = conn.execute(
                 """
-                SELECT role, content
-                FROM (
+                SELECT role, content FROM (
                     SELECT role, content, created_at
                     FROM messages
                     WHERE conversation_id = ?
@@ -238,6 +242,136 @@ class ConversationRepository:
                 (conv_id, limit),
             )
             return [{"role": r["role"], "content": r["content"]} for r in cursor.fetchall()]
+
+    # -------------------------------------------------------------------------
+    # Document Records Operations
+    # -------------------------------------------------------------------------
+
+    @staticmethod
+    def add_document(
+        doc_id: str,
+        filename: str,
+        file_type: str,
+        file_size: int,
+        storage_path: str,
+        extracted_text: str,
+        char_count: int,
+        chunk_count: int,
+        conv_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Insert a document record associated with a conversation."""
+        now = _utc_now_iso()
+        with get_db_connection() as conn:
+            conn.execute(
+                """
+                INSERT INTO documents (
+                    id, conversation_id, filename, file_type, file_size,
+                    storage_path, extracted_text, char_count, chunk_count, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+                """,
+                (
+                    doc_id,
+                    conv_id,
+                    filename,
+                    file_type,
+                    file_size,
+                    storage_path,
+                    extracted_text,
+                    char_count,
+                    chunk_count,
+                    now,
+                ),
+            )
+            if conv_id:
+                conn.execute(
+                    "UPDATE conversations SET updated_at = ? WHERE id = ?;",
+                    (now, conv_id),
+                )
+
+        return {
+            "id": doc_id,
+            "conversation_id": conv_id,
+            "filename": filename,
+            "file_type": file_type,
+            "file_size": file_size,
+            "char_count": char_count,
+            "chunk_count": chunk_count,
+            "created_at": now,
+        }
+
+    @staticmethod
+    def get_document(doc_id: str) -> Optional[Dict[str, Any]]:
+        """Retrieve document record by ID."""
+        with get_db_connection() as conn:
+            cursor = conn.execute(
+                """
+                SELECT id, conversation_id, filename, file_type, file_size,
+                       storage_path, extracted_text, char_count, chunk_count, created_at
+                FROM documents
+                WHERE id = ?;
+                """,
+                (doc_id,),
+            )
+            row = cursor.fetchone()
+            if not row:
+                return None
+            return dict(row)
+
+    @staticmethod
+    def list_documents(conv_id: Optional[str] = None, limit: int = 50) -> List[Dict[str, Any]]:
+        """List documents, optionally filtered by conversation_id."""
+        with get_db_connection() as conn:
+            if conv_id:
+                cursor = conn.execute(
+                    """
+                    SELECT id, conversation_id, filename, file_type, file_size,
+                           char_count, chunk_count, created_at
+                    FROM documents
+                    WHERE conversation_id = ?
+                    ORDER BY created_at DESC
+                    LIMIT ?;
+                    """,
+                    (conv_id, limit),
+                )
+            else:
+                cursor = conn.execute(
+                    """
+                    SELECT id, conversation_id, filename, file_type, file_size,
+                           char_count, chunk_count, created_at
+                    FROM documents
+                    ORDER BY created_at DESC
+                    LIMIT ?;
+                    """,
+                    (limit,),
+                )
+            return [dict(r) for r in cursor.fetchall()]
+
+    @staticmethod
+    def update_document_conversation(doc_id: str, conv_id: str) -> bool:
+        """Associate a document with a conversation."""
+        with get_db_connection() as conn:
+            cursor = conn.execute(
+                "UPDATE documents SET conversation_id = ? WHERE id = ?;",
+                (conv_id, doc_id),
+            )
+            return cursor.rowcount > 0
+
+    @staticmethod
+    def delete_document(doc_id: str) -> Optional[str]:
+        """Delete document record from database and return its storage_path for filesystem cleanup."""
+        with get_db_connection() as conn:
+            cursor = conn.execute(
+                "SELECT storage_path FROM documents WHERE id = ?;",
+                (doc_id,),
+            )
+            row = cursor.fetchone()
+            if not row:
+                return None
+            storage_path = row["storage_path"]
+
+            conn.execute("DELETE FROM documents WHERE id = ?;", (doc_id,))
+            return storage_path
 
     # -------------------------------------------------------------------------
     # Asynchronous Non-Blocking Wrappers (via asyncio.to_thread)
@@ -275,3 +409,22 @@ class ConversationRepository:
     async def a_get_recent_context(cls, conv_id: str, limit: int = 10) -> List[Dict[str, str]]:
         return await asyncio.to_thread(cls.get_recent_context, conv_id, limit)
 
+    @classmethod
+    async def a_add_document(cls, **kwargs) -> Dict[str, Any]:
+        return await asyncio.to_thread(cls.add_document, **kwargs)
+
+    @classmethod
+    async def a_get_document(cls, doc_id: str) -> Optional[Dict[str, Any]]:
+        return await asyncio.to_thread(cls.get_document, doc_id)
+
+    @classmethod
+    async def a_list_documents(cls, conv_id: Optional[str] = None, limit: int = 50) -> List[Dict[str, Any]]:
+        return await asyncio.to_thread(cls.list_documents, conv_id, limit)
+
+    @classmethod
+    async def a_update_document_conversation(cls, doc_id: str, conv_id: str) -> bool:
+        return await asyncio.to_thread(cls.update_document_conversation, doc_id, conv_id)
+
+    @classmethod
+    async def a_delete_document(cls, doc_id: str) -> Optional[str]:
+        return await asyncio.to_thread(cls.delete_document, doc_id)

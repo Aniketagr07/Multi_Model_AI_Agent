@@ -225,3 +225,4 @@ export function MarkdownRenderer({ content, isStreaming = false }) {
     </div>
   );
 }
+

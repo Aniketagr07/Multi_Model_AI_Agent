@@ -73,7 +73,7 @@ export function MessageBubble({ message, onRetry, onRegenerate, isLastAssistant 
           isUser ? 'items-end' : 'items-start'
         }`}
       >
-        {/* Header tag: Model name, latency & timestamp */}
+        {/* Header tag: Model name, latency, document context & timestamp */}
         <div className="flex items-center gap-2 text-[11px] text-[#9CA3AF] px-1 flex-wrap">
           <span className="font-semibold text-slate-300">
             {isUser ? 'You' : message.modelName || 'OmniAI Assistant'}
@@ -81,6 +81,12 @@ export function MessageBubble({ message, onRetry, onRegenerate, isLastAssistant 
           {message.modelTag && (
             <span className={`text-[10px] px-1.5 py-0.2 rounded border font-medium ${badgeStyle}`}>
               {message.modelTag}
+            </span>
+          )}
+          {message.documentName && (
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-300 border border-indigo-500/30 font-medium flex items-center gap-1">
+              <span>📄 Doc:</span>
+              <span className="text-indigo-200 font-semibold">{message.documentName}</span>
             </span>
           )}
           {isStreaming && (
@@ -200,7 +206,7 @@ export function MessageBubble({ message, onRetry, onRegenerate, isLastAssistant 
                 title="Regenerate this response"
                 className="flex items-center gap-1.5 text-[11px] text-slate-400 hover:text-purple-300 px-2 py-1 rounded-md bg-[#10131A] hover:bg-[#151923] border border-[#282D38] transition-colors cursor-pointer"
               >
-                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
                 </svg>
                 <span>Regenerate</span>
