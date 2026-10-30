@@ -139,3 +139,4 @@ def test_third_party_integration_honest_status():
     )
     assert exec_resp.status_code == 422
     assert "requires connected OAuth credentials" in exec_resp.json()["detail"]
+

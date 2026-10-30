@@ -195,3 +195,4 @@ def delete_user_account(user_id: str) -> None:
     """
     with get_db_connection() as conn:
         conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+

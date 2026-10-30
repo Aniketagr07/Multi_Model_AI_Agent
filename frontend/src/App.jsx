@@ -125,18 +125,19 @@ export default function App() {
         onCheckHealth={onCheckHealth}
         activeView={activeView}
         onSelectView={setActiveView}
+        user={user}
+        onOpenAuth={handleOpenAuth}
+        onOpenSettings={() => setActiveView('settings')}
+        onLogout={logout}
+        onDeleteAccount={deleteAccount}
       />
 
       {/* Main Interface */}
       <div className="flex-1 flex flex-col h-full min-h-0 min-w-0 relative bg-[#0B0D12]">
-        {/* Clean Top Header (Only Account Control [ Profile Icon | Guest User / Username ▼ ]) */}
+        {/* Clean Top Header: Sidebar Toggle + Active Conversation Title */}
         <ChatHeader
-          user={user}
+          activeTitle={activeTitle}
           onToggleSidebar={handleToggleSidebar}
-          onOpenAuth={handleOpenAuth}
-          onOpenSettings={() => setActiveView('settings')}
-          onLogout={logout}
-          onDeleteAccount={deleteAccount}
         />
 
         {/* Dynamic Main View Area */}
@@ -176,7 +177,7 @@ export default function App() {
             <MessageComposer
               input={input}
               setInput={setInput}
-              onSend={() => sendMessage()}
+              onSend={(...args) => sendMessage(...args)}
               onStop={stopGeneration}
               isLoading={isLoading}
               selectedModelId={selectedModelId}

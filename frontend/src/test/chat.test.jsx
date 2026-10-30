@@ -58,8 +58,9 @@ describe('Chat Interface & Message Submission Tests', () => {
 
     expect(screen.getByText('Hello OmniAI!')).toBeInTheDocument();
     expect(screen.getByText('Hello! How can I help you today?')).toBeInTheDocument();
-    expect(screen.getByText('Gemini 3.6 Flash')).toBeInTheDocument();
-    expect(screen.getByText((content) => content.includes('250ms'))).toBeInTheDocument();
+    // Clean conversational UI hides technical metadata tags from bubbles
+    expect(screen.queryByText('250ms')).not.toBeInTheDocument();
+    expect(screen.queryByText('You')).not.toBeInTheDocument();
   });
 
   it('submits message on Enter key without shift', () => {

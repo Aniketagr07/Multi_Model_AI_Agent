@@ -150,3 +150,4 @@ def get_execution_history(
     user_id = user["id"] if user else None
     history = list_skill_executions(user_id=user_id, limit=limit)
     return {"executions": history, "count": len(history)}
+

@@ -158,3 +158,4 @@ def test_account_deletion():
     # Token is now dead
     me_resp = client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"})
     assert me_resp.status_code == 401
+

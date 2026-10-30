@@ -29,3 +29,4 @@ class LoginRequest(BaseModel):
 class GuestInfoResponse(BaseModel):
     mode: str = "guest"
     message: str = "Running in Guest Mode. Conversations are stored locally on this machine and are not synced across devices."
+

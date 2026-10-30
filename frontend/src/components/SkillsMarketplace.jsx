@@ -623,3 +623,4 @@ export function SkillsMarketplace({ onBackToChat }) {
     </div>
   );
 }
+

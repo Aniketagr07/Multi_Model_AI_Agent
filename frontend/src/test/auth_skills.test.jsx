@@ -5,78 +5,43 @@ import { ChatHeader } from '../components/ChatHeader';
 import { Sidebar } from '../components/Sidebar';
 import { AuthModal } from '../components/AuthModal';
 
-describe('Clean Top Header and Account Profile Menu', () => {
-  it('renders clean top header with only the user profile control', () => {
+describe('Clean Top Header and Active Title', () => {
+  it('renders clean top header with sidebar toggle and active conversation title', () => {
     render(
       <ChatHeader
-        user={null}
+        activeTitle="Binary Search Implementation"
         onToggleSidebar={vi.fn()}
-        onOpenAuth={vi.fn()}
-        onOpenSettings={vi.fn()}
       />
     );
 
-    // Should display Guest User account control
-    expect(screen.getByText('Guest User')).toBeInTheDocument();
+    // Should display conversation title
+    expect(screen.getByText('Binary Search Implementation')).toBeInTheDocument();
+
+    // Verify toggle button is present
+    expect(screen.getByRole('button', { name: /toggle navigation sidebar/i })).toBeInTheDocument();
 
     // Verify removed elements are NOT present in the header
+    expect(screen.queryByText('Guest User')).not.toBeInTheDocument();
     expect(screen.queryByText('New Conversation')).not.toBeInTheDocument();
     expect(screen.queryByText('Add Key')).not.toBeInTheDocument();
     expect(screen.queryByText('Connected')).not.toBeInTheDocument();
   });
 
-  it('opens account menu with Sign In and Create Account for guest user', () => {
-    const handleOpenAuth = vi.fn();
+  it('falls back to "New Chat" when conversation has no title', () => {
     render(
       <ChatHeader
-        user={null}
+        activeTitle=""
         onToggleSidebar={vi.fn()}
-        onOpenAuth={handleOpenAuth}
-        onOpenSettings={vi.fn()}
       />
     );
 
-    // Click profile control
-    const profileBtn = screen.getByText('Guest User').closest('button');
-    fireEvent.click(profileBtn);
-
-    // Menu options should appear
-    expect(screen.getByText('Sign In')).toBeInTheDocument();
-    expect(screen.getByText('Create Account')).toBeInTheDocument();
-
-    // Clicking Sign In triggers callback
-    fireEvent.click(screen.getByText('Sign In'));
-    expect(handleOpenAuth).toHaveBeenCalledWith('signin');
-  });
-
-  it('displays authenticated username and options when logged in', () => {
-    const handleLogout = vi.fn();
-    render(
-      <ChatHeader
-        user={{ username: 'AlexDev', email: 'alex@example.com' }}
-        onToggleSidebar={vi.fn()}
-        onOpenAuth={vi.fn()}
-        onOpenSettings={vi.fn()}
-        onLogout={handleLogout}
-      />
-    );
-
-    expect(screen.getByText('AlexDev')).toBeInTheDocument();
-
-    // Open menu
-    const profileBtn = screen.getByText('AlexDev').closest('button');
-    fireEvent.click(profileBtn);
-
-    expect(screen.getByText('Account Settings')).toBeInTheDocument();
-    expect(screen.getByText('Sign Out')).toBeInTheDocument();
-
-    fireEvent.click(screen.getByText('Sign Out'));
-    expect(handleLogout).toHaveBeenCalled();
+    expect(screen.getByText('New Chat')).toBeInTheDocument();
   });
 });
 
-describe('Clean Sidebar and Empty State', () => {
-  it('renders clean sidebar with branding, new chat, search, and navigation links', () => {
+describe('Clean Sidebar with Bottom-Left User Account Controls', () => {
+  it('renders clean sidebar with Guest User and Sign In button at bottom', () => {
+    const handleOpenAuth = vi.fn();
     render(
       <Sidebar
         isOpen={true}
@@ -86,6 +51,8 @@ describe('Clean Sidebar and Empty State', () => {
         onSelectConversation={vi.fn()}
         searchQuery=""
         onSearchChange={vi.fn()}
+        user={null}
+        onOpenAuth={handleOpenAuth}
       />
     );
 
@@ -96,14 +63,45 @@ describe('Clean Sidebar and Empty State', () => {
     expect(screen.getByText('Compare Models')).toBeInTheDocument();
     expect(screen.getByText('Settings')).toBeInTheDocument();
 
-    // Verify completely removed bottom cards
-    expect(screen.queryByText('FastAPI Online')).not.toBeInTheDocument();
-    expect(screen.queryByText(/v0\.1\.0/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/Day 7\+/i)).not.toBeInTheDocument();
-    expect(screen.queryByText('REST API Healthy')).not.toBeInTheDocument();
+    // Bottom-left guest details
+    expect(screen.getByText('Guest User')).toBeInTheDocument();
+    expect(screen.getByText('Guest Mode')).toBeInTheDocument();
+    const signInBtn = screen.getByRole('button', { name: /sign in/i });
+    expect(signInBtn).toBeInTheDocument();
 
-    // Verify clean empty state for new users
-    expect(screen.getByText('No conversations yet')).toBeInTheDocument();
+    fireEvent.click(signInBtn);
+    expect(handleOpenAuth).toHaveBeenCalledWith('signin');
+  });
+
+  it('renders authenticated user details, settings, and sign out at bottom of sidebar', () => {
+    const handleLogout = vi.fn();
+    const handleOpenSettings = vi.fn();
+    render(
+      <Sidebar
+        isOpen={true}
+        onClose={vi.fn()}
+        conversations={[]}
+        onNewChat={vi.fn()}
+        onSelectConversation={vi.fn()}
+        searchQuery=""
+        onSearchChange={vi.fn()}
+        user={{ username: 'AlexDev', email: 'alex@example.com' }}
+        onOpenSettings={handleOpenSettings}
+        onLogout={handleLogout}
+      />
+    );
+
+    expect(screen.getByText('AlexDev')).toBeInTheDocument();
+    expect(screen.getByText('alex@example.com')).toBeInTheDocument();
+
+    const settingsBtn = screen.getByRole('button', { name: /account settings/i });
+    expect(settingsBtn).toBeInTheDocument();
+
+    const signOutBtn = screen.getByRole('button', { name: /sign out/i });
+    expect(signOutBtn).toBeInTheDocument();
+
+    fireEvent.click(signOutBtn);
+    expect(handleLogout).toHaveBeenCalledTimes(1);
   });
 });
 

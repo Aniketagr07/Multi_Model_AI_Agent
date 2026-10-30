@@ -285,6 +285,34 @@ class ChatService:
             if messages_payload and messages_payload[-1]["role"] == "user":
                 messages_payload[-1]["content"] = grounded_message
 
+        # Execute attached skill if specified
+        if getattr(request, "skill_id", None):
+            from app.services.skills_service import execute_skill, get_skill_by_id, SkillError
+            skill_info = get_skill_by_id(request.skill_id)
+            if not skill_info or not skill_info.get("is_installed"):
+                raise HTTPException(status_code=403, detail=f"Skill '{request.skill_id}' is not installed or unauthorized.")
+            if not skill_info.get("is_enabled"):
+                raise HTTPException(status_code=403, detail=f"Skill '{request.skill_id}' is currently disabled.")
+
+            skill_params = {"input": request.message, "query": request.message}
+            if request.document_id and 'doc_context' in locals():
+                skill_params["text"] = doc_context
+
+            try:
+                exec_result = execute_skill(request.skill_id, skill_params, conversation_id=conv_id)
+                res_data = exec_result.get("result", {})
+                skill_prompt_note = (
+                    f"\n\n[EXECUTED SKILL TOOL: {skill_info['name']}]\n"
+                    f"Verified Tool Output: {json.dumps(res_data, indent=2)}\n"
+                    f"Incorporate the above tool output cleanly and conversationally into your response."
+                )
+                if messages_payload and messages_payload[-1]["role"] == "user":
+                    messages_payload[-1]["content"] += skill_prompt_note
+            except SkillError as se:
+                if messages_payload and messages_payload[-1]["role"] == "user":
+                    messages_payload[-1]["content"] += f"\n\n[SKILL TOOL ERROR: {skill_info['name']}]\n{se.message}"
+
+
         # 5. Resolve Model & Provider
         if is_auto_mode:
             available_models = ModelRegistry.get_available_models()
@@ -454,6 +482,34 @@ class ChatService:
             grounded_message = doc_service.build_grounded_prompt(request.message, doc_name, doc_context)
             if messages_payload and messages_payload[-1]["role"] == "user":
                 messages_payload[-1]["content"] = grounded_message
+
+        # Execute attached skill if specified
+        if getattr(request, "skill_id", None):
+            from app.services.skills_service import execute_skill, get_skill_by_id, SkillError
+            skill_info = get_skill_by_id(request.skill_id)
+            if not skill_info or not skill_info.get("is_installed"):
+                raise HTTPException(status_code=403, detail=f"Skill '{request.skill_id}' is not installed or unauthorized.")
+            if not skill_info.get("is_enabled"):
+                raise HTTPException(status_code=403, detail=f"Skill '{request.skill_id}' is currently disabled.")
+
+            skill_params = {"input": request.message, "query": request.message}
+            if request.document_id and 'doc_context' in locals():
+                skill_params["text"] = doc_context
+
+            try:
+                exec_result = execute_skill(request.skill_id, skill_params, conversation_id=conv_id)
+                res_data = exec_result.get("result", {})
+                skill_prompt_note = (
+                    f"\n\n[EXECUTED SKILL TOOL: {skill_info['name']}]\n"
+                    f"Verified Tool Output: {json.dumps(res_data, indent=2)}\n"
+                    f"Incorporate the above tool output cleanly and conversationally into your response."
+                )
+                if messages_payload and messages_payload[-1]["role"] == "user":
+                    messages_payload[-1]["content"] += skill_prompt_note
+            except SkillError as se:
+                if messages_payload and messages_payload[-1]["role"] == "user":
+                    messages_payload[-1]["content"] += f"\n\n[SKILL TOOL ERROR: {skill_info['name']}]\n{se.message}"
+
 
         # 5. Resolve Model & Provider
         if is_auto_mode:

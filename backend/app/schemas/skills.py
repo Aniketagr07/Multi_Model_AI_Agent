@@ -49,3 +49,4 @@ class SkillExecuteResponse(BaseModel):
     status: str
     result: Optional[Dict[str, Any]] = None
     executed_at: str
+

@@ -303,7 +303,7 @@ export function useChat({ customModels = [], customKeys = {}, userSettings = {},
   }, []);
 
   // Action: Send Message with Real-Time SSE Streaming and Document Grounding
-  const sendMessage = useCallback(async (textToSend, overrideModelId, overrideEffort, overrideDocId) => {
+  const sendMessage = useCallback(async (textToSend, overrideModelId, overrideEffort, overrideDocId, overrideSkillId) => {
     const rawContent = (textToSend !== undefined ? textToSend : input).trim();
     // Default prompt if user attached document without typing text
     const messageContent = rawContent || (attachedDocument ? `Please analyze and summarize the attached document: ${attachedDocument.filename}` : '');
@@ -370,6 +370,7 @@ export function useChat({ customModels = [], customKeys = {}, userSettings = {},
           conversation_id: activeConversationId,
           effort: targetEffort,
           document_id: targetDocId,
+          skill_id: overrideSkillId || null,
           custom_instructions: userSettings?.custom_instructions,
           custom_api_key: customKey,
           custom_provider: customProvider,
@@ -413,6 +414,7 @@ export function useChat({ customModels = [], customKeys = {}, userSettings = {},
         conversation_id: activeConversationId,
         effort: targetEffort,
         document_id: targetDocId,
+        skill_id: overrideSkillId || null,
         custom_instructions: userSettings?.custom_instructions,
         custom_api_key: customKey,
         custom_provider: customProvider,

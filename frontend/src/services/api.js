@@ -130,6 +130,8 @@ export async function sendChatMessage({
   custom_provider,
   custom_base_url,
   custom_provider_model_id,
+  skill_id,
+  skillId,
 }) {
   const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/chat`;
 
@@ -145,6 +147,7 @@ export async function sendChatMessage({
     custom_provider: custom_provider || null,
     custom_base_url: custom_base_url || null,
     custom_provider_model_id: custom_provider_model_id || null,
+    skill_id: skill_id || skillId || null,
   };
 
   let response;
@@ -197,6 +200,8 @@ export async function streamChatMessage({
   custom_provider,
   custom_base_url,
   custom_provider_model_id,
+  skill_id,
+  skillId,
   signal,
   onMeta,
   onToken,
@@ -217,6 +222,7 @@ export async function streamChatMessage({
     custom_provider: custom_provider || null,
     custom_base_url: custom_base_url || null,
     custom_provider_model_id: custom_provider_model_id || null,
+    skill_id: skill_id || skillId || null,
   };
 
   let response;

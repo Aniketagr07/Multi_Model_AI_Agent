@@ -93,3 +93,4 @@ def delete_account(user: dict = Depends(get_current_user_required)):
         "status": "deleted",
         "message": "Account and all associated conversations were permanently deleted.",
     }
+

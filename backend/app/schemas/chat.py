@@ -37,6 +37,7 @@ class ChatRequest(BaseModel):
     custom_provider: Optional[str] = Field(default=None, description="Optional provider identifier ('gemini', 'groq', 'openai_compatible')")
     custom_base_url: Optional[str] = Field(default=None, description="Optional custom base URL endpoint")
     custom_provider_model_id: Optional[str] = Field(default=None, description="Optional upstream provider model name")
+    skill_id: Optional[str] = Field(default=None, description="Optional installed skill ID to execute with this message")
 
     @field_validator("message")
     @classmethod

@@ -20,6 +20,11 @@ export function Sidebar({
   onCheckHealth,
   activeView = 'chat',
   onSelectView,
+  user = null,
+  onOpenAuth,
+  onOpenSettings,
+  onLogout,
+  onDeleteAccount,
 }) {
   const [editingId, setEditingId] = useState(null);
   const [editTitle, setEditTitle] = useState('');
@@ -232,7 +237,7 @@ export function Sidebar({
             } transition-opacity bg-[#151923]/95 px-1 py-0.5 rounded-md shadow-sm border border-[#282D38]/60`}
             onClick={e => e.stopPropagation()}
           >
-            {/* Pin Toggle Button (Only for unarchived) */}
+            {/* Pin Toggle Button */}
             {!isArchivedSection && onPinConversation && (
               <button
                 type="button"
@@ -380,14 +385,16 @@ export function Sidebar({
         />
       )}
 
-      {/* Sidebar Container */}
+      {/* Sidebar Container with Smooth Desktop & Mobile Collapse */}
       <aside
-        className={`fixed md:static inset-y-0 left-0 z-50 flex flex-col w-72 bg-[#10131A] border-r border-[#282D38] transition-transform duration-300 ease-in-out shrink-0 select-none ${
-          isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0 md:w-72'
+        className={`fixed md:static inset-y-0 left-0 z-50 flex flex-col bg-[#10131A] border-r border-[#282D38] transition-all duration-300 ease-in-out shrink-0 select-none ${
+          isOpen
+            ? 'w-72 translate-x-0 opacity-100'
+            : 'w-0 -translate-x-full md:translate-x-0 md:w-0 opacity-0 overflow-hidden pointer-events-none border-r-0'
         }`}
       >
         {/* Brand Header */}
-        <div className="flex items-center justify-between p-4 border-b border-[#282D38]/80">
+        <div className="flex items-center justify-between p-4 border-b border-[#282D38]/80 shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-[#8B5CF6] to-indigo-600 flex items-center justify-center shadow-md shadow-purple-500/20">
               <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
@@ -419,7 +426,7 @@ export function Sidebar({
         </div>
 
         {/* Action: New Chat Button */}
-        <div className="p-3 pb-2">
+        <div className="p-3 pb-2 shrink-0">
           <button
             type="button"
             onClick={() => {
@@ -437,8 +444,8 @@ export function Sidebar({
           </button>
         </div>
 
-        {/* TASK 1: Search Bar */}
-        <div className="px-3 pb-2">
+        {/* Search Bar */}
+        <div className="px-3 pb-2 shrink-0">
           <div className="relative">
             <svg
               className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
@@ -473,7 +480,7 @@ export function Sidebar({
         </div>
 
         {/* Secondary Navigation */}
-        <div className="px-3 pb-2 border-b border-[#282D38]/60 space-y-1">
+        <div className="px-3 pb-2 border-b border-[#282D38]/60 space-y-1 shrink-0">
           <button
             type="button"
             onClick={() => {
@@ -566,8 +573,8 @@ export function Sidebar({
           </button>
         </div>
 
-        {/* TASK 3: Conversation History List Organized into Pinned, Recent, and Archived */}
-        <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
+        {/* Conversation History List Organized into Pinned, Recent, and Archived */}
+        <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3 min-h-0">
           {/* Active Search Result State */}
           {searchQuery && (
             <div className="px-1 flex items-center justify-between text-[11px] text-purple-400 font-medium">
@@ -673,7 +680,66 @@ export function Sidebar({
           )}
         </div>
 
-
+        {/* User Account Details Section at Bottom-Left of Sidebar */}
+        <div className="p-3 border-t border-[#282D38]/80 bg-[#0E1017]/90 shrink-0">
+          {!user ? (
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center text-white shrink-0 shadow-sm">
+                  <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                    <circle cx="12" cy="7" r="4" />
+                  </svg>
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs font-semibold text-slate-200 truncate">Guest User</div>
+                  <div className="text-[10px] text-slate-500">Guest Mode</div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => onOpenAuth && onOpenAuth('signin')}
+                className="px-2.5 py-1 text-xs font-semibold text-purple-300 hover:text-white bg-purple-600/20 hover:bg-purple-600/40 border border-purple-500/30 rounded-lg transition-colors cursor-pointer shrink-0"
+              >
+                Sign In
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center text-white text-xs font-bold shrink-0 shadow-sm">
+                  {user.username ? user.username.charAt(0).toUpperCase() : 'U'}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-semibold text-slate-200 truncate">{user.username}</div>
+                  <div className="text-[10px] text-slate-400 truncate">{user.email || 'Authenticated'}</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 pt-0.5">
+                {onOpenSettings && (
+                  <button
+                    type="button"
+                    onClick={onOpenSettings}
+                    aria-label="Account Settings"
+                    className="flex-1 px-2 py-1 text-[11px] font-medium text-slate-300 hover:text-white bg-[#151923] hover:bg-[#1E2330] border border-[#282D38] rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <span>⚙️</span>
+                    <span>Account Settings</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={onLogout}
+                  className="px-2 py-1 text-[11px] font-medium text-slate-300 hover:text-red-300 bg-[#151923] hover:bg-red-950/30 border border-[#282D38] hover:border-red-900/50 rounded-lg transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                  title="Sign Out"
+                >
+                  <span>🚪</span>
+                  <span>Sign Out</span>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </aside>
 
       {/* Permanent Deletion Confirmation Modal */}

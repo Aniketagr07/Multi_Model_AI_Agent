@@ -57,8 +57,9 @@ describe('Model Selection, Auto-Routing, and Comparison Tests', () => {
       />
     );
 
-    expect(screen.getByText(/Auto: coding/i)).toBeInTheDocument();
-    expect(screen.getByText(/Classified prompt as coding task/i)).toBeInTheDocument();
+    expect(screen.getByText('Here is the Python binary search algorithm...')).toBeInTheDocument();
+    expect(screen.queryByText(/Auto: coding/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Classified prompt as coding task/i)).not.toBeInTheDocument();
   });
 
   it('renders Model Comparison view and broadcasts prompt to both models', async () => {

@@ -14,13 +14,6 @@ export const MessageBubble = React.memo(function MessageBubble({
   const isStreaming = Boolean(message.isStreaming);
   const isSystemNotice = Boolean(message.isNotice || message.status === 'unconnected');
 
-  const formattedTime = message.timestamp
-    ? new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    : '';
-
-  // Calculate estimated tokens if not returned explicitly by provider
-  const estimatedTokens = message.tokens || message.total_tokens || Math.max(1, Math.ceil(((message.content || '').length) / 4));
-
   const handleCopyFull = async () => {
     try {
       await navigator.clipboard.writeText(message.content);
@@ -31,19 +24,12 @@ export const MessageBubble = React.memo(function MessageBubble({
     }
   };
 
-  // Determine distinctive badge styling per provider
   const isGroq = message.provider === 'groq' ||
     (message.modelName && (message.modelName.includes('Llama') || message.modelName.includes('Mixtral')));
 
-  const badgeStyle = isError
-    ? 'bg-red-500/10 text-red-400 border-red-500/20'
-    : isGroq
-    ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
-    : 'bg-blue-500/10 text-blue-400 border-blue-500/30';
-
   return (
     <article
-      className={`flex gap-3 max-w-4xl w-full mx-auto p-4 transition-colors group ${
+      className={`flex gap-3 max-w-4xl w-full mx-auto p-3 sm:p-4 transition-colors group ${
         isUser ? 'justify-end' : 'justify-start'
       }`}
     >
@@ -82,70 +68,9 @@ export const MessageBubble = React.memo(function MessageBubble({
           isUser ? 'items-end' : 'items-start'
         }`}
       >
-        {/* Header tag: Model name, latency, token count, document context & timestamp */}
-        <div className="flex items-center gap-1.5 sm:gap-2 text-[11px] text-[#9CA3AF] px-1 flex-wrap">
-          <span className="font-semibold text-slate-200">
-            {isUser ? 'You' : message.modelName || 'OmniAI Assistant'}
-          </span>
-          {message.modelTag && (
-            <span className={`text-[10px] px-1.5 py-0.5 rounded-md border font-medium ${badgeStyle}`}>
-              {message.modelTag}
-            </span>
-          )}
-          {message.documentName && (
-            <span className="text-[10px] px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-300 border border-indigo-500/30 font-medium flex items-center gap-1">
-              <span>📄</span>
-              <span className="text-indigo-200 font-semibold">{message.documentName}</span>
-            </span>
-          )}
-          {isStreaming && (
-            <span className="text-[10px] px-2 py-0.5 rounded-md bg-purple-500/20 text-purple-300 border border-purple-500/40 font-medium flex items-center gap-1.5 animate-pulse">
-              <span className="w-1.5 h-1.5 rounded-full bg-purple-400"></span>
-              Streaming...
-            </span>
-          )}
-          {message.routed && !isStreaming && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-purple-500/10 text-purple-300 border border-purple-500/20 font-medium">
-              🎯 Auto: {message.routingCategory ? message.routingCategory.toUpperCase() : 'ROUTED'}
-            </span>
-          )}
-          {message.fallbackUsed && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/30 font-medium">
-              ⚠️ Fallback Model
-            </span>
-          )}
-          {message.effort && !isUser && (
-            <span className={`text-[10px] px-1.5 py-0.5 rounded-md border font-medium ${
-              message.effort === 'high'
-                ? 'bg-rose-500/10 text-rose-400 border-rose-500/30'
-                : message.effort === 'low'
-                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                : 'bg-purple-500/10 text-purple-400 border-purple-500/30'
-            }`}>
-              {message.effort === 'high' ? '🧠 High Effort' : message.effort === 'low' ? '⚡ Low Effort' : '⚖️ Med Effort'}
-            </span>
-          )}
-          {typeof message.latencyMs === 'number' && !isStreaming && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">
-              ⚡ {message.latencyMs}ms
-            </span>
-          )}
-          {/* Estimated Token Count for Assistant and User */}
-          {showTokenMetrics && !isStreaming && message.content && (
-            <span
-              className="text-[10px] px-2 py-0.5 rounded-md bg-[#10131A] text-purple-300 border border-purple-500/20 font-mono flex items-center gap-1 cursor-help"
-              title={isUser ? `Input prompt: ~${estimatedTokens} tokens` : `Output tokens: ~${estimatedTokens} (~${message.content.length} characters)`}
-            >
-              <span>🪙</span>
-              <span>~{estimatedTokens} tokens</span>
-            </span>
-          )}
-          {formattedTime && <span className="text-slate-500 text-[10px]">• {formattedTime}</span>}
-        </div>
-
-        {/* Content Box */}
+        {/* Clean Message Content Box (No top metadata headers) */}
         <div
-          className={`p-4 rounded-2xl w-full transition-all ${
+          className={`p-3.5 sm:p-4 rounded-2xl w-full transition-all ${
             isUser
               ? 'bg-[#1E2330] text-[#F3F4F6] border border-[#282D38] rounded-tr-sm'
               : isError
@@ -160,16 +85,6 @@ export const MessageBubble = React.memo(function MessageBubble({
             content={message.content}
             isStreaming={isStreaming}
           />
-
-          {/* Explainable Routing Rationale Banner */}
-          {message.routingExplanation && !isStreaming && (
-            <div className="mt-3 pt-2.5 border-t border-[#282D38]/80 text-[11px] text-purple-300 flex items-start gap-2 bg-[#10131A]/70 px-3 py-2 rounded-xl border border-purple-500/20">
-              <span className="shrink-0 text-purple-400 text-xs">🎯</span>
-              <span className="leading-relaxed">
-                <strong className="text-purple-300">Routing Rationale:</strong> {message.routingExplanation}
-              </span>
-            </div>
-          )}
 
           {/* Error Retry Action */}
           {isError && onRetry && message.originalUserMessage && (
@@ -191,9 +106,9 @@ export const MessageBubble = React.memo(function MessageBubble({
           )}
         </div>
 
-        {/* Message Action Bar (Copy full assistant answer & Regenerate) */}
+        {/* Assistant Action Bar (Copy & Regenerate) */}
         {!isUser && !isError && !isStreaming && message.content && (
-          <div className="flex items-center gap-2 pt-1 px-1 opacity-75 group-hover:opacity-100 transition-opacity">
+          <div className="flex items-center gap-2 pt-0.5 px-1 opacity-75 group-hover:opacity-100 transition-opacity">
             <button
               type="button"
               onClick={handleCopyFull}
