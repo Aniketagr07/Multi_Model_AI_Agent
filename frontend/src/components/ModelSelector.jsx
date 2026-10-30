@@ -22,6 +22,16 @@ export const AVAILABLE_MODELS = [
     description: "Verified active high-speed Google multimodal model with instant streaming and low latency",
   },
   {
+    id: 'gemini-flash-lite-latest',
+    name: 'Gemini Flash Lite (Ultra Fast)',
+    tag: 'Google Ultra Fast',
+    provider: 'Google AI Studio',
+    isOperational: true,
+    badgeColor: 'bg-teal-500/10 text-teal-400 border-teal-500/30',
+    iconColor: 'bg-teal-500/20 text-teal-400 border-teal-500/30',
+    description: 'Instant sub-second token generation optimized for conversational streaming',
+  },
+  {
     id: 'gemini-3.5-flash',
     name: 'Gemini 3.5 Flash',
     tag: 'Google Free Tier',

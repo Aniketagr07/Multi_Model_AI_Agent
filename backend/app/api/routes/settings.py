@@ -40,3 +40,4 @@ async def update_user_settings(payload: UserSettingsSchema) -> UserSettingsSchem
         if k in schema_dict:
             schema_dict[k] = v
     return UserSettingsSchema(**schema_dict)
+

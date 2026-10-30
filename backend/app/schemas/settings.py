@@ -61,3 +61,4 @@ class UserSettingsSchema(BaseModel):
             clean_text = clean_text.replace(phrase.upper(), "")
             clean_text = clean_text.replace(phrase.title(), "")
         return clean_text.strip()
+

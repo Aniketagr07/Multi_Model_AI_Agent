@@ -684,3 +684,4 @@ export function SettingsView({
     </div>
   );
 }
+

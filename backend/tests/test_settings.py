@@ -139,3 +139,4 @@ def test_custom_instructions_chat_workflow():
         # Verify instructions were injected at the beginning
         assert any("User Style Instructions" in m["content"] for m in messages_sent)
         assert any("Be strictly concise" in m["content"] for m in messages_sent)
+
