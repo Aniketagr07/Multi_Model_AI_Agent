@@ -78,24 +78,41 @@ class GeminiProvider(BaseLLMProvider):
             "generationConfig": generation_config,
         }
 
+        # For experimental/preview models like 3.8, use a responsive timeout so users aren't left waiting 30s
+        call_timeout = 8.0 if "3.8" in model_id else self.timeout
+
         try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.post(
-                    endpoint,
-                    params=params,
-                    json=payload,
-                    headers={"Content-Type": "application/json"},
-                )
+            try:
+                async with httpx.AsyncClient(timeout=call_timeout) as client:
+                    response = await client.post(
+                        endpoint,
+                        params=params,
+                        json=payload,
+                        headers={"Content-Type": "application/json"},
+                    )
+            except httpx.TimeoutException:
+                if model_id != "gemini-3.5-flash":
+                    logger.warning("Gemini model '%s' timed out. Attempting fallback to gemini-3.5-flash...", model_id)
+                    fb_endpoint = f"{self.base_url}/models/gemini-3.5-flash:generateContent"
+                    async with httpx.AsyncClient(timeout=15.0) as client:
+                        response = await client.post(
+                            fb_endpoint,
+                            params=params,
+                            json=payload,
+                            headers={"Content-Type": "application/json"},
+                        )
+                else:
+                    raise
 
             # Handle 404 or 503 (model deprecated or high demand on Gemini)
             if response.status_code in (404, 503):
-                fallback_candidates = ["gemini-3.5-flash", "gemini-3.8-flash", "gemini-flash-latest"]
+                fallback_candidates = ["gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-flash-lite-latest"]
                 for fb_model in fallback_candidates:
                     if fb_model != model_id:
                         logger.info("Gemini model '%s' returned status %s. Retrying with fallback '%s'...", model_id, response.status_code, fb_model)
                         fb_endpoint = f"{self.base_url}/models/{fb_model}:generateContent"
                         try:
-                            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                            async with httpx.AsyncClient(timeout=15.0) as client:
                                 fb_resp = await client.post(
                                     fb_endpoint,
                                     params=params,
@@ -173,28 +190,6 @@ class GeminiProvider(BaseLLMProvider):
             return result_text
 
         except httpx.TimeoutException:
-            if model_id != "gemini-3.5-flash":
-                logger.warning("Gemini model '%s' timed out. Attempting emergency fallback to gemini-3.5-flash...", model_id)
-                try:
-                    fb_endpoint = f"{self.base_url}/models/gemini-3.5-flash:generateContent"
-                    async with httpx.AsyncClient(timeout=25.0) as client:
-                        fb_resp = await client.post(
-                            fb_endpoint,
-                            params=params,
-                            json=payload,
-                            headers={"Content-Type": "application/json"},
-                        )
-                        if fb_resp.status_code == 200:
-                            data = fb_resp.json()
-                            candidates = data.get("candidates", [])
-                            if candidates:
-                                parts = candidates[0].get("content", {}).get("parts", [])
-                                result_text = "".join(p.get("text", "") for p in parts if "text" in p).strip()
-                                if result_text:
-                                    return result_text
-                except Exception as fb_exc:
-                    logger.warning("Emergency fallback to gemini-3.5-flash failed: %s", fb_exc)
-
             logger.warning("Gemini API request timed out after %.1f seconds", self.timeout)
             raise ProviderTimeoutError(
                 f"Google Gemini API request timed out after {self.timeout} seconds."
@@ -209,4 +204,3 @@ class GeminiProvider(BaseLLMProvider):
     async def check_availability(self) -> bool:
         """Check if GEMINI_API_KEY is configured and service is reachable."""
         return bool(self.api_key and self.api_key.strip())
-

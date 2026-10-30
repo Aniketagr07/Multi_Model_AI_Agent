@@ -27,6 +27,10 @@ class ChatRequest(BaseModel):
         default="medium",
         description="Inference effort level ('low', 'medium', 'high') modulating reasoning depth and sampling"
     )
+    custom_api_key: Optional[str] = Field(default=None, description="Optional user-supplied API key")
+    custom_provider: Optional[str] = Field(default=None, description="Optional provider identifier ('gemini', 'groq', 'openai_compatible')")
+    custom_base_url: Optional[str] = Field(default=None, description="Optional custom base URL endpoint")
+    custom_provider_model_id: Optional[str] = Field(default=None, description="Optional upstream provider model name")
 
     @field_validator("message")
     @classmethod

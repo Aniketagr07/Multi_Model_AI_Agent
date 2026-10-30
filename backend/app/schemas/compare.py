@@ -12,6 +12,14 @@ class CompareRequest(BaseModel):
         default="medium",
         description="Inference effort level ('low', 'medium', 'high') applied to both models"
     )
+    custom_api_key_a: Optional[str] = Field(default=None, description="Custom API key for Model A")
+    custom_provider_a: Optional[str] = Field(default=None, description="Custom provider family for Model A")
+    custom_base_url_a: Optional[str] = Field(default=None, description="Custom base URL for Model A")
+    custom_provider_model_id_a: Optional[str] = Field(default=None, description="Custom upstream model ID for Model A")
+    custom_api_key_b: Optional[str] = Field(default=None, description="Custom API key for Model B")
+    custom_provider_b: Optional[str] = Field(default=None, description="Custom provider family for Model B")
+    custom_base_url_b: Optional[str] = Field(default=None, description="Custom base URL for Model B")
+    custom_provider_model_id_b: Optional[str] = Field(default=None, description="Custom upstream model ID for Model B")
 
     @field_validator("prompt")
     @classmethod

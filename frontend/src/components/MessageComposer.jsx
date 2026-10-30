@@ -11,6 +11,8 @@ export function MessageComposer({
   onSelectModel,
   effort = 'medium',
   onSelectEffort,
+  customModels = [],
+  onOpenApiKeyModal,
 }) {
   const textareaRef = useRef(null);
 
@@ -53,18 +55,29 @@ export function MessageComposer({
 
         {/* Bottom Toolbar: Model Selector & Send Button */}
         <div className="flex items-center justify-between pt-2 mt-1 border-t border-[#282D38]/60">
-          {/* Model Selector & Effort Selector */}
+          {/* Model Selector, Effort Selector & API Key Button */}
           <div className="flex items-center gap-2 flex-wrap">
             <ModelSelector
               selectedModelId={selectedModelId}
               onSelectModel={onSelectModel}
               disabled={isLoading}
+              customModels={customModels}
+              onOpenApiKeyModal={onOpenApiKeyModal}
             />
             <EffortSelector
               selectedEffort={effort}
               onSelectEffort={onSelectEffort}
               disabled={isLoading}
             />
+            <button
+              type="button"
+              onClick={onOpenApiKeyModal}
+              title="Connect Your Own API Key & Fetch Models"
+              className="px-2 py-1.5 rounded-xl text-xs bg-[#151923] hover:bg-[#1E2330] text-purple-300 hover:text-white border border-[#282D38] hover:border-purple-500/40 transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <span>🔑</span>
+              <span className="hidden sm:inline font-medium">Add Key</span>
+            </button>
           </div>
 
           <div className="flex items-center gap-3">

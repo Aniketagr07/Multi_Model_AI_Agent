@@ -47,25 +47,80 @@ class ChatService:
 
         self._router: ModelRouter = get_model_router()
 
-    def resolve_model_and_provider(self, model_id: str) -> Tuple[ModelInfo, BaseLLMProvider]:
+    def resolve_model_and_provider(
+        self,
+        model_id: str,
+        custom_api_key: Optional[str] = None,
+        custom_provider: Optional[str] = None,
+        custom_base_url: Optional[str] = None,
+        custom_provider_model_id: Optional[str] = None,
+    ) -> Tuple[ModelInfo, BaseLLMProvider]:
         """
-        Validate model identifier against the server registry and return
-        its registered ModelInfo along with its corresponding provider adapter.
+        Validate model identifier against the server registry or dynamic registry and return
+        its ModelInfo along with its corresponding provider adapter.
+        Supports on-the-fly BYOK custom credentials.
         """
         model_info = ModelRegistry.get_model(model_id)
         if not model_info:
-            valid_models = [m.id for m in ModelRegistry.list_models()]
-            raise HTTPException(
-                status_code=400,
-                detail=f"Model '{model_id}' is not recognized in the server registry. Registered models: {valid_models}",
-            )
+            if custom_api_key or model_id.startswith("custom-"):
+                prov = custom_provider or ("gemini" if "gemini" in model_id.lower() else "groq" if "groq" in model_id.lower() else "openai_compatible")
+                pm_id = custom_provider_model_id or model_id.replace("custom-gemini-", "").replace("custom-groq-", "").replace("custom-openai-", "").replace("custom-", "")
+                model_info = ModelInfo(
+                    id=model_id,
+                    name=f"{pm_id} (Custom)",
+                    provider=prov,
+                    provider_model_id=pm_id,
+                    description=f"Custom user-connected model via {prov}",
+                    tag="Custom BYOK",
+                    is_available=True,
+                    supported_categories=["general", "coding", "writing", "reasoning"],
+                    strengths=["Custom API integration", "Live user quota"],
+                    context_window=131072,
+                    cost_tier="User API Key",
+                )
+            else:
+                valid_models = [m.id for m in ModelRegistry.list_models()]
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Model '{model_id}' is not recognized in the server registry. Registered models: {valid_models}",
+                )
+
+        # If user supplied custom_api_key, construct a dedicated provider adapter
+        if custom_api_key and custom_api_key.strip():
+            prov_type = custom_provider or model_info.provider
+            if prov_type == "gemini":
+                from app.providers.gemini_provider import GeminiProvider
+                provider = GeminiProvider(
+                    api_key=custom_api_key.strip(),
+                    base_url=custom_base_url or "https://generativelanguage.googleapis.com/v1beta",
+                    timeout=45.0,
+                )
+            elif prov_type == "groq":
+                from app.providers.groq_provider import GroqProvider
+                provider = GroqProvider(
+                    api_key=custom_api_key.strip(),
+                    base_url=custom_base_url or "https://api.groq.com/openai/v1",
+                    timeout=45.0,
+                )
+            else:
+                from app.providers.openai_provider import OpenAICompatibleProvider
+                provider = OpenAICompatibleProvider(
+                    api_key=custom_api_key.strip(),
+                    base_url=custom_base_url or "https://api.openai.com/v1",
+                    timeout=45.0,
+                )
+            return model_info, provider
 
         provider = self._providers.get(model_info.provider)
         if not provider:
-            raise HTTPException(
-                status_code=500,
-                detail=f"Internal configuration error: Provider '{model_info.provider}' is not mapped to an adapter.",
-            )
+            if model_info.provider == "openai_compatible":
+                from app.providers.openai_provider import OpenAICompatibleProvider
+                provider = OpenAICompatibleProvider(base_url=custom_base_url or "https://api.openai.com/v1")
+            else:
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Internal configuration error: Provider '{model_info.provider}' is not mapped to an adapter.",
+                )
 
         return model_info, provider
 
@@ -198,7 +253,13 @@ class ChatService:
             if not provider:
                 raise HTTPException(status_code=500, detail=f"Provider adapter '{model_info.provider}' missing.")
         else:
-            model_info, provider = self.resolve_model_and_provider(request.model_id)
+            model_info, provider = self.resolve_model_and_provider(
+                request.model_id,
+                custom_api_key=request.custom_api_key,
+                custom_provider=request.custom_provider,
+                custom_base_url=request.custom_base_url,
+                custom_provider_model_id=request.custom_provider_model_id,
+            )
 
         start_time = time.perf_counter()
         fallback_used = False

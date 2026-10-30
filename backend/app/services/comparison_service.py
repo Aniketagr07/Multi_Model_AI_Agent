@@ -31,9 +31,19 @@ class ComparisonService:
         model_id: str,
         prompt: str,
         effort: str = "medium",
+        custom_api_key: Optional[str] = None,
+        custom_provider: Optional[str] = None,
+        custom_base_url: Optional[str] = None,
+        custom_provider_model_id: Optional[str] = None,
     ) -> ModelComparisonResult:
         """Execute query against one model, measuring latency and capturing failures safely."""
-        model_info, provider = self.chat_service.resolve_model_and_provider(model_id)
+        model_info, provider = self.chat_service.resolve_model_and_provider(
+            model_id,
+            custom_api_key=custom_api_key,
+            custom_provider=custom_provider,
+            custom_base_url=custom_base_url,
+            custom_provider_model_id=custom_provider_model_id,
+        )
         messages = [{"role": "user", "content": prompt}]
 
         # Independent monotonic timer
@@ -140,8 +150,24 @@ class ComparisonService:
         Ensures partial failures are captured without aborting successful tasks.
         """
         effort = getattr(request, "effort", "medium") or "medium"
-        task_a = self._execute_single_model(request.model_a_id, request.prompt, effort=effort)
-        task_b = self._execute_single_model(request.model_b_id, request.prompt, effort=effort)
+        task_a = self._execute_single_model(
+            request.model_a_id,
+            request.prompt,
+            effort=effort,
+            custom_api_key=getattr(request, "custom_api_key_a", None),
+            custom_provider=getattr(request, "custom_provider_a", None),
+            custom_base_url=getattr(request, "custom_base_url_a", None),
+            custom_provider_model_id=getattr(request, "custom_provider_model_id_a", None),
+        )
+        task_b = self._execute_single_model(
+            request.model_b_id,
+            request.prompt,
+            effort=effort,
+            custom_api_key=getattr(request, "custom_api_key_b", None),
+            custom_provider=getattr(request, "custom_provider_b", None),
+            custom_base_url=getattr(request, "custom_base_url_b", None),
+            custom_provider_model_id=getattr(request, "custom_provider_model_id_b", None),
+        )
 
         # Parallel concurrent execution
         result_a, result_b = await asyncio.gather(task_a, task_b)

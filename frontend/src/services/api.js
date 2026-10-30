@@ -66,7 +66,17 @@ export async function fetchModelRegistry() {
  * Dispatches a chat message to the FastAPI backend.
  * Target: POST /api/chat
  */
-export async function sendChatMessage({ message, model_id, conversation_id, messages, effort }) {
+export async function sendChatMessage({
+  message,
+  model_id,
+  conversation_id,
+  messages,
+  effort,
+  custom_api_key,
+  custom_provider,
+  custom_base_url,
+  custom_provider_model_id,
+}) {
   const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/chat`;
 
   const payload = {
@@ -75,6 +85,10 @@ export async function sendChatMessage({ message, model_id, conversation_id, mess
     conversation_id: conversation_id || null,
     messages: messages && messages.length > 0 ? messages : null,
     effort: effort || 'medium',
+    custom_api_key: custom_api_key || null,
+    custom_provider: custom_provider || null,
+    custom_base_url: custom_base_url || null,
+    custom_provider_model_id: custom_provider_model_id || null,
   };
 
   let response;
@@ -112,10 +126,70 @@ export async function sendChatMessage({ message, model_id, conversation_id, mess
 }
 
 /**
+ * Dispatches a dynamic model discovery request to the FastAPI backend.
+ * Target: POST /api/models/discover
+ */
+export async function discoverModels({ provider, api_key, base_url }) {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/models/discover`;
+
+  const payload = {
+    provider,
+    api_key,
+    base_url: base_url || null,
+  };
+
+  let response;
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+  } catch (networkError) {
+    throw new Error(
+      `Network connection failure: Unable to reach OmniAI backend at ${API_BASE_URL}. Ensure the FastAPI server is running.`
+    );
+  }
+
+  if (!response.ok) {
+    let errorMessage = `Model discovery failed with HTTP ${response.status}`;
+    try {
+      const errorJson = await response.json();
+      if (errorJson && errorJson.detail) {
+        errorMessage = typeof errorJson.detail === 'string'
+          ? errorJson.detail
+          : JSON.stringify(errorJson.detail);
+      }
+    } catch {
+      // Non-JSON error body fallback
+    }
+    throw new Error(errorMessage);
+  }
+
+  return await response.json();
+}
+
+/**
  * Dispatches a multi-model comparison request to the FastAPI backend.
  * Target: POST /api/compare
  */
-export async function sendCompareRequest({ prompt, model_a_id, model_b_id, effort }) {
+export async function sendCompareRequest({
+  prompt,
+  model_a_id,
+  model_b_id,
+  effort,
+  custom_api_key_a,
+  custom_provider_a,
+  custom_base_url_a,
+  custom_provider_model_id_a,
+  custom_api_key_b,
+  custom_provider_b,
+  custom_base_url_b,
+  custom_provider_model_id_b,
+}) {
   const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/compare`;
 
   const payload = {
@@ -123,6 +197,14 @@ export async function sendCompareRequest({ prompt, model_a_id, model_b_id, effor
     model_a_id,
     model_b_id,
     effort: effort || 'medium',
+    custom_api_key_a: custom_api_key_a || null,
+    custom_provider_a: custom_provider_a || null,
+    custom_base_url_a: custom_base_url_a || null,
+    custom_provider_model_id_a: custom_provider_model_id_a || null,
+    custom_api_key_b: custom_api_key_b || null,
+    custom_provider_b: custom_provider_b || null,
+    custom_base_url_b: custom_base_url_b || null,
+    custom_provider_model_id_b: custom_provider_model_id_b || null,
   };
 
   let response;

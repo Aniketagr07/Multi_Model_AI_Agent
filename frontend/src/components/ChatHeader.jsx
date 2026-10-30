@@ -7,6 +7,7 @@ export function ChatHeader({
   onToggleSidebar,
   healthStatus,
   onCheckHealth,
+  onOpenApiKeyModal,
 }) {
   return (
     <header className="h-14 border-b border-[#282D38] bg-[#10131A]/90 backdrop-blur-sm px-4 flex items-center justify-between shrink-0 z-10 select-none">
@@ -36,8 +37,18 @@ export function ChatHeader({
         </div>
       </div>
 
-      {/* Right Controls: Compact Health Status */}
-      <div className="flex items-center gap-3">
+      {/* Right Controls: API Key Discovery Trigger & Health Status */}
+      <div className="flex items-center gap-2.5">
+        <button
+          type="button"
+          onClick={onOpenApiKeyModal}
+          title="Add Custom API Key & Discover Models"
+          className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg bg-purple-950/40 hover:bg-purple-900/50 text-purple-300 hover:text-purple-200 border border-purple-800/50 hover:border-purple-600/60 transition-all shadow-sm cursor-pointer"
+        >
+          <span>🔑</span>
+          <span className="hidden sm:inline">Add Key</span>
+        </button>
+
         <div className="hidden sm:block">
           <ConnectionStatus status={healthStatus} onRefresh={onCheckHealth} compact />
         </div>
@@ -45,4 +56,3 @@ export function ChatHeader({
     </header>
   );
 }
-

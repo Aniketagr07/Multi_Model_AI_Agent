@@ -8,7 +8,7 @@ import {
   deleteConversationApi,
 } from '../services/api';
 
-export function useChat() {
+export function useChat({ customModels = [], customKeys = {} } = {}) {
   const [conversations, setConversations] = useState([]);
   const [activeConversationId, setActiveConversationId] = useState(null); // null = new chat
   const [activeMessages, setActiveMessages] = useState([]);
@@ -23,7 +23,8 @@ export function useChat() {
   const activeTitle = activeConversation ? activeConversation.title : 'New Conversation';
 
   // Selected model metadata
-  const selectedModel = AVAILABLE_MODELS.find(m => m.id === selectedModelId) || AVAILABLE_MODELS[0];
+  const allModels = [...customModels, ...AVAILABLE_MODELS];
+  const selectedModel = allModels.find(m => m.id === selectedModelId) || allModels[0];
 
   // Load persistent conversations from SQLite on initial mount
   const refreshConversations = useCallback(async () => {
@@ -64,7 +65,7 @@ export function useChat() {
     try {
       const details = await fetchConversationDetails(convId);
       const mappedMessages = (details.messages || []).map(m => {
-        const actualModel = AVAILABLE_MODELS.find(mod => mod.id === m.model_id);
+        const actualModel = allModels.find(mod => mod.id === m.model_id);
         return {
           id: m.id,
           sender: m.role === 'user' ? 'user' : 'assistant',
@@ -129,8 +130,13 @@ export function useChat() {
     if (!messageContent || isLoading) return;
 
     const targetModelId = overrideModelId || selectedModelId;
-    const targetModel = AVAILABLE_MODELS.find(m => m.id === targetModelId) || selectedModel;
+    const targetModel = allModels.find(m => m.id === targetModelId) || selectedModel;
     const targetEffort = overrideEffort || effort;
+
+    const customKey = targetModel.customApiKey || customKeys[targetModel.provider]?.apiKey || null;
+    const customBaseUrl = targetModel.customBaseUrl || customKeys[targetModel.provider]?.baseUrl || null;
+    const customProvider = targetModel.customProvider || targetModel.provider || null;
+    const customProviderModelId = targetModel.provider_model_id || null;
 
     // Temporary optimistic user message
     const tempUserMessage = {
@@ -152,6 +158,10 @@ export function useChat() {
         model_id: targetModelId,
         conversation_id: activeConversationId,
         effort: targetEffort,
+        custom_api_key: customKey,
+        custom_provider: customProvider,
+        custom_base_url: customBaseUrl,
+        custom_provider_model_id: customProviderModelId,
       });
 
       // Update active conversation ID from backend response
@@ -160,7 +170,7 @@ export function useChat() {
       }
 
       // Map actual model metadata
-      const actualModel = AVAILABLE_MODELS.find(m => m.id === result.model_id) || {
+      const actualModel = allModels.find(m => m.id === result.model_id) || {
         name: result.model_id,
         tag: result.provider === 'groq' ? 'Groq Cloud' : 'Google AI Studio',
       };
@@ -213,7 +223,7 @@ export function useChat() {
     } finally {
       setIsLoading(false);
     }
-  }, [input, isLoading, activeConversationId, selectedModelId, selectedModel, effort, refreshConversations]);
+  }, [input, isLoading, activeConversationId, selectedModelId, selectedModel, effort, allModels, customKeys, refreshConversations]);
 
   return {
     conversations,

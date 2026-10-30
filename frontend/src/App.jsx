@@ -4,11 +4,21 @@ import { ChatHeader } from './components/ChatHeader';
 import { ChatWindow } from './components/ChatWindow';
 import { MessageComposer } from './components/MessageComposer';
 import { CompareView } from './components/CompareView';
+import { ApiKeyModal } from './components/ApiKeyModal';
 import { useChat } from './hooks/useChat';
 import { useHealthCheck } from './hooks/useHealthCheck';
+import { useCustomKeys } from './hooks/useCustomKeys';
 
 export default function App() {
   const [activeView, setActiveView] = useState('chat'); // 'chat' | 'compare'
+  const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
+
+  const {
+    customKeys,
+    customModels,
+    saveKeyAndModels,
+    removeKey,
+  } = useCustomKeys();
 
   const {
     conversations,
@@ -30,7 +40,7 @@ export default function App() {
     deleteConversation,
     setSelectedModelId,
     sendMessage,
-  } = useChat();
+  } = useChat({ customModels, customKeys });
 
   const { status: healthStatus, checkHealth: onCheckHealth } = useHealthCheck();
 
@@ -75,12 +85,13 @@ export default function App() {
           onToggleSidebar={handleToggleSidebar}
           healthStatus={healthStatus}
           onCheckHealth={onCheckHealth}
+          onOpenApiKeyModal={() => setIsApiKeyModalOpen(true)}
         />
 
         {/* Dynamic Main View Area */}
         {activeView === 'compare' ? (
           <main className="flex-1 min-h-0 overflow-hidden relative">
-            <CompareView />
+            <CompareView customModels={customModels} customKeys={customKeys} />
           </main>
         ) : (
           <main className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
@@ -102,10 +113,25 @@ export default function App() {
               onSelectModel={setSelectedModelId}
               effort={effort}
               onSelectEffort={setEffort}
+              customModels={customModels}
+              onOpenApiKeyModal={() => setIsApiKeyModalOpen(true)}
             />
           </main>
         )}
       </div>
+
+      {/* Dynamic API Key Modal for Multi-Provider Auto-Discovery */}
+      <ApiKeyModal
+        isOpen={isApiKeyModalOpen}
+        onClose={() => setIsApiKeyModalOpen(false)}
+        customKeys={customKeys}
+        onSaveKeyAndModels={saveKeyAndModels}
+        onRemoveKey={removeKey}
+        onSelectModel={(modelId) => {
+          setSelectedModelId(modelId);
+          setIsApiKeyModalOpen(false);
+        }}
+      />
     </div>
   );
 }

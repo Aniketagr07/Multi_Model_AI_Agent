@@ -6,7 +6,12 @@ from app.schemas.chat import (
     ModelItemResponse,
     ModelRegistryResponse,
 )
+from app.schemas.discovery import (
+    ModelDiscoveryRequest,
+    ModelDiscoveryResponse,
+)
 from app.services.chat_service import ChatService, get_chat_service
+from app.services.discovery_service import ModelDiscoveryService, get_discovery_service
 
 router = APIRouter()
 
@@ -37,6 +42,21 @@ def get_model_registry() -> ModelRegistryResponse:
         for m in models_list
     ]
     return ModelRegistryResponse(models=items)
+
+
+@router.post(
+    "/models/discover",
+    response_model=ModelDiscoveryResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Discover Models via User API Key",
+    description="Connects to upstream provider (Gemini, Groq, OpenAI-compatible) using user's API key, queries live models, and registers them dynamically.",
+)
+async def discover_models(
+    request: ModelDiscoveryRequest,
+    discovery_service: ModelDiscoveryService = Depends(get_discovery_service),
+) -> ModelDiscoveryResponse:
+    """Dynamically query and register live models from user-supplied API key."""
+    return await discovery_service.discover_models(request)
 
 
 @router.post(

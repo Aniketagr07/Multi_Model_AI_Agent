@@ -93,11 +93,12 @@ export const AVAILABLE_MODELS = [
   },
 ];
 
-export function ModelSelector({ selectedModelId, onSelectModel, disabled = false }) {
+export function ModelSelector({ selectedModelId, onSelectModel, disabled = false, customModels = [], onOpenApiKeyModal }) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
 
-  const selectedModel = AVAILABLE_MODELS.find(m => m.id === selectedModelId) || AVAILABLE_MODELS[0];
+  const allAvailableModels = [...customModels, ...AVAILABLE_MODELS];
+  const selectedModel = allAvailableModels.find(m => m.id === selectedModelId) || allAvailableModels[0];
 
   // Close dropdown on outside click or Escape key
   useEffect(() => {
@@ -172,7 +173,81 @@ export function ModelSelector({ selectedModelId, onSelectModel, disabled = false
             </p>
           </div>
 
+          {/* Quick Connect BYOK Button */}
+          <div className="p-2 border-b border-[#282D38]/60 mb-1">
+            <button
+              type="button"
+              onClick={() => {
+                setIsOpen(false);
+                if (onOpenApiKeyModal) onOpenApiKeyModal();
+              }}
+              className="w-full py-1.5 px-2.5 rounded-lg bg-gradient-to-r from-purple-900/30 to-indigo-900/30 hover:from-purple-800/50 hover:to-indigo-800/50 border border-purple-500/40 text-purple-200 text-xs font-semibold flex items-center justify-between transition-all cursor-pointer shadow-sm"
+            >
+              <span className="flex items-center gap-1.5">
+                <span>🔑</span>
+                <span>Connect API Key & Fetch Models</span>
+              </span>
+              <span className="text-[10px] font-mono bg-purple-500/20 px-1.5 py-0.2 rounded border border-purple-500/30 text-purple-300">
+                BYOK
+              </span>
+            </button>
+          </div>
+
           <div className="space-y-1 max-h-72 overflow-y-auto">
+            {/* Custom BYOK Discovered Models */}
+            {customModels.length > 0 && (
+              <div className="mb-2">
+                <div className="px-2 py-1 text-[10px] font-semibold text-emerald-400 uppercase tracking-wider flex items-center justify-between">
+                  <span>Your Custom Models</span>
+                  <span className="text-[9px] font-mono bg-emerald-500/20 px-1 rounded border border-emerald-500/30">
+                    {customModels.length} active
+                  </span>
+                </div>
+                {customModels.map((model) => {
+                  const isSelected = model.id === selectedModel.id;
+                  return (
+                    <button
+                      key={model.id}
+                      type="button"
+                      role="option"
+                      aria-selected={isSelected}
+                      onClick={() => {
+                        onSelectModel(model.id);
+                        setIsOpen(false);
+                      }}
+                      className={`w-full text-left p-2.5 rounded-lg text-xs transition-colors flex items-start gap-2.5 cursor-pointer ${
+                        isSelected
+                          ? 'bg-[#151923] border border-emerald-500/50 text-white'
+                          : 'hover:bg-[#151923]/80 text-slate-300 border border-transparent'
+                      }`}
+                    >
+                      <div className={`mt-0.5 w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold border shrink-0 ${model.iconColor}`}>
+                        🔑
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="font-semibold text-slate-100 truncate">{model.name}</span>
+                          <span className={`text-[10px] px-1.5 py-0.2 rounded border shrink-0 ${model.badgeColor}`}>
+                            {model.tag}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-400 line-clamp-1 mt-0.5">
+                          {model.description}
+                        </p>
+                      </div>
+                      {isSelected && (
+                        <svg className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                      )}
+                    </button>
+                  );
+                })}
+                <div className="my-1 border-t border-[#282D38]/60" />
+              </div>
+            )}
+
+            {/* Built-in Master Registry Models */}
             {AVAILABLE_MODELS.map((model) => {
               const isSelected = model.id === selectedModel.id;
               const isOperational = model.isOperational;

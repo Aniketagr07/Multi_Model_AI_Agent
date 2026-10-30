@@ -91,7 +91,7 @@ const SAMPLE_COMPARISONS = [
   'What are the core differences between monolithic neural architectures and modular multi-agent LLM systems?',
 ];
 
-export function CompareView() {
+export function CompareView({ customModels = [], customKeys = {} } = {}) {
   const [prompt, setPrompt] = useState('');
   const [modelAId, setModelAId] = useState('gemini-1.5-flash');
   const [modelBId, setModelBId] = useState('llama-3.1-8b-instant');
@@ -125,11 +125,22 @@ export function CompareView() {
     setIsLoading(true);
 
     try {
+      const modelA = operationalModels.find(m => m.id === modelAId);
+      const modelB = operationalModels.find(m => m.id === modelBId);
+
       const result = await sendCompareRequest({
         prompt: textToCompare,
         model_a_id: modelAId,
         model_b_id: modelBId,
         effort,
+        custom_api_key_a: modelA?.customApiKey || customKeys[modelA?.provider]?.apiKey || null,
+        custom_provider_a: modelA?.customProvider || modelA?.provider || null,
+        custom_base_url_a: modelA?.customBaseUrl || customKeys[modelA?.provider]?.baseUrl || null,
+        custom_provider_model_id_a: modelA?.provider_model_id || null,
+        custom_api_key_b: modelB?.customApiKey || customKeys[modelB?.provider]?.apiKey || null,
+        custom_provider_b: modelB?.customProvider || modelB?.provider || null,
+        custom_base_url_b: modelB?.customBaseUrl || customKeys[modelB?.provider]?.baseUrl || null,
+        custom_provider_model_id_b: modelB?.provider_model_id || null,
       });
       setCompareResult(result);
     } catch (err) {
@@ -147,11 +158,12 @@ export function CompareView() {
   const isIdentical = modelAId === modelBId;
   const isSubmitDisabled = isLoading || !prompt.trim() || isIdentical;
 
-  // Filter operational models
-  const operationalModels = AVAILABLE_MODELS.filter(m => m.isOperational);
+  // Filter operational models including custom BYOK
+  const allAvailableModels = [...customModels, ...AVAILABLE_MODELS];
+  const operationalModels = allAvailableModels.filter(m => m.isOperational);
 
-  const modelAInfo = AVAILABLE_MODELS.find(m => m.id === modelAId) || AVAILABLE_MODELS[0];
-  const modelBInfo = AVAILABLE_MODELS.find(m => m.id === modelBId) || AVAILABLE_MODELS[1];
+  const modelAInfo = operationalModels.find(m => m.id === modelAId) || operationalModels[0];
+  const modelBInfo = operationalModels.find(m => m.id === modelBId) || operationalModels[1] || operationalModels[0];
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-y-auto bg-[#0B0D12] text-[#F3F4F6] p-4 sm:p-6 max-w-6xl mx-auto w-full select-none">

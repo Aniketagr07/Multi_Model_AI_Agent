@@ -128,15 +128,59 @@ REGISTERED_MODELS: Dict[str, Dict] = {
 }
 
 
+# In-memory runtime registry for user-discovered custom models
+DYNAMIC_MODELS: Dict[str, Dict] = {}
+
+
 class ModelRegistry:
     """Server-side registry for validating and querying available models."""
+    DYNAMIC_MODELS = DYNAMIC_MODELS
+
+    @staticmethod
+    def register_dynamic_model(model_data: Dict) -> Optional[ModelInfo]:
+        """Register a discovered model into the runtime dynamic registry."""
+        model_id = model_data["id"]
+        DYNAMIC_MODELS[model_id] = model_data
+        return ModelRegistry.get_model(model_id)
 
     @staticmethod
     def get_model(model_id: str) -> Optional[ModelInfo]:
         """Fetch model metadata by ID, evaluating live credentials availability."""
         raw = REGISTERED_MODELS.get(model_id)
         if not raw:
-            return None
+            raw = DYNAMIC_MODELS.get(model_id)
+            if not raw:
+                # If it's a custom-prefixed model ID, synthesize metadata on the fly
+                if model_id.startswith("custom-"):
+                    clean_name = model_id.replace("custom-", "")
+                    provider = "gemini" if "gemini" in model_id else "groq" if "groq" in model_id else "openai_compatible"
+                    return ModelInfo(
+                        id=model_id,
+                        name=f"{clean_name} (Custom)",
+                        provider=provider,
+                        provider_model_id=clean_name.replace("gemini-", "").replace("groq-", "").replace("openai-", ""),
+                        description="Custom user-connected model",
+                        tag="Custom BYOK",
+                        is_available=True,
+                        supported_categories=["general", "coding", "writing", "reasoning"],
+                        strengths=["User authenticated quota", "Custom API endpoint"],
+                        context_window=131072,
+                        cost_tier="User API Key",
+                    )
+                return None
+            return ModelInfo(
+                id=raw["id"],
+                name=raw["name"],
+                provider=raw["provider"],
+                provider_model_id=raw["provider_model_id"],
+                description=raw["description"],
+                tag=raw["tag"],
+                is_available=raw.get("is_available", True),
+                supported_categories=raw.get("supported_categories", ["general"]),
+                strengths=raw.get("strengths", []),
+                context_window=raw.get("context_window", 131072),
+                cost_tier=raw.get("cost_tier", "User API Key"),
+            )
 
         settings = get_settings()
         if raw["provider"] == "gemini":
@@ -178,4 +222,4 @@ class ModelRegistry:
     @staticmethod
     def is_valid_model(model_id: str) -> bool:
         """Check if model ID is recognized in the server registry."""
-        return model_id in REGISTERED_MODELS or model_id == "auto"
+        return model_id in REGISTERED_MODELS or model_id in DYNAMIC_MODELS or model_id.startswith("custom-") or model_id == "auto"

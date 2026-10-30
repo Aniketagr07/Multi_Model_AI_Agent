@@ -184,3 +184,4 @@ export function EffortSelector({ selectedEffort = 'medium', onSelectEffort, disa
     </div>
   );
 }
+
