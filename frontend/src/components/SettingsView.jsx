@@ -422,6 +422,34 @@ export function SettingsView({
                 </button>
               </div>
 
+              {/* Token Metrics Toggle */}
+              <div className="bg-[#10131A] border border-[#282D38] rounded-2xl p-5 flex items-center justify-between">
+                <div className="space-y-1 pr-4">
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-xs font-semibold text-slate-200">Display Token Metrics</h4>
+                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-300 border border-purple-500/20">
+                      🪙 Tokens & Throughput
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-400">
+                    Display token counts on assistant responses and generation throughput (tokens/sec) during model comparisons.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onUpdateSettings({ show_token_metrics: settings.show_token_metrics === false ? true : false })}
+                  className={`w-12 h-6 rounded-full transition-colors relative cursor-pointer p-0.5 shrink-0 ${
+                    settings.show_token_metrics !== false ? 'bg-purple-600' : 'bg-[#282D38]'
+                  }`}
+                >
+                  <div
+                    className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                      settings.show_token_metrics !== false ? 'translate-x-6' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+
               {/* Default Reasoning Effort */}
               <div className="bg-[#10131A] border border-[#282D38] rounded-2xl p-5 space-y-3">
                 <label className="text-xs font-semibold text-slate-200 block">

@@ -10,6 +10,7 @@ export function ChatWindow({
   onRetryMessage,
   onRegenerate,
   onSelectView,
+  showTokenMetrics = true,
 }) {
   const containerRef = useRef(null);
   const bottomRef = useRef(null);
@@ -62,6 +63,7 @@ export function ChatWindow({
           message={message}
           onRetry={onRetryMessage}
           onRegenerate={onRegenerate}
+          showTokenMetrics={showTokenMetrics}
           isLastAssistant={
             message.sender === 'assistant' &&
             index === messages.length - 1

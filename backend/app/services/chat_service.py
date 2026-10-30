@@ -380,6 +380,10 @@ class ChatService:
                 document_name=doc_name,
             )
 
+            prompt_tokens = max(1, len(request.message) // 4)
+            completion_tokens = max(1, len(full_response) // 4)
+            total_tokens = prompt_tokens + completion_tokens
+
             done_event = {
                 "type": "done",
                 "conversation_id": conv_id,
@@ -388,6 +392,9 @@ class ChatService:
                 "effort": effort,
                 "document_id": request.document_id,
                 "document_name": doc_name,
+                "prompt_tokens": prompt_tokens,
+                "completion_tokens": completion_tokens,
+                "total_tokens": total_tokens,
             }
             yield f"data: {json.dumps(done_event)}\n\n"
 
@@ -547,6 +554,10 @@ class ChatService:
             document_name=doc_name,
         )
 
+        prompt_tokens = max(1, len(request.message) // 4)
+        completion_tokens = max(1, len(response_text) // 4)
+        total_tokens = prompt_tokens + completion_tokens
+
         return ChatResponse(
             conversation_id=conv_id,
             model_id=final_model_info.id,
@@ -560,6 +571,9 @@ class ChatService:
             effort=effort,
             document_id=request.document_id,
             document_name=doc_name,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=total_tokens,
         )
 
 

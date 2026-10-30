@@ -69,6 +69,9 @@ class ChatResponse(BaseModel):
     effort: Optional[str] = Field(default="medium", description="Effort level applied during inference")
     document_id: Optional[str] = Field(default=None, description="ID of document used as context if any")
     document_name: Optional[str] = Field(default=None, description="Filename of document used as context if any")
+    prompt_tokens: Optional[int] = Field(default=None, description="Input prompt tokens consumed")
+    completion_tokens: Optional[int] = Field(default=None, description="Completion tokens generated")
+    total_tokens: Optional[int] = Field(default=None, description="Total tokens consumed")
     timestamp: str = Field(
         default_factory=lambda: datetime.now(timezone.utc).isoformat(),
         description="ISO 8601 UTC timestamp of response generation",

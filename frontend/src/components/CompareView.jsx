@@ -376,11 +376,24 @@ export function CompareView({ customModels = [], customKeys = {}, onBackToChat =
                   </span>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 flex-wrap justify-end">
                   {compareResult.model_a.success && (
-                    <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-mono">
-                      ⚡ {compareResult.model_a.latency_ms}ms
-                    </span>
+                    <>
+                      <span className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-mono">
+                        ⚡ {compareResult.model_a.latency_ms}ms
+                      </span>
+                      <span
+                        className="text-[10px] px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-300 border border-purple-500/30 font-mono"
+                        title="Generated tokens"
+                      >
+                        🪙 {compareResult.model_a.tokens || Math.max(1, Math.ceil((compareResult.model_a.response || '').length / 4))} tokens
+                        {compareResult.model_a.latency_ms > 0 && (
+                          <span className="text-purple-400 ml-1">
+                            ({(compareResult.model_a.tokens_per_second || (((compareResult.model_a.tokens || Math.max(1, Math.ceil((compareResult.model_a.response || '').length / 4)))) / (compareResult.model_a.latency_ms / 1000))).toFixed(0)} t/s)
+                          </span>
+                        )}
+                      </span>
+                    </>
                   )}
                   <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${
                     compareResult.model_a.success ? 'text-emerald-400 bg-emerald-500/10' : 'text-red-400 bg-red-500/10'
@@ -427,11 +440,24 @@ export function CompareView({ customModels = [], customKeys = {}, onBackToChat =
                   </span>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 flex-wrap justify-end">
                   {compareResult.model_b.success && (
-                    <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-mono">
-                      ⚡ {compareResult.model_b.latency_ms}ms
-                    </span>
+                    <>
+                      <span className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-mono">
+                        ⚡ {compareResult.model_b.latency_ms}ms
+                      </span>
+                      <span
+                        className="text-[10px] px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-300 border border-purple-500/30 font-mono"
+                        title="Generated tokens"
+                      >
+                        🪙 {compareResult.model_b.tokens || Math.max(1, Math.ceil((compareResult.model_b.response || '').length / 4))} tokens
+                        {compareResult.model_b.latency_ms > 0 && (
+                          <span className="text-purple-400 ml-1">
+                            ({(compareResult.model_b.tokens_per_second || (((compareResult.model_b.tokens || Math.max(1, Math.ceil((compareResult.model_b.response || '').length / 4)))) / (compareResult.model_b.latency_ms / 1000))).toFixed(0)} t/s)
+                          </span>
+                        )}
+                      </span>
+                    </>
                   )}
                   <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${
                     compareResult.model_b.success ? 'text-emerald-400 bg-emerald-500/10' : 'text-red-400 bg-red-500/10'

@@ -4,6 +4,8 @@ import { ConnectionStatus } from './ConnectionStatus';
 export function ChatHeader({
   activeTitle = 'New Conversation',
   selectedModelName = 'Gemini 3.6 Flash',
+  totalTokens = 0,
+  showTokenMetrics = true,
   onToggleSidebar,
   healthStatus,
   onCheckHealth,
@@ -37,6 +39,15 @@ export function ChatHeader({
           <span className="hidden sm:inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-[#151923] text-purple-300 border border-[#282D38] font-medium">
             {selectedModelName}
           </span>
+          {showTokenMetrics && totalTokens > 0 && activeView === 'chat' && (
+            <span
+              className="hidden lg:inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-500/30 font-mono"
+              title="Total conversation token usage"
+            >
+              <span>🪙</span>
+              <span>{totalTokens.toLocaleString()} tokens</span>
+            </span>
+          )}
         </div>
       </div>
 

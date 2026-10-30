@@ -120,6 +120,8 @@ export default function App() {
               ? 'Parallel Dual-Model Benchmark'
               : selectedModel.name
           }
+          totalTokens={activeMessages.reduce((acc, m) => acc + (m.tokens || Math.max(1, Math.ceil(((m.content || '').length) / 4))), 0)}
+          showTokenMetrics={settings.show_token_metrics !== false}
           onToggleSidebar={handleToggleSidebar}
           healthStatus={healthStatus}
           onCheckHealth={onCheckHealth}
@@ -155,6 +157,7 @@ export default function App() {
               onRetryMessage={handleRetryMessage}
               onRegenerate={regenerateResponse}
               onSelectView={setActiveView}
+              showTokenMetrics={settings.show_token_metrics !== false}
             />
 
             {/* Bottom Message Composer */}

@@ -183,15 +183,7 @@ export function MessageComposer({
               disabled={isLoading}
             />
 
-            <button
-              type="button"
-              onClick={onOpenApiKeyModal}
-              title="Connect Your Own API Key & Fetch Models"
-              className="px-2 py-1.5 rounded-xl text-xs bg-[#151923] hover:bg-[#1E2330] text-purple-300 hover:text-white border border-[#282D38] hover:border-purple-500/40 transition-all flex items-center gap-1.5 cursor-pointer"
-            >
-              <span>🔑</span>
-              <span className="hidden sm:inline font-medium">Add Key</span>
-            </button>
+
           </div>
 
           <div className="flex items-center gap-2.5">

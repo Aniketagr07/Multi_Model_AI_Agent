@@ -1,7 +1,13 @@
 import React, { useState } from 'react';
 import { MarkdownRenderer } from './MarkdownRenderer';
 
-export const MessageBubble = React.memo(function MessageBubble({ message, onRetry, onRegenerate, isLastAssistant = false }) {
+export const MessageBubble = React.memo(function MessageBubble({
+  message,
+  onRetry,
+  onRegenerate,
+  isLastAssistant = false,
+  showTokenMetrics = true,
+}) {
   const [copiedFull, setCopiedFull] = useState(false);
   const isUser = message.sender === 'user';
   const isError = Boolean(message.isError);
@@ -11,6 +17,9 @@ export const MessageBubble = React.memo(function MessageBubble({ message, onRetr
   const formattedTime = message.timestamp
     ? new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     : '';
+
+  // Calculate estimated tokens if not returned explicitly by provider
+  const estimatedTokens = message.tokens || message.total_tokens || Math.max(1, Math.ceil(((message.content || '').length) / 4));
 
   const handleCopyFull = async () => {
     try {
@@ -73,40 +82,40 @@ export const MessageBubble = React.memo(function MessageBubble({ message, onRetr
           isUser ? 'items-end' : 'items-start'
         }`}
       >
-        {/* Header tag: Model name, latency, document context & timestamp */}
-        <div className="flex items-center gap-2 text-[11px] text-[#9CA3AF] px-1 flex-wrap">
-          <span className="font-semibold text-slate-300">
+        {/* Header tag: Model name, latency, token count, document context & timestamp */}
+        <div className="flex items-center gap-1.5 sm:gap-2 text-[11px] text-[#9CA3AF] px-1 flex-wrap">
+          <span className="font-semibold text-slate-200">
             {isUser ? 'You' : message.modelName || 'OmniAI Assistant'}
           </span>
           {message.modelTag && (
-            <span className={`text-[10px] px-1.5 py-0.2 rounded border font-medium ${badgeStyle}`}>
+            <span className={`text-[10px] px-1.5 py-0.5 rounded-md border font-medium ${badgeStyle}`}>
               {message.modelTag}
             </span>
           )}
           {message.documentName && (
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-300 border border-indigo-500/30 font-medium flex items-center gap-1">
-              <span>📄 Doc:</span>
+            <span className="text-[10px] px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-300 border border-indigo-500/30 font-medium flex items-center gap-1">
+              <span>📄</span>
               <span className="text-indigo-200 font-semibold">{message.documentName}</span>
             </span>
           )}
           {isStreaming && (
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/40 font-medium flex items-center gap-1.5 animate-pulse">
+            <span className="text-[10px] px-2 py-0.5 rounded-md bg-purple-500/20 text-purple-300 border border-purple-500/40 font-medium flex items-center gap-1.5 animate-pulse">
               <span className="w-1.5 h-1.5 rounded-full bg-purple-400"></span>
               Streaming...
             </span>
           )}
           {message.routed && !isStreaming && (
-            <span className="text-[10px] px-1.5 py-0.2 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20 font-medium">
+            <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-purple-500/10 text-purple-300 border border-purple-500/20 font-medium">
               🎯 Auto: {message.routingCategory ? message.routingCategory.toUpperCase() : 'ROUTED'}
             </span>
           )}
           {message.fallbackUsed && (
-            <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30 font-medium">
+            <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/30 font-medium">
               ⚠️ Fallback Model
             </span>
           )}
           {message.effort && !isUser && (
-            <span className={`text-[10px] px-1.5 py-0.2 rounded border font-medium ${
+            <span className={`text-[10px] px-1.5 py-0.5 rounded-md border font-medium ${
               message.effort === 'high'
                 ? 'bg-rose-500/10 text-rose-400 border-rose-500/30'
                 : message.effort === 'low'
@@ -117,11 +126,21 @@ export const MessageBubble = React.memo(function MessageBubble({ message, onRetr
             </span>
           )}
           {typeof message.latencyMs === 'number' && !isStreaming && (
-            <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">
+            <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">
               ⚡ {message.latencyMs}ms
             </span>
           )}
-          {formattedTime && <span className="text-slate-500">• {formattedTime}</span>}
+          {/* Estimated Token Count for Assistant and User */}
+          {showTokenMetrics && !isStreaming && message.content && (
+            <span
+              className="text-[10px] px-2 py-0.5 rounded-md bg-[#10131A] text-purple-300 border border-purple-500/20 font-mono flex items-center gap-1 cursor-help"
+              title={isUser ? `Input prompt: ~${estimatedTokens} tokens` : `Output tokens: ~${estimatedTokens} (~${message.content.length} characters)`}
+            >
+              <span>🪙</span>
+              <span>~{estimatedTokens} tokens</span>
+            </span>
+          )}
+          {formattedTime && <span className="text-slate-500 text-[10px]">• {formattedTime}</span>}
         </div>
 
         {/* Content Box */}

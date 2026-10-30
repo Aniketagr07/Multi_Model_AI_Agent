@@ -75,18 +75,20 @@ export function WelcomeScreen({ onSelectPrompt, onSelectView }) {
         </p>
 
         {/* Live Engine Badges */}
-        <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px]">
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#151923] border border-[#282D38] text-slate-300">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        <div className="inline-flex items-center justify-center gap-2.5 px-3 py-1 rounded-full bg-[#12151F] border border-white/10 text-[11px] text-slate-300 shadow-xs">
+          <span className="inline-flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
             Google Gemini (REST/SSE)
           </span>
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#151923] border border-[#282D38] text-slate-300">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            Groq LPU (Llama 3.1 & Mixtral)
+          <span className="text-slate-600">•</span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+            Groq LPU (Llama 3.1)
           </span>
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#151923] border border-[#282D38] text-slate-300">
-            <span className="w-2 h-2 rounded-full bg-purple-400"></span>
-            SQLite WAL Persistence
+          <span className="text-slate-600">•</span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-purple-400"></span>
+            SQLite WAL
           </span>
         </div>
       </div>

@@ -53,6 +53,8 @@ class ModelComparisonResult(BaseModel):
     response: Optional[str] = Field(default=None, description="Actual AI output text if successful")
     latency_ms: int = Field(..., description="Model round-trip execution latency in milliseconds")
     effort: Optional[str] = Field(default="medium", description="Effort level applied during execution")
+    tokens: Optional[int] = Field(default=None, description="Generated output tokens")
+    tokens_per_second: Optional[float] = Field(default=None, description="Inference speed in tokens per second")
     error: Optional[str] = Field(default=None, description="Error message if request failed")
 
 

@@ -56,6 +56,9 @@ class ComparisonService:
                 effort=effort,
             )
             elapsed_ms = int((time.perf_counter() - start_time) * 1000)
+            tokens = max(1, len(response_text) // 4)
+            seconds = max(0.001, elapsed_ms / 1000.0)
+            tokens_per_sec = round(tokens / seconds, 1)
             return ModelComparisonResult(
                 model_id=model_info.id,
                 name=model_info.name,
@@ -64,6 +67,8 @@ class ComparisonService:
                 response=response_text,
                 latency_ms=elapsed_ms,
                 effort=effort,
+                tokens=tokens,
+                tokens_per_second=tokens_per_sec,
                 error=None,
             )
         except ProviderConfigError as e:
