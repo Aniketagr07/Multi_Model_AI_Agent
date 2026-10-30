@@ -345,10 +345,10 @@ export function useChat({ customModels = [], customKeys = {}, userSettings = {},
       sender: 'assistant',
       content: '',
       isStreaming: true,
-      modelId: targetModelId,
-      provider: targetModel.provider,
-      modelName: targetModel.name,
-      modelTag: targetModel.tag,
+      modelId: targetModelId === 'auto' ? null : targetModelId,
+      provider: targetModelId === 'auto' ? null : targetModel.provider,
+      modelName: targetModelId === 'auto' ? null : targetModel.name,
+      modelTag: targetModelId === 'auto' ? null : targetModel.tag,
       effort: targetEffort,
       documentId: targetDocId,
       documentName: targetDocName,
@@ -468,6 +468,9 @@ export function useChat({ customModels = [], customKeys = {}, userSettings = {},
                     isStreaming: false,
                     content: doneEvent.response || accumulatedContent,
                     latencyMs: doneEvent.latency_ms,
+                    modelId: doneEvent.model_id || msg.modelId,
+                    modelName: doneEvent.model_name || msg.modelName,
+                    provider: doneEvent.provider || msg.provider,
                     effort: doneEvent.effort || targetEffort,
                     documentId: doneEvent.document_id || targetDocId,
                     documentName: doneEvent.document_name || targetDocName,
@@ -536,7 +539,9 @@ export function useChat({ customModels = [], customKeys = {}, userSettings = {},
     }
 
     setActiveMessages(prev => prev.filter(m => m.id !== assistantMessage.id));
-    sendMessage(promptToReplay, assistantMessage.modelId, assistantMessage.effort, assistantMessage.documentId);
+    const modelToUse = selectedModelId || assistantMessage.modelId;
+    const effortToUse = effort || assistantMessage.effort;
+    sendMessage(promptToReplay, modelToUse, effortToUse, assistantMessage.documentId);
   }, [activeMessages, isLoading, sendMessage]);
 
   return {

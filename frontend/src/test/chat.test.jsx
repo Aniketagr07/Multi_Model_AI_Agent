@@ -58,6 +58,8 @@ describe('Chat Interface & Message Submission Tests', () => {
 
     expect(screen.getByText('Hello OmniAI!')).toBeInTheDocument();
     expect(screen.getByText('Hello! How can I help you today?')).toBeInTheDocument();
+    // Responding model attribution is displayed above assistant response
+    expect(screen.getByText('Gemini 3.6 Flash')).toBeInTheDocument();
     // Clean conversational UI hides technical metadata tags from bubbles
     expect(screen.queryByText('250ms')).not.toBeInTheDocument();
     expect(screen.queryByText('You')).not.toBeInTheDocument();

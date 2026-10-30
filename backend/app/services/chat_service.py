@@ -426,6 +426,9 @@ class ChatService:
                 "conversation_id": conv_id,
                 "response": full_response,
                 "latency_ms": elapsed_ms,
+                "model_id": model_info.id,
+                "model_name": model_info.name,
+                "provider": model_info.provider,
                 "effort": effort,
                 "document_id": request.document_id,
                 "document_name": doc_name,
@@ -635,6 +638,7 @@ class ChatService:
         return ChatResponse(
             conversation_id=conv_id,
             model_id=final_model_info.id,
+            model_name=final_model_info.name,
             provider=final_model_info.provider,
             response=response_text,
             latency_ms=elapsed_ms,

@@ -58,6 +58,7 @@ describe('Model Selection, Auto-Routing, and Comparison Tests', () => {
     );
 
     expect(screen.getByText('Here is the Python binary search algorithm...')).toBeInTheDocument();
+    expect(screen.getByText('Llama 3.1')).toBeInTheDocument();
     expect(screen.queryByText(/Auto: coding/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Classified prompt as coding task/i)).not.toBeInTheDocument();
   });

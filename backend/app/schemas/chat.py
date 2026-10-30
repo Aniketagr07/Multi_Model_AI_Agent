@@ -1,50 +1,50 @@
+from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone
-from typing import List, Optional, Literal
 from pydantic import BaseModel, Field, field_validator
 
 
-class ChatMessage(BaseModel):
-    """Schema for individual message in conversation history."""
-    role: Literal["user", "assistant"] = Field(..., description="Role of the message sender")
-    content: str = Field(..., max_length=4000, description="Text content of the message")
+class ChatMessagePayload(BaseModel):
+    """Schema for individual message in the multi-turn context history."""
+    role: str = Field(..., description="Message role: 'user', 'assistant', or 'system'")
+    content: str = Field(..., min_length=1, description="Message text content")
 
-    @field_validator("content")
+    @field_validator("role")
     @classmethod
-    def validate_content_not_empty(cls, v: str) -> str:
-        trimmed = v.strip()
-        if not trimmed:
-            raise ValueError("Message content cannot be empty or whitespace.")
-        return trimmed
+    def validate_role(cls, v: str) -> str:
+        role = v.strip().lower()
+        if role not in ("user", "assistant", "system"):
+            raise ValueError("Role must be 'user', 'assistant', or 'system'.")
+        return role
+
+
+# Alias for backwards compatibility
+ChatMessage = ChatMessagePayload
 
 
 class ChatRequest(BaseModel):
-    """Schema for POST /api/chat incoming request."""
-    message: str = Field(..., min_length=1, max_length=4000, description="The user's query prompt")
-    model_id: str = Field(default="auto", description="Target model identifier or 'auto' for intelligent routing")
-    conversation_id: Optional[str] = Field(default=None, description="Client conversation identifier")
-    messages: Optional[List[ChatMessage]] = Field(default=None, description="Prior conversational context")
-    effort: Literal["low", "medium", "high"] = Field(
-        default="medium",
-        description="Inference effort level ('low', 'medium', 'high') modulating reasoning depth and sampling"
-    )
-    document_id: Optional[str] = Field(default=None, description="Optional attached document ID for AI document analysis")
-    custom_instructions: Optional[str] = Field(
+    """Schema for incoming POST /api/chat and POST /api/chat/stream requests."""
+    message: str = Field(..., min_length=1, description="User prompt text to be processed by the LLM")
+    model_id: str = Field(default="auto", description="Target model ID or 'auto' for intelligent routing")
+    conversation_id: Optional[str] = Field(default=None, description="Persistent conversation session ID")
+    effort: Optional[str] = Field(default="medium", description="Reasoning effort tier: low, medium, high")
+    document_id: Optional[str] = Field(default=None, description="Attached document ID for context grounding")
+    skill_id: Optional[str] = Field(default=None, description="Optional attached skill/tool ID to execute")
+    custom_instructions: Optional[str] = Field(default=None, description="User-defined system instructions")
+    custom_api_key: Optional[str] = Field(default=None, description="User-supplied API key")
+    custom_provider: Optional[str] = Field(default=None, description="Custom provider identifier")
+    custom_base_url: Optional[str] = Field(default=None, description="Custom OpenAI-compatible base URL")
+    custom_provider_model_id: Optional[str] = Field(default=None, description="Raw provider model identifier")
+    messages: Optional[List[ChatMessagePayload]] = Field(
         default=None,
-        max_length=2000,
-        description="Optional user custom style instructions or persona preferences"
+        description="Optional full chat history sent from the frontend",
     )
-    custom_api_key: Optional[str] = Field(default=None, description="Optional user-supplied API key")
-    custom_provider: Optional[str] = Field(default=None, description="Optional provider identifier ('gemini', 'groq', 'openai_compatible')")
-    custom_base_url: Optional[str] = Field(default=None, description="Optional custom base URL endpoint")
-    custom_provider_model_id: Optional[str] = Field(default=None, description="Optional upstream provider model name")
-    skill_id: Optional[str] = Field(default=None, description="Optional installed skill ID to execute with this message")
 
     @field_validator("message")
     @classmethod
-    def validate_message(cls, v: str) -> str:
+    def validate_message_not_empty(cls, v: str) -> str:
         trimmed = v.strip()
         if not trimmed:
-            raise ValueError("Message cannot be empty or solely whitespace.")
+            raise ValueError("Message content cannot be solely whitespace.")
         return trimmed
 
     @field_validator("model_id")
@@ -55,11 +55,22 @@ class ChatRequest(BaseModel):
             raise ValueError("Model ID must be specified.")
         return trimmed
 
+    @field_validator("effort")
+    @classmethod
+    def validate_effort(cls, v: Optional[str]) -> str:
+        if v is None:
+            return "medium"
+        trimmed = v.strip().lower()
+        if trimmed not in ("low", "medium", "high"):
+            raise ValueError("Effort tier must be one of: 'low', 'medium', 'high'.")
+        return trimmed
+
 
 class ChatResponse(BaseModel):
     """Schema for POST /api/chat successful response with routing and document metadata."""
     conversation_id: Optional[str] = Field(default=None, description="Associated conversation identifier")
     model_id: str = Field(..., description="Model that produced the response")
+    model_name: Optional[str] = Field(default=None, description="Human-readable model name that produced the response")
     provider: Optional[str] = Field(default=None, description="Name of the backend provider adapter used")
     response: str = Field(..., description="Actual text response from the AI provider")
     latency_ms: int = Field(..., description="Provider round-trip latency in milliseconds")

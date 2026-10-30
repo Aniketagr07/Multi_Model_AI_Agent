@@ -1,5 +1,68 @@
 import React, { useState } from 'react';
 import { MarkdownRenderer } from './MarkdownRenderer';
+import { ProviderLogo } from './ModelSelector';
+
+/**
+ * Format raw model name and model ID into a shortened, human-readable model name.
+ * Strips technical noise such as "(Active)", "(Latest)", "(Ultra Fast)", "(Google AI Studio)", etc.
+ * Returns null if model information is unavailable (to omit rather than guessing).
+ */
+export function formatRespondingModelName(rawName, modelId) {
+  if (!rawName && !modelId) return null;
+
+  const id = (modelId || '').toLowerCase();
+
+  // Known specific models
+  if (id === 'gemini-3.8-flash') return 'Gemini 3.8 Flash';
+  if (id === 'gemini-3.6-flash') return 'Gemini 3.6 Flash';
+  if (id === 'gemini-3.5-flash') return 'Gemini 3.5 Flash';
+  if (id === 'gemini-flash-lite-latest') return 'Gemini Flash Lite';
+  if (id === 'gemini-1.5-pro') return 'Gemini 1.5 Pro';
+  if (id === 'gemini-1.5-flash') return 'Gemini 1.5 Flash';
+  if (id === 'gemini-2.0-flash') return 'Gemini 2.0 Flash';
+  if (id === 'llama-3.1-8b-instant' || id === 'llama-3.1-8b' || id === 'llama-3.1') return 'Llama 3.1';
+  if (id === 'llama-3.3-70b-versatile' || id === 'llama-3.3-70b' || id === 'llama-3.3') return 'Llama 3.3';
+  if (id === 'mixtral-8x7b-32768' || id === 'mixtral-8x7b') return 'Mixtral 8x7B';
+  if (id === 'llama-3-8b-local') return 'Llama 3';
+  if (id === 'gpt-6') return 'GPT-6';
+
+  // If rawName is 'Auto' or starts with 'Auto', and we don't have a specific resolved model, omit
+  if ((rawName === 'Auto' || rawName === 'Auto (Smart Router)') && (!modelId || modelId === 'auto')) {
+    return null;
+  }
+
+  let name = rawName || modelId;
+
+  // Clean up parenthetical tags such as "(Active)", "(Latest)", "(Ultra Fast)", "(Google AI Studio)", "(Groq LPU Free Tier)", etc.
+  name = name.replace(/\s*\([^)]*\)/g, '').trim();
+
+  // Remove common API prefix if present
+  name = name.replace(/^(models\/)/i, '');
+
+  // Match common human-readable formats
+  if (/^llama\s*3\.1/i.test(name)) return 'Llama 3.1';
+  if (/^llama\s*3\.3/i.test(name)) return 'Llama 3.3';
+  if (/^mixtral\s*8x7b/i.test(name)) return 'Mixtral 8x7B';
+  if (/^gpt-?6/i.test(name)) return 'GPT-6';
+  if (/claude.*sonnet/i.test(name)) return 'Claude Sonnet';
+
+  return name || null;
+}
+
+/**
+ * Resolve provider string for the provider logo icon.
+ */
+export function resolveProviderForModel(provider, modelId) {
+  if (provider && provider !== 'auto') {
+    return provider.toLowerCase();
+  }
+  const id = (modelId || '').toLowerCase();
+  if (id.includes('gemini')) return 'gemini';
+  if (id.includes('llama') || id.includes('mixtral') || id.includes('groq')) return 'groq';
+  if (id.includes('gpt') || id.includes('openai')) return 'openai';
+  if (id.includes('claude') || id.includes('anthropic')) return 'anthropic';
+  return 'gemini';
+}
 
 export const MessageBubble = React.memo(function MessageBubble({
   message,
@@ -13,6 +76,9 @@ export const MessageBubble = React.memo(function MessageBubble({
   const isError = Boolean(message.isError);
   const isStreaming = Boolean(message.isStreaming);
   const isSystemNotice = Boolean(message.isNotice || message.status === 'unconnected');
+
+  const respondingModelName = formatRespondingModelName(message.modelName, message.modelId);
+  const resolvedProvider = resolveProviderForModel(message.provider, message.modelId);
 
   const handleCopyFull = async () => {
     try {
@@ -64,11 +130,28 @@ export const MessageBubble = React.memo(function MessageBubble({
 
       {/* Bubble Container */}
       <div
-        className={`flex flex-col space-y-1.5 max-w-[88%] sm:max-w-[82%] ${
+        className={`flex flex-col space-y-1 max-w-[88%] sm:max-w-[82%] ${
           isUser ? 'items-end' : 'items-start'
         }`}
       >
-        {/* Clean Message Content Box (No top metadata headers) */}
+        {/* Compact, subtle model attribution immediately above response bubble */}
+        {!isUser && !isError && (respondingModelName || isStreaming) && (
+          <div className="flex items-center gap-1.5 px-0.5 text-xs text-slate-300 font-medium select-none mb-0.5">
+            {respondingModelName ? (
+              <>
+                <ProviderLogo provider={resolvedProvider} className="w-3.5 h-3.5" />
+                <span className="truncate">{respondingModelName}</span>
+              </>
+            ) : isStreaming ? (
+              <div className="flex items-center gap-1.5 text-slate-500 text-[11px] animate-pulse">
+                <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-ping" />
+                <span>Resolving model...</span>
+              </div>
+            ) : null}
+          </div>
+        )}
+
+        {/* Clean Message Content Box */}
         <div
           className={`p-3.5 sm:p-4 rounded-2xl w-full transition-all ${
             isUser
@@ -90,7 +173,7 @@ export const MessageBubble = React.memo(function MessageBubble({
           {isError && onRetry && message.originalUserMessage && (
             <div className="mt-3 pt-3 border-t border-red-500/20 flex flex-wrap items-center justify-between gap-2 text-xs">
               <span className="text-red-400 text-[11px]">
-                Target: {message.modelName || 'Model'}
+                Target: {respondingModelName || message.modelName || 'Model'}
               </span>
               <button
                 type="button"
