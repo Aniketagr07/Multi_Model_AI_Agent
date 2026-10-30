@@ -253,7 +253,60 @@ Access the application in your browser:
 
 ---
 
-## 10. Screenshots Section
+## 10. Automated Testing
+
+OmniAI features a full-stack automated test suite with **95 total tests** (75 Backend pytest tests + 20 Frontend Vitest tests) executing hermetically with zero real API token consumption.
+
+### Run Backend Tests (75 Tests)
+```bash
+python -m pytest backend/tests -v
+```
+All tests execute in ~3.5s with zero external network calls:
+* Provider failure recovery, rate limits, timeouts, and auth error handling.
+* Concurrent comparison dispatch with partial failure recovery.
+* Conversation search, pin/unpin, archive/restore, rename, and multi-format export.
+* Document upload validation (PDF, TXT, MD), chunking, and grounded context.
+* SSE streaming with client disconnect cancellation.
+
+### Run Frontend Tests (20 Tests across 6 Suites)
+```bash
+cd frontend
+npm test
+```
+Tests run with Vitest and React Testing Library:
+* Chat window rendering, message submission, Enter vs Shift+Enter.
+* Model selector switching, auto-router rationale badge rendering.
+* Side-by-side model comparison concurrent dispatch.
+* Conversation sidebar filtering, switching, pin & archive toggles.
+* Theme switching (Dark/Light/System) and settings persistence.
+* Document upload validation and unsupported format rejection.
+* Secure Markdown rendering, syntax-highlighted code blocks, and copy buttons.
+
+### Run Production Build Verification
+```bash
+npm --prefix frontend run build
+```
+
+---
+
+## 11. Security and Deployment Architecture
+
+### Deployment Overview
+OmniAI is designed as an open-source, local-first single-tenant AI workbench. In production environments:
+* **Frontend**: Compiled into high-performance static assets (`dist/`) served via Nginx or CDN.
+* **Backend**: Run with Uvicorn / Gunicorn behind an Nginx reverse proxy with HTTPS termination.
+* **Database**: Local SQLite 3 with Write-Ahead Logging (WAL) and automated file-level snapshots.
+
+### Security Guarantees
+* **Credential Isolation**: Primary provider keys are kept strictly in backend `.env` files and never exposed to the client. BYOK keys are held strictly in the user's browser memory or `localStorage`.
+* **Safe Markdown Rendering**: Frontend uses `rehype-sanitize` with a strict whitelist to prevent Stored XSS attacks in LLM responses.
+* **File Upload Protections**: Strict MIME/extension validation (`.pdf`, `.txt`, `.md`), 10MB file size ceiling, random UUID naming, traversal prevention via `os.path.basename`, and zero code execution.
+* **Prompt Injection Neutralization**: Custom user instructions are wrapped in system instruction tags with defensive isolation barriers, preventing user override of core model boundaries.
+* **SQL Injection Immunity**: 100% of SQLite database interactions utilize parameterized queries or DAO abstraction.
+
+---
+
+## 12. Screenshots Section
 
 | Screen | Description |
 |---|---|
@@ -267,7 +320,7 @@ Access the application in your browser:
 
 ---
 
-## 11. Known Limitations
+## 13. Known Limitations
 
 1. **OCR on Scanned Images**: PDF text extraction relies on `pypdf`. Image-only scanned PDFs without embedded text streams are rejected with a clear user notice rather than processed with heavy OCR libraries.
 2. **Free Tier Concurrency**: Google Gemini Free Tier imposes a 15 RPM / 1M TPM limit. Rapid successive testing may trigger temporary HTTP 429 responses, which OmniAI handles via its active fallback chain (`gemini-flash-lite-latest`).
@@ -275,7 +328,7 @@ Access the application in your browser:
 
 ---
 
-## 12. Future Improvements
+## 14. Future Improvements
 
 * **AI Council Consensus Engine**: Multi-agent consensus summarizer that queries 3 models and synthesizes agreement points.
 * **Vector Semantic Search (RAG)**: Integration of ChromaDB or sqlite-vss for hybrid lexical and dense vector search across uploaded document libraries.

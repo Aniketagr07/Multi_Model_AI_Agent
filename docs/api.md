@@ -243,3 +243,4 @@ Returns current user preferences (theme, default model, streaming, custom instru
 Updates persistent user preferences in SQLite.
 * **Request Body**: Partial or full `SettingsUpdateRequest` payload.
 * **Response (200 OK)**: Returns updated settings.
+
