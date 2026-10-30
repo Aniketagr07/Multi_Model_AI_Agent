@@ -88,7 +88,7 @@ export function MessageComposer({
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className="w-full max-w-4xl mx-auto px-4 pb-4 pt-2 relative"
+      className="shrink-0 w-full max-w-4xl mx-auto px-4 pb-4 pt-2 relative"
     >
       {/* Hidden File Input */}
       <input

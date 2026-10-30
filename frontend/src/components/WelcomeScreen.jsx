@@ -56,11 +56,11 @@ const SUGGESTIONS = [
 
 export function WelcomeScreen({ onSelectPrompt, onSelectView }) {
   return (
-    <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 max-w-4xl mx-auto w-full select-none animate-fade-in">
+    <div className="my-auto flex flex-col items-center justify-center p-3 sm:p-5 max-w-4xl mx-auto w-full select-none animate-fade-in">
       {/* Brand Icon & Welcome Tagline */}
-      <div className="text-center space-y-3 mb-6">
-        <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#8B5CF6] to-indigo-600 shadow-xl shadow-purple-500/25 mb-2">
-          <svg className="w-7 h-7 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <div className="text-center space-y-2 mb-3.5 sm:mb-5">
+        <div className="inline-flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-[#8B5CF6] to-indigo-600 shadow-xl shadow-purple-500/25 mb-1 sm:mb-2">
+          <svg className="w-6 h-6 sm:w-7 sm:h-7 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
             <polygon points="12 2 2 7 12 12 22 7 12 2" />
             <polyline points="2 17 12 22 22 17" />
             <polyline points="2 12 12 17 22 12" />
@@ -92,8 +92,8 @@ export function WelcomeScreen({ onSelectPrompt, onSelectView }) {
       </div>
 
       {/* Evaluation Demonstration Prompt Grid (4 Intent Categories) */}
-      <div className="w-full mb-6">
-        <div className="flex items-center justify-between mb-2.5 px-1">
+      <div className="w-full mb-3.5 sm:mb-5">
+        <div className="flex items-center justify-between mb-2 px-1">
           <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
             Evaluation Demonstration Prompts
           </span>
@@ -102,15 +102,15 @@ export function WelcomeScreen({ onSelectPrompt, onSelectView }) {
           </span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 w-full">
           {SUGGESTIONS.map((item, index) => (
             <button
               key={index}
               type="button"
               onClick={() => onSelectPrompt(item.prompt)}
-              className="flex flex-col text-left p-3.5 rounded-xl bg-[#151923] hover:bg-[#1E2330] border border-[#282D38] hover:border-[#8B5CF6]/50 transition-all group cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 shadow-sm"
+              className="flex flex-col text-left p-2.5 sm:p-3.5 rounded-xl bg-[#151923] hover:bg-[#1E2330] border border-[#282D38] hover:border-[#8B5CF6]/50 transition-all group cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 shadow-sm"
             >
-              <div className="flex items-center justify-between w-full mb-2">
+              <div className="flex items-center justify-between w-full mb-1.5 sm:mb-2">
                 <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${item.badgeColor}`}>
                   {item.category}
                 </span>
@@ -118,7 +118,7 @@ export function WelcomeScreen({ onSelectPrompt, onSelectView }) {
                   {item.icon}
                 </div>
               </div>
-              <span className="text-xs font-semibold text-slate-200 group-hover:text-white mb-1">
+              <span className="text-xs font-semibold text-slate-200 group-hover:text-white mb-0.5 sm:mb-1">
                 {item.title}
               </span>
               <p className="text-[11px] text-[#9CA3AF] line-clamp-2 leading-relaxed">
@@ -131,11 +131,11 @@ export function WelcomeScreen({ onSelectPrompt, onSelectView }) {
 
       {/* Quick Action Navigation Buttons for Evaluators */}
       {onSelectView && (
-        <div className="flex flex-wrap items-center justify-center gap-3 w-full pt-1">
+        <div className="flex flex-wrap items-center justify-center gap-2.5 sm:gap-3 w-full pt-0.5 sm:pt-1">
           <button
             type="button"
             onClick={() => onSelectView('compare')}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-medium bg-gradient-to-r from-purple-900/40 to-indigo-900/40 hover:from-purple-800/50 hover:to-indigo-800/50 text-purple-200 border border-purple-500/30 hover:border-purple-400/50 transition-all shadow-md cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
+            className="flex items-center gap-2 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs font-medium bg-gradient-to-r from-purple-900/40 to-indigo-900/40 hover:from-purple-800/50 hover:to-indigo-800/50 text-purple-200 border border-purple-500/30 hover:border-purple-400/50 transition-all shadow-md cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
           >
             <span>⚖️</span>
             <span>Launch Dual-Model Comparison</span>
@@ -143,7 +143,7 @@ export function WelcomeScreen({ onSelectPrompt, onSelectView }) {
           <button
             type="button"
             onClick={() => onSelectView('settings')}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-medium bg-[#151923] hover:bg-[#1E2330] text-slate-300 hover:text-white border border-[#282D38] hover:border-slate-600 transition-all shadow-sm cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
+            className="flex items-center gap-2 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs font-medium bg-[#151923] hover:bg-[#1E2330] text-slate-300 hover:text-white border border-[#282D38] hover:border-slate-600 transition-all shadow-sm cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
           >
             <span>⚙️</span>
             <span>Configure Settings & Custom Instructions</span>

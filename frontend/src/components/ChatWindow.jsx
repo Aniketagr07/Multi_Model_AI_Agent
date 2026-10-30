@@ -40,7 +40,11 @@ export function ChatWindow({
   }, [messages, isLoading]);
 
   if (!messages || messages.length === 0) {
-    return <WelcomeScreen onSelectPrompt={onSelectPrompt} onSelectView={onSelectView} />;
+    return (
+      <div className="flex-1 overflow-y-auto min-h-0 flex flex-col">
+        <WelcomeScreen onSelectPrompt={onSelectPrompt} onSelectView={onSelectView} />
+      </div>
+    );
   }
 
   // Check if an active streaming message is already showing tokens
