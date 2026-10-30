@@ -1,6 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { ModelSelector } from './ModelSelector';
-import { EffortSelector } from './EffortSelector';
 import { DocumentAttachmentCard } from './DocumentAttachmentCard';
 
 export function MessageComposer({
@@ -172,15 +171,11 @@ export function MessageComposer({
             <ModelSelector
               selectedModelId={selectedModelId}
               onSelectModel={onSelectModel}
+              effort={effort}
+              onSelectEffort={onSelectEffort}
               disabled={isLoading}
               customModels={customModels}
               onOpenApiKeyModal={onOpenApiKeyModal}
-            />
-
-            <EffortSelector
-              selectedEffort={effort}
-              onSelectEffort={onSelectEffort}
-              disabled={isLoading}
             />
 
 

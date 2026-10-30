@@ -36,9 +36,6 @@ export function ChatHeader({
           <h2 className="text-xs sm:text-sm font-semibold text-[#F3F4F6] truncate max-w-[140px] sm:max-w-xs md:max-w-sm">
             {activeTitle}
           </h2>
-          <span className="hidden sm:inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-[#151923] text-purple-300 border border-[#282D38] font-medium">
-            {selectedModelName}
-          </span>
           {showTokenMetrics && totalTokens > 0 && activeView === 'chat' && (
             <span
               className="hidden lg:inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-500/30 font-mono"
