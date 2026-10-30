@@ -77,3 +77,4 @@ This document provides a comprehensive inventory of all user-facing features, ba
 | `app.services.router` | N/A (Service) | Regex classification and optimal model selection. |
 | `app.services.export_service`| N/A (Service) | Formatting conversation transcripts into Markdown, Text, and JSON. |
 | `app.db.repository` | N/A (DAO) | Parameterized SQLite queries and transaction handling. |
+

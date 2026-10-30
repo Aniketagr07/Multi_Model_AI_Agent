@@ -109,3 +109,4 @@ The logging pipeline implements a custom `SecretMaskingFilter`. It evaluates all
 ### Q16: How do automated frontend tests verify chat streaming without consuming real API credits?
 **Answer**:  
 Vitest uses function mocks (`vi.mock('../services/api')`). The mock simulates an asynchronous generator yielding progressive token chunks (`"def "`, `"binary_search"`). React Testing Library renders `MessageBubble`, verifying progressive DOM updates, model attribution, and latency badges without external network calls.
+

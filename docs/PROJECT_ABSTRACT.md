@@ -22,3 +22,4 @@ OmniAI achieves a 100% automated test pass rate across 101 unit, integration, an
 * **Deterministic Efficiency**: Sub-1ms heuristic query classification saving 100% of LLM meta-token routing costs.
 * **Hermetic Reliability**: Zero-credit automated testing framework (81 backend tests + 20 frontend tests).
 * **Enterprise Hardening**: In-memory sliding-window rate limiting (60 RPM), 15MB request limits, secret masking, and single-user token access control.
+

@@ -124,3 +124,4 @@ OmniAI is designed as an embedded, zero-cost, local-first application. Rather th
    Primary API keys are held strictly in server environment variables. Health checks and model discovery endpoints return masked strings (`status: configured`), guaranteeing zero secret exposure to browser inspectors.
 3. **Stored XSS Sanitization**:
    Markdown rendering in `MessageBubble.jsx` utilizes `rehype-sanitize` with a strict GitHub-flavored HTML element whitelist. Any inline `<script>`, `<iframe>`, or `onload=` attributes injected into model outputs are neutralized before DOM insertion.
+

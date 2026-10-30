@@ -57,3 +57,4 @@ flowchart TD
 
 * **Audio Streaming**: Bidirectional voice conversation utilizing WebSockets / WebRTC integrated with Gemini Multimodal Live API.
 * **Vision & Image Understanding**: Direct drag-and-drop of architectural blueprints, diagrams, and screenshots for multimodal reasoning.
+

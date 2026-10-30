@@ -80,3 +80,4 @@ Measurements collected during local benchmarking on Python 3.14 + Vite 5:
 | **Database Read Latency (WAL Mode)** | $< 10\text{ ms}$ | **$1.2\text{ ms}$** | **PASS** |
 | **Frontend Production Bundle Size** | $< 1\text{ MB}$ | **$455\text{ KB}$ ($130\text{ KB}$ gzipped)** | **PASS** |
 | **Vite Production Build Time** | $< 10\text{ s}$ | **$3.82\text{ s}$** | **PASS** |
+

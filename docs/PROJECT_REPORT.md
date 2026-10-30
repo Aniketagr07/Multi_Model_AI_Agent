@@ -201,3 +201,4 @@ Tables: `conversations`, `messages`, `documents`, and `user_settings`.
 * Multi-Agent Consensus Council querying 3+ models and synthesizing agreement points.
 * Native on-device local model inference via **Ollama** or **llama.cpp**.
 * Real-time bidirectional voice conversation utilizing WebSockets and Gemini Multimodal Live API.
+
