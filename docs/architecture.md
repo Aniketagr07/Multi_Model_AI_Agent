@@ -1,120 +1,126 @@
 # OmniAI System Architecture & Engineering Design
 
-This document details the software architecture, design principles, and multi-model integration strategy for **OmniAI** — an intelligent multi-model AI chatbot application.
+This document details the software architecture, design principles, persistence strategies, and multi-model integration layers for **OmniAI — Intelligent Multi-Model AI Chatbot**.
 
 ---
 
 ## 1. High-Level Architectural Flow
 
-OmniAI follows a decoupled, modular client-server architecture designed for high extensibility, testability, and model-agnostic communication.
+OmniAI follows a decoupled, modular client-server architecture designed for high extensibility, testability, model-agnostic communication, and zero third-party lock-in.
 
 ```
-+-----------------------------------------------------------+
-|                      React Frontend                       |
-|   (Vite, Tailwind CSS, Component-Driven UI, Fetch API)    |
-+-----------------------------------------------------------+
-                             |
-                             | HTTP / JSON (REST API)
-                             | (GET /api/models, POST /api/chat)
-                             v
-+-----------------------------------------------------------+
-|                      FastAPI Backend                      |
-|       (Async ASGI Server, Pydantic Schema Contracts)      |
-+-----------------------------------------------------------+
-                             |
-                             v
-+-----------------------------------------------------------+
-|               ChatService & Model Registry                |
-|     (Model Allowlist Validation, Latency Monotonic Timer) |
-+-----------------------------------------------------------+
-                             |
-       +---------------------+---------------------+
-       |                                           |
-       v                                           v
-+-------------------------------+   +-------------------------------+
-| GeminiProvider                |   | GroqProvider                  |
-| (Adapter for Google Gemini)   |   | (Adapter for Groq Cloud LPUs) |
-| [Active Day 3]                |   | [Active Day 4]                |
-+-------------------------------+   +-------------------------------+
-       |                                           |
-       v                                           v
-+-------------------------------+   +-------------------------------+
-| Google AI Studio REST API     |   | Groq Cloud REST API           |
-| (Gemini 1.5 Flash / Pro)      |   | (Llama 3.1 8B / Mixtral 8x7B) |
-+-------------------------------+   +-------------------------------+
++-----------------------------------------------------------------------------------+
+|                                  React 18 Frontend                                |
+|  - Modern Tailwind CSS Interface (Dark / Light / System Theme)                    |
+|  - Real-Time SSE Token Streaming & Progressive UI Synthesis                       |
+|  - Dual-Model Side-by-Side Comparison Matrix                                      |
+|  - Drag-and-Drop Document Upload & Context Attachment                             |
+|  - Conversation Management (Search, Pin, Archive, Export as MD/TXT/JSON)          |
+|  - Settings & Custom Instructions Personalization                                 |
+|  - Dynamic BYOK (Bring Your Own Key) Discovery Modal                              |
++-----------------------------------------------------------------------------------+
+                                        |
+                 HTTP REST (JSON)       |        Server-Sent Events (SSE)
+                 /api/conversations     |        POST /api/chat/stream
+                 /api/documents         |        GET /api/models
+                 /api/settings          |        POST /api/compare
+                                        v
++-----------------------------------------------------------------------------------+
+|                                 FastAPI Backend                                   |
+|  - Async ASGI Server (Python 3.14 / 3.11+)                                        |
+|  - Defensive Security Headers Middleware (CSP, nosniff, DENY)                     |
+|  - Strict CORS Origin Controls                                                    |
+|  - Centralized Unhandled Exception Redaction (No Stack Trace Leaks)               |
++-----------------------------------------------------------------------------------+
+                                        |
+       +--------------------------------+--------------------------------+
+       |                                |                                |
+       v                                v                                v
++------------------+         +--------------------+          +---------------------+
+| Heuristic Router |         | Model Registry     |          | Document Service    |
+| (Prompt Tagger:  |         | (Metadata, Quotas, |          | (PyPDF Extraction,  |
+| Coding, Writing, |         | Tiers, Effort      |          | Semantic Chunking,  |
+| Reasoning, Auto) |         | Configurations)    |          | Grounded Context)   |
++------------------+         +--------------------+          +---------------------+
+       |                                |                                |
+       +--------------------------------+--------------------------------+
+                                        |
+                                        v
++-----------------------------------------------------------------------------------+
+|                         Provider Abstraction Layer                                |
+|  - BaseLLMProvider (Abstract Base Class interface)                                |
+|  - Standardized normalization: generate_response() & stream_response()            |
+|  - Resilient Active Fallback Chain across active endpoints                        |
++-----------------------------------------------------------------------------------+
+       |                                |                                |
+       v                                v                                v
++----------------------+     +----------------------+     +----------------------+
+| GeminiProvider       |     | GroqProvider         |     | OpenAICompatible     |
+| (Google AI Studio)   |     | (Groq Cloud LPUs)    |     | (Custom BYOK / v1)   |
+| - gemini-3.6-flash   |     | - llama-3.1-8b       |     | - Ollama / Open-WebUI|
+| - gemini-flash-lite  |     | - llama-3.3-70b      |     | - Local / vLLM       |
+| - gemini-3.8-flash   |     | - mixtral-8x7b       |     |                      |
++----------------------+     +----------------------+     +----------------------+
+                                        |
+                                        v
++-----------------------------------------------------------------------------------+
+|                       Local Persistent Storage (SQLite)                           |
+|  - WAL Journaling Mode (Write-Ahead Logging for non-blocking concurrent reads)     |
+|  - Foreign Key Constraints & Cascading Deletions                                  |
+|  - Parameterized Queries (Zero SQL Injection Vulnerability)                       |
+|  - Tables: conversations, messages, documents, user_settings                      |
++-----------------------------------------------------------------------------------+
 ```
 
 ---
 
 ## 2. Core Architectural Layers
 
-### Layer 1: Presentation Layer (React Frontend)
-* **Technology**: React 18, Vite, JavaScript, Tailwind CSS.
-* **Responsibilities**:
-  * Renders a responsive, accessible dark-mode chat interface (`#0B0D12` palette).
-  * Auto-resizes multiline message input and supports keyboard shortcuts (`Enter`, `Shift + Enter`).
-  * Manages client-side asynchronous connection states (`idle`, `checking`, `connected`, `disconnected`).
-  * Features a **Multi-Model Selector** allowing the user to select either **Google Gemini** or **Groq Cloud (Llama 3.1)**.
-  * Preserves conversation context across multi-turn messages within active session.
-  * Displays distinct visual tags for each provider (Google blue, Groq amber) and real latency badges (`⚡ 142ms`).
-  * Remains entirely agnostic of upstream AI vendor SDKs (no client-side API keys).
+### Layer 1: Presentation Layer (React 18 Frontend)
+* **Technology**: React 18, Vite, Tailwind CSS, Lucide icons, ReactMarkdown, RemarkGFM.
+* **Key Components**:
+  * `ChatWindow`: Handles message rendering, progressive SSE tokens, empty-state suggestions, and scroll anchoring.
+  * `MessageBubble`: Wrapped with `React.memo` to eliminate re-renders during active token generation.
+  * `ModelSelector`: Dynamic model selection with provider badges, latency indicators, and BYOK trigger.
+  * `CompareView`: Side-by-side prompt execution across two independent models with comparative metrics.
+  * `Sidebar`: Conversation searching (title + content), pinning, archiving, and multi-format exports.
+  * `SettingsView`: Full configuration dashboard for themes, routing defaults, streaming toggles, and custom instructions.
+  * `DocumentAttachmentCard`: Drag-and-drop document upload interface with progress bar and metadata badges.
 
-### Layer 2: API Gateway & Application Server (FastAPI Backend)
-* **Technology**: Python 3.14+, FastAPI, Uvicorn, HTTPX, Pydantic v2.
-* **Responsibilities**:
-  * Enforces Cross-Origin Resource Sharing (CORS) security boundaries.
-  * Validates inbound payloads using `ChatRequest` schema (enforcing length, non-empty, allowed models).
-  * Exposes `GET /api/models` to provide the dynamic model registry to clients.
-  * Measures live provider round-trip latency using Python's monotonic clock (`time.perf_counter()`).
-  * Exposes health monitoring (`/api/health`), root info (`/`), and chat completion (`/api/chat`).
-  * Manages environment configuration and secrets securely outside the web client.
+### Layer 2: API & Gateway Layer (FastAPI)
+* **Technology**: FastAPI, Pydantic v2, Starlette, HTTPX.
+* **Security & Routing**:
+  * Strict schema validation via Pydantic models with input sanitization and length bounds.
+  * Defensive HTTP middleware enforcing `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `X-XSS-Protection: 1; mode=block`.
+  * Centralized exception handlers preventing stack trace leakage to API consumers.
+  * Restrictive CORS configuration bound to authorized frontend development and production origins.
 
-### Layer 3: Server-Side Model Registry (`app.core.model_registry`)
-* Centralized registry mapping internal model IDs to upstream provider adapters:
-  1. `gemini-1.5-flash`: Provider `gemini`, Provider Model ID `gemini-1.5-flash`
-  2. `gemini-1.5-pro`: Provider `gemini`, Provider Model ID `gemini-1.5-pro`
-  3. `llama-3.1-8b-instant`: Provider `groq`, Provider Model ID `llama-3.1-8b-instant`
-  4. `llama-3.3-70b-versatile`: Provider `groq`, Provider Model ID `llama-3.3-70b-versatile`
-  5. `mixtral-8x7b-32768`: Provider `groq`, Provider Model ID `mixtral-8x7b-32768`
-* Evaluates live credential availability server-side without exposing API keys.
+### Layer 3: Intelligence & Routing Layer
+* **Heuristic Classifier (`ModelRouter`)**:
+  * Analyzes inbound user prompts against specialized semantic rule sets:
+    * `coding`: Routes to high-throughput, low-latency models (Groq Llama 3.1 8B, Gemini Flash).
+    * `reasoning`: Routes to deep analytical models (Gemini Pro, Llama 3.3 70B).
+    * `writing`: Routes to expansive context models (Mixtral 8x7B, Gemini Flash).
+    * `general`: Balanced heuristic fallback.
+  * Provides transparent explanations for routing decisions displayed on the UI.
 
-### Layer 4: Provider Abstraction Layer (`app.providers`)
-* **Design Pattern**: Adapter / Strategy Pattern.
-* **Contract Interface (`BaseLLMProvider`)**:
-  ```python
-  class BaseLLMProvider(ABC):
-      @abstractmethod
-      async def generate_response(self, messages: List[Dict[str, str]], model_id: str) -> str:
-          """Generate a standardized text completion from the model."""
-          pass
+### Layer 4: Provider Abstraction & Fallback Engine
+* **`BaseLLMProvider` Contract**:
+  * Every model provider implements `generate_response()` and `stream_response()`.
+* **Active Fallback Chain**:
+  * If an upstream model is deprecated (HTTP 404), overloaded (HTTP 503), rate-limited (HTTP 429), or exceeds a 10s deadline, the engine automatically cascades through verified active models (`gemini-3.6-flash` → `gemini-flash-lite-latest` → `gemini-3.1-flash-lite`).
+  * Prevents request crashes and ensures zero-downtime streaming.
 
-      @abstractmethod
-      async def check_availability(self) -> bool:
-          """Verify provider API reachability and credentials."""
-          pass
-  ```
-* **Concrete Adapters**:
-  * `GeminiProvider`: Formats messages to Google's `{ role: "user" | "model", parts: [{"text": ...}] }` schema.
-  * `GroqProvider`: Formats messages to standard OpenAI-compatible `{ role: "user" | "assistant", content: ... }` schema.
-  * Both translate HTTP errors into typed exceptions (`ProviderConfigError`, `ProviderAuthError`, `ProviderRateLimitError`, `ProviderTimeoutError`).
+### Layer 5: Document Intelligence Layer
+* **`DocumentService`**:
+  * Safe text extraction from PDF files via `pypdf` with empty-page and corruption protection.
+  * Multi-encoding support for TXT and Markdown (`utf-8`, `utf-8-sig`, `latin-1`).
+  * Semantic chunking (2500-char chunks with 250-char sliding overlap).
+  * Injects grounded context with clear system grounding delimiters, preventing model hallucination.
 
----
-
-## 3. Data & Persistence Strategy (Planned for Day 5)
-
-* **Database Engine**: SQLite with SQLAlchemy / SQLModel.
-* **Data Models**:
-  * `conversations`: Sessions, timestamps, titles.
-  * `messages`: Prompt, response, target model, provider, latency (ms), token metrics.
-
----
-
-## 4. Current Status: Day 4 Multi-Model Integration Complete
-
-* Two distinct, functional AI model providers integrated:
-  1. **Google Gemini API** (`gemini-1.5-flash`, `gemini-1.5-pro`)
-  2. **Groq Cloud API** (`llama-3.1-8b-instant`, `llama-3.3-70b-versatile`, `mixtral-8x7b-32768`)
-* Operational FastAPI application with `GET /api/health`, `GET /api/models`, and `POST /api/chat`.
-* React UI with interactive model switcher and distinct provider badges.
-* 15 automated unit tests verifying routing, validation, error handling, and mock responses.
-* Zero external API keys bundled in frontend client code.
+### Layer 6: Persistence & Storage Layer
+* **SQLite Database**:
+  * Configured with WAL (`PRAGMA journal_mode = WAL;`) allowing concurrent reads during streaming writes.
+  * Enforced foreign key cascades (`PRAGMA foreign_keys = ON;`).
+  * Safe multi-table migrations on startup.
+  * Parameterized SQL queries preventing SQL injection across all endpoints.

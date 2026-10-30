@@ -159,7 +159,7 @@ class DocumentService:
             )
         if file_size > self.max_size_bytes:
             raise HTTPException(
-                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                status_code=status.HTTP_413_CONTENT_TOO_LARGE,
                 detail=f"Uploaded file ({file_size / (1024*1024):.1f}MB) exceeds the maximum allowed limit of {self.max_size_bytes / (1024*1024):.0f}MB.",
             )
 

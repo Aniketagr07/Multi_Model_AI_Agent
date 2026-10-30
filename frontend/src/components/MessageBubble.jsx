@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { MarkdownRenderer } from './MarkdownRenderer';
 
-export function MessageBubble({ message, onRetry, onRegenerate, isLastAssistant = false }) {
+export const MessageBubble = React.memo(function MessageBubble({ message, onRetry, onRegenerate, isLastAssistant = false }) {
   const [copiedFull, setCopiedFull] = useState(false);
   const isUser = message.sender === 'user';
   const isError = Boolean(message.isError);
@@ -227,4 +227,4 @@ export function MessageBubble({ message, onRetry, onRegenerate, isLastAssistant 
       )}
     </article>
   );
-}
+});
