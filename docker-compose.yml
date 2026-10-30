@@ -73,3 +73,4 @@ networks:
   omniai-net:
     name: omniai-network
     driver: bridge
+

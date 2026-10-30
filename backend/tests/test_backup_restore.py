@@ -45,3 +45,4 @@ def test_backup_and_restore_cycle(tmp_path):
     restored_val = conn.execute("SELECT value FROM user_settings WHERE key = 'test_backup_key';").fetchone()[0]
     assert restored_val == "val_123"
     conn.close()
+

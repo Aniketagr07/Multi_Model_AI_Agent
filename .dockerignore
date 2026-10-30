@@ -27,3 +27,4 @@ backend/data/*.sqlite3
 backend/data/uploads/*
 backend/data/backups/*
 docs/
+

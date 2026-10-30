@@ -102,3 +102,4 @@ if __name__ == "__main__":
     except Exception as e:
         logger.error("Database restore failed: %s", e, exc_info=True)
         sys.exit(1)
+

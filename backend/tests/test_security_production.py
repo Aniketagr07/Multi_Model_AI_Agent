@@ -101,3 +101,4 @@ def test_security_headers_present():
     assert resp.headers.get("X-Frame-Options") == "DENY"
     assert resp.headers.get("X-XSS-Protection") == "1; mode=block"
     assert "Permissions-Policy" in resp.headers
+

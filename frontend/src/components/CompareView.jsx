@@ -91,7 +91,7 @@ const SAMPLE_COMPARISONS = [
   'What are the core differences between monolithic neural architectures and modular multi-agent LLM systems?',
 ];
 
-export function CompareView({ customModels = [], customKeys = {} } = {}) {
+export function CompareView({ customModels = [], customKeys = {}, onBackToChat = null } = {}) {
   const [prompt, setPrompt] = useState('');
   const [modelAId, setModelAId] = useState('gemini-1.5-flash');
   const [modelBId, setModelBId] = useState('llama-3.1-8b-instant');
@@ -174,7 +174,7 @@ export function CompareView({ customModels = [], customKeys = {} } = {}) {
             Multi-Model Response Comparison
           </h1>
           <span className="text-[11px] px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20 font-medium">
-            Day 5 Concurrent Dispatch
+            Concurrent Benchmark
           </span>
         </div>
         <p className="text-xs sm:text-sm text-[#9CA3AF]">

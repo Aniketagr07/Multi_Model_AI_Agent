@@ -327,3 +327,4 @@ The restore utility automatically:
 1. **Single Uvicorn Worker**: SQLite does not support distributed concurrent writes across multiple independent OS processes. The backend container runs with a single Uvicorn worker (`--workers 1`), utilizing Python's asynchronous event loop (`asyncio`) for high concurrency.
 2. **Scanned PDF OCR**: PDF text parsing relies on `pypdf`. Image-only scanned PDFs are rejected with HTTP 400 with a notice to provide a text-searchable document.
 3. **Single-Tenant Scope**: The database schema is designed for a single developer or team workbench. For multi-tenant hosting, database partitioning by tenant/user ID would be required.
+

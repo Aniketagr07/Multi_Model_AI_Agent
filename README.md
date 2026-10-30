@@ -1,11 +1,12 @@
 # OmniAI — Intelligent Multi-Model AI Chatbot
 
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![React](https://img.shields.io/badge/React-18.x-61DAFB?logo=react&logoColor=black)](https://react.dev)
 [![Vite](https://img.shields.io/badge/Vite-5.x-646CFF?logo=vite&logoColor=white)](https://vitejs.dev)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.x-38B2AC?logo=tailwind-css&logoColor=white)](https://tailwindcss.com)
 [![SQLite](https://img.shields.io/badge/SQLite-WAL_Mode-003B57?logo=sqlite&logoColor=white)](https://sqlite.org)
 [![Python](https://img.shields.io/badge/Python-3.11%20|%203.14-3776AB?logo=python&logoColor=white)](https://python.org)
+[![Tests: 101 Passed](https://img.shields.io/badge/Tests-101%20Passed%20(100%25)-brightgreen.svg)](docs/TESTING_AND_RESULTS.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-purple.svg)](LICENSE)
 
 OmniAI is an intelligent, multi-model AI chatbot application developed as an advanced B.Tech Capstone Project. OmniAI provides a unified, decoupled interface allowing users to converse with multiple leading AI models (Google Gemini, Groq-hosted Llama 3.1 & Mixtral, and OpenAI-compatible endpoints), stream tokens in real-time via Server-Sent Events (SSE), compare outputs side-by-side concurrently, upload and ground prompts in PDF/TXT/Markdown documents, route queries intelligently via an automatic rule-based classifier, search and manage conversations with pinning and archiving, export chat history, and personalize system behavior with custom instructions and theme preferences.
@@ -259,18 +260,20 @@ Access the application in your browser:
 
 ## 10. Automated Testing
 
-OmniAI features a full-stack automated test suite with **95 total tests** (75 Backend pytest tests + 20 Frontend Vitest tests) executing hermetically with zero real API token consumption.
+OmniAI features a full-stack automated test suite with **101 total tests** (81 Backend pytest tests + 20 Frontend Vitest tests) executing hermetically with zero real API token consumption.
 
-### Run Backend Tests (75 Tests)
+### Run Backend Tests (81 Tests)
 ```bash
 python -m pytest backend/tests -v
 ```
-All tests execute in ~3.5s with zero external network calls:
+All tests execute in ~3.6s with zero external network calls:
 * Provider failure recovery, rate limits, timeouts, and auth error handling.
 * Concurrent comparison dispatch with partial failure recovery.
 * Conversation search, pin/unpin, archive/restore, rename, and multi-format export.
 * Document upload validation (PDF, TXT, MD), chunking, and grounded context.
 * SSE streaming with client disconnect cancellation.
+* Single-user token access guard, in-memory rate limiting, and secret masking filter.
+* Complete database online backup and restoration data cycle.
 
 ### Run Frontend Tests (20 Tests across 6 Suites)
 ```bash
@@ -293,7 +296,26 @@ npm --prefix frontend run build
 
 ---
 
-## 11. Security and Deployment Architecture
+## 11. Academic Evaluation & Capstone Documentation
+
+Comprehensive technical documentation packages created for university evaluators and technical viva panelists:
+
+| Document | Purpose & Academic Focus |
+|---|---|
+| 📑 [**Project Report**](docs/PROJECT_REPORT.md) | Full 20-section capstone report covering objectives, architecture, algorithms, and results. |
+| 📝 [**Project Abstract**](docs/PROJECT_ABSTRACT.md) | Academic abstract, keywords, and core project contributions. |
+| 🏛️ [**System Architecture**](docs/SYSTEM_ARCHITECTURE.md) | 9 editable Mermaid diagrams covering frontend, backend, ERD, and data workflows. |
+| 🔬 [**Technical Methodology**](docs/TECHNICAL_METHODOLOGY.md) | Sub-1ms regex heuristics, SSE vs WebSockets comparison, and chunking formulas. |
+| 📦 [**Features & Modules**](docs/FEATURES_AND_MODULES.md) | Complete user story inventory, module specifications, and route directory. |
+| 🧪 [**Testing & Results**](docs/TESTING_AND_RESULTS.md) | Empirical benchmarks, test execution matrices, and latency measurements. |
+| 🔮 [**Future Scope**](docs/FUTURE_SCOPE.md) | ChromaDB vector RAG, AI Council consensus engine, and local Ollama roadmap. |
+| 🎓 [**Viva Preparation Guide**](docs/VIVA_PREPARATION.md) | 16+ technical viva voce Q&As covering LLM inference, LPUs, WAL mode, and security. |
+| 🏆 [**Final Capstone Report**](docs/FINAL_CAPSTONE_REPORT.md) | Comprehensive project scorecard, verification verdicts, and demonstration guide. |
+| 🚀 [**Deployment Guide**](docs/DEPLOYMENT.md) | Production Docker Compose stack, Nginx reverse proxy, and disaster recovery. |
+
+---
+
+## 12. Security and Deployment Architecture
 
 ### Deployment Overview
 OmniAI is designed as an open-source, local-first single-tenant AI workbench. In production environments:
@@ -310,7 +332,7 @@ OmniAI is designed as an open-source, local-first single-tenant AI workbench. In
 
 ---
 
-## 12. Screenshots Section
+## 13. Screenshots Section
 
 | Screen | Description |
 |---|---|
@@ -324,7 +346,7 @@ OmniAI is designed as an open-source, local-first single-tenant AI workbench. In
 
 ---
 
-## 13. Known Limitations
+## 14. Known Limitations
 
 1. **OCR on Scanned Images**: PDF text extraction relies on `pypdf`. Image-only scanned PDFs without embedded text streams are rejected with a clear user notice rather than processed with heavy OCR libraries.
 2. **Free Tier Concurrency**: Google Gemini Free Tier imposes a 15 RPM / 1M TPM limit. Rapid successive testing may trigger temporary HTTP 429 responses, which OmniAI handles via its active fallback chain (`gemini-flash-lite-latest`).
@@ -332,7 +354,7 @@ OmniAI is designed as an open-source, local-first single-tenant AI workbench. In
 
 ---
 
-## 14. Future Improvements
+## 15. Future Scope
 
 * **AI Council Consensus Engine**: Multi-agent consensus summarizer that queries 3 models and synthesizes agreement points.
 * **Vector Semantic Search (RAG)**: Integration of ChromaDB or sqlite-vss for hybrid lexical and dense vector search across uploaded document libraries.

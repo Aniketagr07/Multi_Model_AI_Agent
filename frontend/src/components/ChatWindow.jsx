@@ -9,6 +9,7 @@ export function ChatWindow({
   onSelectPrompt,
   onRetryMessage,
   onRegenerate,
+  onSelectView,
 }) {
   const containerRef = useRef(null);
   const bottomRef = useRef(null);
@@ -39,7 +40,7 @@ export function ChatWindow({
   }, [messages, isLoading]);
 
   if (!messages || messages.length === 0) {
-    return <WelcomeScreen onSelectPrompt={onSelectPrompt} />;
+    return <WelcomeScreen onSelectPrompt={onSelectPrompt} onSelectView={onSelectView} />;
   }
 
   // Check if an active streaming message is already showing tokens
