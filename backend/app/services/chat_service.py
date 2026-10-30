@@ -384,6 +384,15 @@ class ChatService:
             completion_tokens = max(1, len(full_response) // 4)
             total_tokens = prompt_tokens + completion_tokens
 
+            try:
+                await ConversationRepository.a_record_usage(
+                    model_id=model_info.id,
+                    provider=model_info.provider,
+                    tokens=total_tokens,
+                )
+            except Exception as usage_err:
+                logger.warning("Failed to record usage analytics: %s", usage_err)
+
             done_event = {
                 "type": "done",
                 "conversation_id": conv_id,
@@ -557,6 +566,15 @@ class ChatService:
         prompt_tokens = max(1, len(request.message) // 4)
         completion_tokens = max(1, len(response_text) // 4)
         total_tokens = prompt_tokens + completion_tokens
+
+        try:
+            await ConversationRepository.a_record_usage(
+                model_id=final_model_info.id,
+                provider=final_model_info.provider,
+                tokens=total_tokens,
+            )
+        except Exception as usage_err:
+            logger.warning("Failed to record usage analytics: %s", usage_err)
 
         return ChatResponse(
             conversation_id=conv_id,

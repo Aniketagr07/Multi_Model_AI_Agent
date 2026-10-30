@@ -80,7 +80,7 @@ export default function App() {
   };
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-[#0B0D12] text-[#F3F4F6] font-sans antialiased selection:bg-purple-600 selection:text-white">
+    <div className="flex h-screen h-[100dvh] w-screen overflow-hidden bg-[#0B0D12] text-[#F3F4F6] font-sans antialiased selection:bg-purple-600 selection:text-white">
       {/* Collapsible / Responsive Sidebar */}
       <Sidebar
         isOpen={isSidebarOpen}
@@ -103,7 +103,7 @@ export default function App() {
       />
 
       {/* Main Interface */}
-      <div className="flex-1 flex flex-col h-full min-w-0 relative bg-[#0B0D12]">
+      <div className="flex-1 flex flex-col h-full min-h-0 min-w-0 relative bg-[#0B0D12]">
         {/* Top Header */}
         <ChatHeader
           activeTitle={

@@ -5,6 +5,7 @@ from app.api.routes.compare import router as compare_router
 from app.api.routes.conversations import router as conversations_router
 from app.api.routes.documents import router as documents_router
 from app.api.routes.settings import router as settings_router
+from app.api.routes.usage import router as usage_router
 
 api_router = APIRouter()
 
@@ -25,3 +26,6 @@ api_router.include_router(documents_router, prefix="/documents", tags=["Document
 
 # Mount user settings routes at /api/settings
 api_router.include_router(settings_router, prefix="/settings", tags=["Settings"])
+
+# Mount model usage analytics at /api/usage
+api_router.include_router(usage_router, prefix="", tags=["Usage"])

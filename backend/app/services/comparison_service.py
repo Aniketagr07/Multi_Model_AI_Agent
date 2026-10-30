@@ -1,3 +1,4 @@
+from app.db.repository import ConversationRepository
 import asyncio
 import time
 import logging
@@ -59,6 +60,14 @@ class ComparisonService:
             tokens = max(1, len(response_text) // 4)
             seconds = max(0.001, elapsed_ms / 1000.0)
             tokens_per_sec = round(tokens / seconds, 1)
+            try:
+                await ConversationRepository.a_record_usage(
+                    model_id=model_info.id,
+                    provider=model_info.provider,
+                    tokens=tokens,
+                )
+            except Exception as usage_err:
+                logger.warning("Failed to record comparison usage: %s", usage_err)
             return ModelComparisonResult(
                 model_id=model_info.id,
                 name=model_info.name,

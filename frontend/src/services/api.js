@@ -93,6 +93,27 @@ export async function fetchModelRegistry() {
 }
 
 /**
+ * Fetches model usage sliding window analytics and remaining quotas.
+ * Target: GET /api/usage
+ */
+export async function fetchModelUsage() {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/usage`;
+
+  const response = await authFetch(url, {
+    method: 'GET',
+    headers: {
+      'Accept': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch usage: HTTP ${response.status}`);
+  }
+
+  return await response.json();
+}
+
+/**
  * Dispatches a chat message to the FastAPI backend (Synchronous non-streaming).
  * Target: POST /api/chat
  */

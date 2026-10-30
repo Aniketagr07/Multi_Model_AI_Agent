@@ -55,7 +55,7 @@ export function ChatWindow({
     <div
       ref={containerRef}
       onScroll={handleScroll}
-      className="flex-1 overflow-y-auto px-2 sm:px-4 py-6 space-y-4 relative scroll-smooth"
+      className="flex-1 overflow-y-auto min-h-0 px-2 sm:px-4 py-4 sm:py-6 space-y-4 relative scroll-smooth"
     >
       {messages.map((message, index) => (
         <MessageBubble

@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { ModelSelector } from './ModelSelector';
 import { DocumentAttachmentCard } from './DocumentAttachmentCard';
+import { UsagePopover } from './UsagePopover';
 
 export function MessageComposer({
   input,
@@ -87,7 +88,7 @@ export function MessageComposer({
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className="shrink-0 w-full max-w-4xl mx-auto px-4 pb-4 pt-2 relative"
+      className="shrink-0 w-full max-w-4xl mx-auto px-3 sm:px-4 pb-2 sm:pb-3 pt-1.5 relative"
     >
       {/* Hidden File Input */}
       <input
@@ -239,6 +240,12 @@ export function MessageComposer({
             )}
           </div>
         </div>
+      </div>
+
+      {/* Footer Disclaimer & Compact "View Usage" Popover */}
+      <div className="flex items-center justify-between text-[11px] text-slate-500 px-2 pt-1.5 select-none">
+        <span className="truncate">OmniAI can make mistakes. Verify critical information.</span>
+        <UsagePopover />
       </div>
     </div>
   );

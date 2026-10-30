@@ -87,6 +87,17 @@ def init_db() -> None:
     CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at ASC);
     CREATE INDEX IF NOT EXISTS idx_documents_conversation_id ON documents(conversation_id);
     CREATE INDEX IF NOT EXISTS idx_documents_created_at ON documents(created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS model_usage (
+        id TEXT PRIMARY KEY,
+        model_id TEXT NOT NULL,
+        provider TEXT NOT NULL,
+        tokens INTEGER DEFAULT 0,
+        created_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_model_usage_created_at ON model_usage(created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_model_usage_provider ON model_usage(provider);
     """
 
     db_path = get_db_path()

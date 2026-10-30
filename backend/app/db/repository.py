@@ -1,7 +1,7 @@
 import json
 import uuid
 import asyncio
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Optional, Any
 from app.db.database import get_db_connection
 
@@ -596,3 +596,161 @@ class ConversationRepository:
     @classmethod
     async def a_set_multiple_settings(cls, settings_dict: Dict[str, Any]) -> Dict[str, Any]:
         return await asyncio.to_thread(cls.set_multiple_settings, settings_dict)
+
+    # ---------------------------------------------------------
+    # Model Usage Tracking (Sliding 5-Hour & Weekly Ceilings)
+    # ---------------------------------------------------------
+
+    @classmethod
+    def record_usage(cls, model_id: str, provider: str, tokens: int = 0) -> None:
+        """Record model request event in SQLite for sliding usage analytics."""
+        usage_id = f"usg-{uuid.uuid4().hex[:12]}"
+        now = datetime.now(timezone.utc).isoformat()
+        clean_provider = (provider or "gemini").lower()
+        if "gemini" in clean_provider or "google" in clean_provider:
+            clean_provider = "google"
+        elif "groq" in clean_provider:
+            clean_provider = "groq"
+        elif "openai" in clean_provider or "gpt" in clean_provider:
+            clean_provider = "openai"
+        elif "anthropic" in clean_provider or "claude" in clean_provider:
+            clean_provider = "anthropic"
+
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT INTO model_usage (id, model_id, provider, tokens, created_at) VALUES (?, ?, ?, ?, ?)",
+                (usage_id, model_id, clean_provider, max(0, tokens), now),
+            )
+            conn.commit()
+
+    @classmethod
+    async def a_record_usage(cls, model_id: str, provider: str, tokens: int = 0) -> None:
+        """Asynchronously record model request event in SQLite."""
+        await asyncio.to_thread(cls.record_usage, model_id, provider, tokens)
+
+    @classmethod
+    def get_usage_analytics(cls) -> Dict[str, Any]:
+        """Compute rolling 5-hour and 7-day usage ceilings per provider."""
+        now = datetime.now(timezone.utc)
+        five_hours_ago = (now - timedelta(hours=5)).isoformat()
+        seven_days_ago = (now - timedelta(days=7)).isoformat()
+
+        # Configured OmniAI sliding ceilings (can be tuned per tier)
+        FIVE_HOUR_LIMIT = 50
+        WEEKLY_LIMIT = 300
+
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+
+            # 5-hour request count per provider
+            cursor.execute(
+                """
+                SELECT provider, COUNT(*) as req_count, COALESCE(SUM(tokens), 0) as token_sum
+                FROM model_usage
+                WHERE created_at >= ?
+                GROUP BY provider
+                """,
+                (five_hours_ago,)
+            )
+            five_hr_data = {row["provider"]: dict(row) for row in cursor.fetchall()}
+
+            # 7-day weekly request count per provider
+            cursor.execute(
+                """
+                SELECT provider, COUNT(*) as req_count, COALESCE(SUM(tokens), 0) as token_sum
+                FROM model_usage
+                WHERE created_at >= ?
+                GROUP BY provider
+                """,
+                (seven_days_ago,)
+            )
+            weekly_data = {row["provider"]: dict(row) for row in cursor.fetchall()}
+
+            # Per-model breakdown
+            cursor.execute(
+                """
+                SELECT provider, model_id, COUNT(*) as model_count, COALESCE(SUM(tokens), 0) as model_tokens
+                FROM model_usage
+                WHERE created_at >= ?
+                GROUP BY provider, model_id
+                ORDER BY model_count DESC
+                """,
+                (seven_days_ago,)
+            )
+            model_breakdown = {}
+            for row in cursor.fetchall():
+                p = row["provider"]
+                if p not in model_breakdown:
+                    model_breakdown[p] = []
+                model_breakdown[p].append({
+                    "model_id": row["model_id"],
+                    "requests": row["model_count"],
+                    "tokens": row["model_tokens"],
+                })
+
+        # Calculate reset countdowns
+        reset_5h_dt = (now + timedelta(hours=5)).replace(minute=0, second=0, microsecond=0)
+        reset_5h_sec = max(60, int((reset_5h_dt - now).total_seconds()))
+        hours_5h = reset_5h_sec // 3600
+        mins_5h = (reset_5h_sec % 3600) // 60
+        reset_5h_countdown = f"Resets in {hours_5h}h {mins_5h}m"
+
+        days_until_sunday = (6 - now.weekday()) % 7 or 7
+        reset_week_dt = (now + timedelta(days=days_until_sunday)).replace(hour=0, minute=0, second=0, microsecond=0)
+        reset_week_sec = max(3600, int((reset_week_dt - now).total_seconds()))
+        days_wk = reset_week_sec // 86400
+        reset_week_countdown = f"Resets in {days_wk}d"
+
+        providers = [
+            {"id": "google", "name": "Google Gemini"},
+            {"id": "groq", "name": "Groq"},
+            {"id": "openai", "name": "OpenAI"},
+            {"id": "anthropic", "name": "Claude"},
+        ]
+
+        provider_summaries = []
+        for p in providers:
+            p_id = p["id"]
+            fh = five_hr_data.get(p_id, {"req_count": 0, "token_sum": 0})
+            wk = weekly_data.get(p_id, {"req_count": 0, "token_sum": 0})
+
+            fh_used = fh["req_count"]
+            wk_used = wk["req_count"]
+
+            fh_left_pct = max(0, 100 - int((fh_used / FIVE_HOUR_LIMIT) * 100))
+            wk_left_pct = max(0, 100 - int((wk_used / WEEKLY_LIMIT) * 100))
+
+            provider_summaries.append({
+                "provider": p_id,
+                "display_name": p["name"],
+                "five_hour": {
+                    "used": fh_used,
+                    "limit": FIVE_HOUR_LIMIT,
+                    "percent_left": fh_left_pct,
+                    "reset_countdown": reset_5h_countdown,
+                    "reset_in_seconds": reset_5h_sec,
+                },
+                "weekly": {
+                    "used": wk_used,
+                    "limit": WEEKLY_LIMIT,
+                    "percent_left": wk_left_pct,
+                    "reset_countdown": reset_week_countdown,
+                    "reset_in_seconds": reset_week_sec,
+                },
+                "total_tokens_used": wk["token_sum"],
+                "models": model_breakdown.get(p_id, []),
+            })
+
+        return {
+            "tracking_type": "sliding_window",
+            "disclaimer": "Local usage tracking based on configured OmniAI sliding windows (5h/7d), not provider-enforced hard quotas.",
+            "providers": provider_summaries,
+            "timestamp": now.isoformat(),
+        }
+
+    @classmethod
+    async def a_get_usage_analytics(cls) -> Dict[str, Any]:
+        """Asynchronously compute rolling usage ceilings."""
+        return await asyncio.to_thread(cls.get_usage_analytics)
+

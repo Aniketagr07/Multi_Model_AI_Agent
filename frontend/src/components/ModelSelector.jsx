@@ -361,14 +361,6 @@ export function ModelSelector({
           {selectedModel.shortName || selectedModel.name}
         </span>
 
-        {/* Active Effort Indicator */}
-        {effort && (
-          <span className="text-[10px] text-slate-400 font-mono hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded bg-black/30 border border-white/5">
-            <span>{currentEffort.icon}</span>
-            <span>{currentEffort.shortName}</span>
-          </span>
-        )}
-
         {/* Small Dropdown Indicator */}
         <svg
           className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
@@ -522,17 +514,17 @@ export function ModelSelector({
           </div>
 
           {/* Popover Footer Bar */}
-          <div className="mt-2 pt-2 border-t border-[#282D38]/60 px-1 flex items-center justify-between">
+          <div className="mt-2.5 pt-2 border-t border-[#282D38]/60 px-1 flex items-center justify-between">
             <button
               type="button"
               onClick={() => {
                 setIsOpen(false);
                 if (onOpenApiKeyModal) onOpenApiKeyModal();
               }}
-              className="text-[11px] text-purple-400 hover:text-purple-300 flex items-center gap-1 font-medium hover:underline cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-purple-300 hover:text-white bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 transition-colors cursor-pointer"
             >
-              <span>🔑</span>
-              <span>Connect API Key (BYOK)</span>
+              <span className="text-sm font-bold leading-none">+</span>
+              <span>Add API Key</span>
             </button>
             <button
               type="button"
