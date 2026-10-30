@@ -36,7 +36,7 @@ This document provides a comprehensive inventory of all user-facing features, ba
 * **Multi-Format Upload**: Drag-and-drop and file-picker ingestion for `.pdf`, `.txt`, `.md`, and `.markdown`.
 * **PyPDF Extraction**: Extracts text streams from PDF files with error handling for corrupted files and image-only scanned documents.
 * **Semantic Chunking**: Automatically segments large documents into 2,500-character windows with 250-character overlap.
-* **Anti-Hallucination Grounding**: Wraps extracted text in structured XML tags, instructing the model to answer strictly from document facts.
+* **Document-Grounded Prompting**: Wraps extracted text in structured XML tags with negative constraints to ground model answers strictly in document facts.
 * **Document Attachment Cards**: Shows filename, file size, character count, chunk count, and upload progress in the chat composer.
 
 ### 5. Conversation History & Management

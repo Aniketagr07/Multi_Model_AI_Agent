@@ -261,7 +261,7 @@ flowchart TD
 
     StoreDB --> UserPrompt["User Asks Question Regarding Document"]
     UserPrompt --> GroundingEngine["Grounding Context Assembler"]
-    GroundingEngine --> ContextWrapper["Wrap in <document_context> XML tags with Anti-Hallucination Guardrails"]
+    GroundingEngine --> ContextWrapper["Wrap in <document_context> XML tags with Document Grounding Guardrails"]
     ContextWrapper --> LLM["Dispatch Grounded Prompt to Model"]
     LLM --> StreamOut["Stream Grounded Answer with Source Document Pill"]
 ```

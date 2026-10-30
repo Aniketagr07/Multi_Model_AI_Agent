@@ -50,7 +50,7 @@ Contemporary AI chat interfaces exhibit severe operational constraints:
 * Develop a deterministic heuristic classifier (Auto Mode) routing queries in $< 1\text{ ms}$ with zero token cost.
 * Implement real-time Server-Sent Events (SSE) streaming with sub-second time-to-first-token.
 * Provide concurrent dual-model benchmarking (`asyncio.gather`) broadcasting identical prompts with side-by-side markdown and latency timers.
-* Implement secure document ingestion (PDF, TXT, Markdown) with chunking and strict grounding tags to prevent hallucinations.
+* Implement secure document ingestion (PDF, TXT, Markdown) with chunking and strict grounding tags to mitigate hallucinations and anchor answers in source facts.
 * Establish a robust local-first persistence layer using SQLite 3 with Write-Ahead Logging (WAL) and online backup tooling.
 * Guarantee 100% automated test coverage with zero real API token consumption.
 
@@ -69,7 +69,7 @@ OmniAI delivers an open-source, decoupled, local-first intelligence workbench:
 * **Deterministic Intent Classifier**: Sub-millisecond regex categorization into `coding`, `reasoning`, `writing`, and `general`.
 * **Real-Time Streaming**: High-throughput Server-Sent Events with graceful client abort (`Stop Generation`).
 * **Side-by-Side Dual-Model Benchmark**: Evaluates speed and reasoning variations concurrently.
-* **Document Grounding**: Ingests files up to 10MB, segments text via 2,500-char sliding windows, and binds context with anti-hallucination guardrails.
+* **Document Grounding**: Ingests files up to 10MB, segments text via 2,500-char sliding windows, and binds context with document-grounding instructions to reduce ungrounded outputs.
 * **SQLite WAL Persistence**: Concurrent read access with foreign key cascades, conversation search, pinning, archiving, and multi-format export.
 
 ---
@@ -150,7 +150,7 @@ OmniAI implements Server-Sent Events (`POST /api/chat/stream`) conforming to the
 2. PyPDF extracts readable text from PDF pages, rejecting image-only scanned files.
 3. Multi-encoding decoder handles text files across UTF-8, Latin-1, and CP1252.
 4. Text is chunked using a 2,500-character window with a 250-character overlap ($S = 2,250$).
-5. Prompts are framed inside `<document_context>` XML tags with strict anti-hallucination instructions.
+5. Prompts are framed inside `<document_context>` XML tags with strict negative constraints instructing the model to rely solely on document facts.
 
 ---
 
@@ -163,20 +163,21 @@ Tables: `conversations`, `messages`, `documents`, and `user_settings`.
 
 ---
 
-## 16. Security Considerations & Hardening
-* **Stored XSS**: Markdown sanitized via `rehype-sanitize` against GitHub's HTML whitelist.
-* **Single-Tenant Authentication**: Header-based `APP_ACCESS_TOKEN` enforcing 401 Unauthorized in production.
-* **Rate Limiting**: Sliding-window rate limiter enforcing a 60 RPM limit per IP.
-* **Payload Ceiling**: Rejection of requests exceeding 15 MB with HTTP 413.
-* **Secret Masking**: `SecretMaskingFilter` redacts Gemini, Groq, OpenAI keys, and Bearer tokens from application logs.
+## 16. Security Considerations & Hardening (Single-Tenant Qualification)
+OmniAI is designed as a single-tenant personal or small team intelligence workbench. Its security controls are appropriately scoped:
+* **Stored XSS**: Markdown sanitized via `rehype-sanitize` against GitHub's HTML whitelist, preventing malicious script tag execution.
+* **Single-Tenant Authentication**: Header-based `APP_ACCESS_TOKEN` enforcing 401 Unauthorized for private network or desktop deployments; does not provide multi-user identity or RBAC.
+* **In-Memory Rate Limiting**: Sliding-window rate limiter enforcing a 60 RPM limit per IP to defend the local process against loops.
+* **Payload Ceiling**: Rejection of requests exceeding 15 MB with HTTP 413 before memory buffering.
+* **Secret Masking**: `SecretMaskingFilter` redacts Gemini, Groq, OpenAI keys, and Bearer tokens from stdout logs.
 
 ---
 
 ## 17. Testing Methodology & Coverage
-* **Backend**: 81 Pytest unit and integration tests executing in ~3.6s with mocked HTTP transports.
-* **Frontend**: 20 Vitest + React Testing Library tests executing in ~4.3s with mocked API fixtures.
-* **API Cost**: **0 tokens consumed** across all automated test suites.
-* **Pass Rate**: **100% (101 / 101 tests passed)**.
+* **Backend**: 81 Pytest unit and integration tests executing in ~3.6s with mocked HTTP transports (zero API token cost).
+* **Frontend**: 20 Vitest + React Testing Library tests executing in ~4.3s with mocked API fixtures (zero API token cost).
+* **Total Automated Tests**: **101 / 101 tests passed** (100% Pass Rate).
+* **Production Build**: Verified with Vite 5.4 (`dist/` created in ~3.8s with 0 errors).
 
 ---
 
@@ -189,10 +190,16 @@ Tables: `conversations`, `messages`, `documents`, and `user_settings`.
 
 ---
 
-## 19. Known Limitations
+## 19. Deployment Status & Known Limitations
+### Deployment Status
+* **Docker Configuration Implemented**: **PASS** (`backend/Dockerfile`, `frontend/Dockerfile`, `frontend/nginx.conf`, `docker-compose.yml` verified).
+* **Docker Compose Host Execution**: **NOT TESTED** (Host machine lacks Docker CLI/daemon in PATH).
+* **Production Cloud Hosting**: **NOT DEPLOYED** (Project is verified on local development servers).
+
+### Known Limitations
 1. **Single-Tenant Scope**: Designed as a personal or developer team workbench. Multi-tenant SaaS requires user-partitioned database tables.
 2. **Scanned PDF OCR**: Extraction relies on embedded PDF text streams. Image-only scanned PDFs are rejected with guidance to provide a searchable PDF.
-3. **Single Uvicorn Worker**: SQLite serialized write requirements necessitate running 1 Uvicorn worker process.
+3. **Single Uvicorn Worker**: SQLite WAL mode requires serialized writes, supported via 1 Uvicorn worker process.
 
 ---
 

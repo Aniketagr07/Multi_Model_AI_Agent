@@ -37,7 +37,7 @@ Modern AI workflows frequently require switching between different LLMs dependin
 * **📄 Document Upload & Grounded Context Analysis**:
   * Drag-and-drop upload for PDF (`.pdf`), Plain Text (`.txt`), and Markdown (`.md`).
   * Text extraction via `pypdf` with empty-page and corruption protection.
-  * Semantic chunking (2500 characters with 250 character overlap) and grounding tags to eliminate hallucinations.
+  * Semantic chunking (2500 characters with 250 character overlap) and structured context tags to ground responses in uploaded document facts.
 * **🗃️ Conversation Management & Search**:
   * Search conversations by title or message content.
   * Categorization into Pinned, Recent, and Archived sections.
@@ -318,17 +318,19 @@ Comprehensive technical documentation packages created for university evaluators
 ## 12. Security and Deployment Architecture
 
 ### Deployment Overview
-OmniAI is designed as an open-source, local-first single-tenant AI workbench. In production environments:
-* **Frontend**: Compiled into high-performance static assets (`dist/`) served via Nginx or CDN.
-* **Backend**: Run with Uvicorn / Gunicorn behind an Nginx reverse proxy with HTTPS termination.
-* **Database**: Local SQLite 3 with Write-Ahead Logging (WAL) and automated file-level snapshots.
+OmniAI is designed as an open-source, local-first single-tenant AI workbench. In deployment configurations:
+* **Docker Setup**: Configured with decoupled backend (FastAPI) and frontend (Nginx reverse proxy), health checks, and persistent SQLite/upload volumes.
+* **Local Development Run**: Fully operational and verified on local development servers (`uvicorn` and `vite`).
+* **Deployment Status**: Docker configuration is implemented (PASS); Docker Compose execution was not tested on the local Windows host due to absence of the Docker daemon; remote cloud production is not deployed.
 
-### Security Guarantees
+### Single-Tenant Security Scope
 * **Credential Isolation**: Primary provider keys are kept strictly in backend `.env` files and never exposed to the client. BYOK keys are held strictly in the user's browser memory or `localStorage`.
 * **Safe Markdown Rendering**: Frontend uses `rehype-sanitize` with a strict whitelist to prevent Stored XSS attacks in LLM responses.
+* **Single-Tenant Access Guard**: Configurable `APP_ACCESS_TOKEN` header check providing an access barrier for personal/private network setups.
 * **File Upload Protections**: Strict MIME/extension validation (`.pdf`, `.txt`, `.md`), 10MB file size ceiling, random UUID naming, traversal prevention via `os.path.basename`, and zero code execution.
-* **Prompt Injection Neutralization**: Custom user instructions are wrapped in system instruction tags with defensive isolation barriers, preventing user override of core model boundaries.
+* **Prompt Injection Isolation**: Custom user instructions are wrapped in system instruction tags with defensive boundaries to mitigate persona override.
 * **SQL Injection Immunity**: 100% of SQLite database interactions utilize parameterized queries or DAO abstraction.
+* **In-Memory Rate Limiting**: 60 RPM sliding window per IP to mitigate accidental request loops on generation endpoints.
 
 ---
 

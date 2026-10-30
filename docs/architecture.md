@@ -116,7 +116,7 @@ OmniAI follows a decoupled, modular client-server architecture designed for high
   * Safe text extraction from PDF files via `pypdf` with empty-page and corruption protection.
   * Multi-encoding support for TXT and Markdown (`utf-8`, `utf-8-sig`, `latin-1`).
   * Semantic chunking (2500-char chunks with 250-char sliding overlap).
-  * Injects grounded context with clear system grounding delimiters, preventing model hallucination.
+  * Injects grounded context with clear system grounding delimiters, significantly reducing model hallucinations by constraining claims to verified document content.
 
 ### Layer 6: Persistence & Storage Layer
 * **SQLite Database**:

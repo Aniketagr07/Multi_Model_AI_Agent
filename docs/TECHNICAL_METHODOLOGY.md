@@ -83,7 +83,7 @@ When documents exceed standard LLM single-prompt contexts, naive truncation disc
 
 The $10\%$ overlap ensures that sentences or entities spanning chunk boundaries are preserved in context.
 
-### Anti-Hallucination Prompt Framing
+### Document-Grounded Prompt Framing (Mitigating Hallucinations)
 Grounded document questions are wrapped in structured XML tags with strict system boundaries:
 ```
 <document_context name="{filename}">

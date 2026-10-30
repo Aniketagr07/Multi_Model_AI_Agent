@@ -68,12 +68,12 @@ Taking a standard OS copy (`cp omniai.db backup.db`) while SQLite is active can 
 **Answer**:  
 When documents exceed direct prompt limits, text is segmented into fixed character windows. OmniAI uses a 2,500-character window with a 250-character (10%) overlap. The overlap ensures that critical sentences, code blocks, or entities that happen to fall across chunk boundaries are not split and lost during LLM context assembly.
 
-### Q10: How does OmniAI eliminate hallucinations during document Q&A?
+### Q10: How does OmniAI mitigate hallucinations during document Q&A?
 **Answer**:  
-Extracted text is bounded inside structured XML tags (`<document_context name="...">`). System instructions explicitly command the model:
-1. To answer strictly and solely using the provided text.
-2. If the document does not contain the answer, to state: *"The provided document does not contain sufficient information to answer this question."*
-3. Never to invent external facts or extrapolate beyond the text.
+Generative LLMs are probabilistic token predictors and cannot be mathematically guaranteed to be 100% free of hallucinations. However, OmniAI significantly mitigates and reduces ungrounded claims through structured Document Grounding:
+1. Extracted text is bounded inside structured XML tags (`<document_context name="...">`).
+2. Negative constraint instructions command the model to answer strictly and solely using the provided text.
+3. If the document does not contain the answer, the model is explicitly instructed to state: *"The provided document does not contain sufficient information to answer this question."* rather than attempting to fabricate an extrapolation.
 
 ---
 
