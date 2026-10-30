@@ -55,21 +55,26 @@ class GeminiProvider(BaseLLMProvider):
         else:
             return {"temperature": 0.7, "maxOutputTokens": 4096}
 
-    async def generate_response(self, messages: List[Dict[str, str]], model_id: str = "gemini-3.5-flash", effort: str = "medium") -> str:
+    async def generate_response(self, messages: List[Dict[str, str]], model_id: str = "gemini-3.6-flash", effort: str = "medium") -> str:
         """Send formatted prompt to Google Gemini API and extract complete response text."""
         if not self.api_key or not self.api_key.strip():
             raise ProviderConfigError(
                 "Gemini API key is not configured. Please set GEMINI_API_KEY in backend/.env"
             )
 
-        endpoint = f"{self.base_url}/models/{model_id}:generateContent"
+        target_model = model_id
+        if target_model in ("gemini-1.5-flash", "gemini-1.5-pro", "gemini-3.8-flash", "gemini-3.7-flash", "gemini-2.5-flash", "gemini-2.5-pro"):
+            logger.info("Routing Gemini model '%s' to verified active 'gemini-3.6-flash'...", target_model)
+            target_model = "gemini-3.6-flash"
+
+        endpoint = f"{self.base_url}/models/{target_model}:generateContent"
         params = {"key": self.api_key}
         payload = {
             "contents": self._format_messages(messages),
             "generationConfig": self._get_generation_config(effort),
         }
 
-        call_timeout = 8.0 if "3.8" in model_id else self.timeout
+        call_timeout = 10.0
 
         try:
             try:
@@ -81,10 +86,10 @@ class GeminiProvider(BaseLLMProvider):
                         headers={"Content-Type": "application/json"},
                     )
             except httpx.TimeoutException:
-                if model_id != "gemini-3.5-flash":
-                    logger.warning("Gemini model '%s' timed out. Attempting fallback to gemini-3.5-flash...", model_id)
+                if target_model != "gemini-3.5-flash":
+                    logger.warning("Gemini model '%s' timed out. Attempting fallback to gemini-3.5-flash...", target_model)
                     fb_endpoint = f"{self.base_url}/models/gemini-3.5-flash:generateContent"
-                    async with httpx.AsyncClient(timeout=15.0) as client:
+                    async with httpx.AsyncClient(timeout=10.0) as client:
                         response = await client.post(
                             fb_endpoint,
                             params=params,
@@ -96,13 +101,13 @@ class GeminiProvider(BaseLLMProvider):
 
             # Handle 404 or 503 (model deprecated or high demand on Gemini)
             if response.status_code in (404, 503):
-                fallback_candidates = ["gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-flash-lite-latest"]
+                fallback_candidates = ["gemini-3.6-flash", "gemini-3.5-flash", "gemini-flash-lite-latest"]
                 for fb_model in fallback_candidates:
-                    if fb_model != model_id:
-                        logger.info("Gemini model '%s' returned status %s. Retrying with fallback '%s'...", model_id, response.status_code, fb_model)
+                    if fb_model != target_model:
+                        logger.info("Gemini model '%s' returned status %s. Retrying with fallback '%s'...", target_model, response.status_code, fb_model)
                         fb_endpoint = f"{self.base_url}/models/{fb_model}:generateContent"
                         try:
-                            async with httpx.AsyncClient(timeout=15.0) as client:
+                            async with httpx.AsyncClient(timeout=10.0) as client:
                                 fb_resp = await client.post(
                                     fb_endpoint,
                                     params=params,
@@ -171,9 +176,10 @@ class GeminiProvider(BaseLLMProvider):
             )
 
         target_model = model_id
-        # For preview models, prefer fast responsive model
-        if target_model in ("gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash"):
-            target_model = "gemini-3.5-flash"
+        # Route retired or timeout-prone preview models to verified fast models
+        if target_model in ("gemini-1.5-flash", "gemini-1.5-pro", "gemini-3.8-flash", "gemini-3.7-flash", "gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash"):
+            logger.info("Streaming Gemini model '%s' via verified active 'gemini-3.6-flash'...", target_model)
+            target_model = "gemini-3.6-flash"
 
         endpoint = f"{self.base_url}/models/{target_model}:streamGenerateContent"
         params = {"key": self.api_key, "alt": "sse"}

@@ -417,11 +417,16 @@ export async function sendCompareRequest({
 }
 
 /**
- * Fetches all persistent conversations from SQLite.
- * Target: GET /api/conversations
+ * Fetches all persistent conversations from SQLite. Supports search filtering.
+ * Target: GET /api/conversations(?q=...)
  */
-export async function fetchConversations() {
-  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/conversations`;
+export async function fetchConversations(query = null) {
+  const params = new URLSearchParams();
+  if (query && query.trim()) {
+    params.set('q', query.trim());
+  }
+  const queryString = params.toString() ? `?${params.toString()}` : '';
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/conversations${queryString}`;
 
   const response = await fetch(url, {
     method: 'GET',
@@ -521,4 +526,82 @@ export async function deleteConversationApi(conversationId) {
   }
 
   return true;
+}
+
+/**
+ * Pins or unpins a conversation.
+ * Target: PATCH /api/conversations/{id}/pin
+ */
+export async function pinConversationApi(conversationId, isPinned) {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/conversations/${conversationId}/pin`;
+
+  const response = await fetch(url, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    },
+    body: JSON.stringify({ is_pinned: Boolean(isPinned) }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to update pin state: HTTP ${response.status}`);
+  }
+
+  return await response.json();
+}
+
+/**
+ * Archives or restores a conversation.
+ * Target: PATCH /api/conversations/{id}/archive
+ */
+export async function archiveConversationApi(conversationId, isArchived) {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/conversations/${conversationId}/archive`;
+
+  const response = await fetch(url, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    },
+    body: JSON.stringify({ is_archived: Boolean(isArchived) }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to update archive state: HTTP ${response.status}`);
+  }
+
+  return await response.json();
+}
+
+/**
+ * Downloads a conversation export as Markdown, Plain Text, or sanitized JSON.
+ * Target: GET /api/conversations/{id}/export?format={format}
+ */
+export async function exportConversationApi(conversationId, format = 'markdown') {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/conversations/${conversationId}/export?format=${encodeURIComponent(format)}`;
+
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Export failed: HTTP ${response.status}`);
+  }
+
+  const blob = await response.blob();
+  const disposition = response.headers.get('content-disposition');
+  let filename = `conversation.${format === 'markdown' ? 'md' : format === 'text' ? 'txt' : 'json'}`;
+  if (disposition && disposition.includes('filename=')) {
+    const match = disposition.match(/filename="?([^";]+)"?/);
+    if (match && match[1]) filename = match[1];
+  }
+
+  const blobUrl = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = blobUrl;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(blobUrl);
+
+  return filename;
 }

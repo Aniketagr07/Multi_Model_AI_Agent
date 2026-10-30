@@ -127,3 +127,4 @@ async def delete_document(
             detail=f"Document '{document_id}' was not found.",
         )
     return None
+

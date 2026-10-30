@@ -323,3 +323,4 @@ def get_document_service() -> DocumentService:
     if _doc_service is None:
         _doc_service = DocumentService()
     return _doc_service
+

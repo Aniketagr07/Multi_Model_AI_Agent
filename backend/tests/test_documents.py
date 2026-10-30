@@ -199,3 +199,4 @@ async def test_document_qa_chat_workflow():
         assert data["document_id"] == doc_id
         assert data["document_name"] == "project_spec.txt"
         assert "dual model comparison" in data["response"]
+

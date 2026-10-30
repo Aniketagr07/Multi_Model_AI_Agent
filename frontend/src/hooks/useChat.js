@@ -6,6 +6,9 @@ import {
   fetchConversationDetails,
   renameConversation as apiRenameConversation,
   deleteConversationApi,
+  pinConversationApi,
+  archiveConversationApi,
+  exportConversationApi,
   uploadDocument,
   deleteDocumentApi,
 } from '../services/api';
@@ -19,6 +22,7 @@ export function useChat({ customModels = [], customKeys = {} } = {}) {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Document attachment state (TASK 1 & TASK 4)
   const [attachedDocument, setAttachedDocument] = useState(null);
@@ -35,10 +39,10 @@ export function useChat({ customModels = [], customKeys = {} } = {}) {
   const allModels = [...customModels, ...AVAILABLE_MODELS];
   const selectedModel = allModels.find(m => m.id === selectedModelId) || allModels[0];
 
-  // Load persistent conversations from SQLite on initial mount
-  const refreshConversations = useCallback(async () => {
+  // Load persistent conversations from SQLite
+  const refreshConversations = useCallback(async (query = null) => {
     try {
-      const convs = await fetchConversations();
+      const convs = await fetchConversations(query);
       const formatted = convs.map(c => {
         const d = new Date(c.updated_at);
         const isToday = new Date().toDateString() === d.toDateString();
@@ -49,6 +53,9 @@ export function useChat({ customModels = [], customKeys = {} } = {}) {
         return {
           id: c.id,
           title: c.title,
+          isPinned: Boolean(c.is_pinned),
+          isArchived: Boolean(c.is_archived),
+          pinnedAt: c.pinned_at,
           dateLabel,
           createdAt: c.created_at,
           updatedAt: c.updated_at,
@@ -61,9 +68,13 @@ export function useChat({ customModels = [], customKeys = {} } = {}) {
     }
   }, []);
 
+  // Trigger search when searchQuery changes (debounced 200ms)
   useEffect(() => {
-    refreshConversations();
-  }, [refreshConversations]);
+    const timer = setTimeout(() => {
+      refreshConversations(searchQuery);
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [searchQuery, refreshConversations]);
 
   // Action: Select an existing conversation and load its messages
   const selectConversation = useCallback(async (convId) => {
@@ -147,6 +158,58 @@ export function useChat({ customModels = [], customKeys = {} } = {}) {
       console.error('[OmniAI Storage] Delete failed:', err);
     }
   }, [activeConversationId]);
+
+  // Action: Pin or Unpin a conversation (TASK 2 & 3)
+  const pinConversationHandler = useCallback(async (convId, isPinned) => {
+    try {
+      // Optimistic local update
+      setConversations(prev => {
+        const updated = prev.map(c =>
+          c.id === convId
+            ? { ...c, isPinned: Boolean(isPinned), pinnedAt: isPinned ? new Date().toISOString() : null }
+            : c
+        );
+        // Re-sort: pinned first, then updatedAt desc
+        return [...updated].sort((a, b) => {
+          if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
+          return new Date(b.updatedAt) - new Date(a.updatedAt);
+        });
+      });
+      await pinConversationApi(convId, isPinned);
+    } catch (err) {
+      console.error('[OmniAI Storage] Pin toggle failed:', err);
+      refreshConversations(searchQuery);
+    }
+  }, [refreshConversations, searchQuery]);
+
+  // Action: Archive or Restore a conversation (TASK 2 & 3)
+  const archiveConversationHandler = useCallback(async (convId, isArchived) => {
+    try {
+      // Optimistic local update
+      setConversations(prev =>
+        prev.map(c =>
+          c.id === convId
+            ? { ...c, isArchived: Boolean(isArchived), isPinned: isArchived ? false : c.isPinned }
+            : c
+        )
+      );
+      await archiveConversationApi(convId, isArchived);
+    } catch (err) {
+      console.error('[OmniAI Storage] Archive toggle failed:', err);
+      refreshConversations(searchQuery);
+    }
+  }, [refreshConversations, searchQuery]);
+
+  // Action: Export a conversation (TASK 4)
+  const exportConversationHandler = useCallback(async (convId, format = 'markdown') => {
+    try {
+      return await exportConversationApi(convId, format);
+    } catch (err) {
+      console.error('[OmniAI Export] Export failed:', err);
+      alert(`Export failed: ${err.message}`);
+      throw err;
+    }
+  }, []);
 
   // Action: Attach Document (TASK 1)
   const attachFile = useCallback(async (file) => {
@@ -421,10 +484,16 @@ export function useChat({ customModels = [], customKeys = {} } = {}) {
     isLoading,
     isSidebarOpen,
     setIsSidebarOpen,
+    searchQuery,
+    setSearchQuery,
     startNewChat,
     selectConversation,
     renameConversation: renameConversationHandler,
     deleteConversation: deleteConversationHandler,
+    pinConversation: pinConversationHandler,
+    archiveConversation: archiveConversationHandler,
+    exportConversation: exportConversationHandler,
+    refreshConversations,
     setSelectedModelId,
     sendMessage,
     stopGeneration,

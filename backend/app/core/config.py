@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     DEFAULT_MODEL: str = "gemini-3.8-flash"
 
     # Allowed models list (comma-separated IDs)
-    ALLOWED_MODELS: str = "gemini-3.8-flash,gemini-3.5-flash,gemini-1.5-flash,gemini-1.5-pro,gemini-2.0-flash-exp,llama-3.1-8b-instant,llama-3.3-70b-versatile,mixtral-8x7b-32768"
+    ALLOWED_MODELS: str = "gemini-3.8-flash,gemini-3.6-flash,gemini-3.5-flash,gemini-flash-lite-latest,gemini-1.5-flash,gemini-1.5-pro,gemini-2.0-flash-exp,llama-3.1-8b-instant,llama-3.3-70b-versatile,mixtral-8x7b-32768"
 
     # Database Configuration (Day 7 Persistent SQLite)
     SQLITE_DB_PATH: str = "data/omniai.db"

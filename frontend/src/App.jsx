@@ -38,6 +38,11 @@ export default function App() {
     selectConversation,
     renameConversation,
     deleteConversation,
+    pinConversation,
+    archiveConversation,
+    exportConversation,
+    searchQuery,
+    setSearchQuery,
     setSelectedModelId,
     sendMessage,
     stopGeneration,
@@ -77,6 +82,11 @@ export default function App() {
         onNewChat={startNewChat}
         onRenameConversation={renameConversation}
         onDeleteConversation={deleteConversation}
+        onPinConversation={pinConversation}
+        onArchiveConversation={archiveConversation}
+        onExportConversation={exportConversation}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
         healthStatus={healthStatus}
         onCheckHealth={onCheckHealth}
         activeView={activeView}

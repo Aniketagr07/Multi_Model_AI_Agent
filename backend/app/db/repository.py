@@ -32,8 +32,8 @@ class ConversationRepository:
         with get_db_connection() as conn:
             conn.execute(
                 """
-                INSERT INTO conversations (id, title, created_at, updated_at)
-                VALUES (?, ?, ?, ?);
+                INSERT INTO conversations (id, title, is_pinned, is_archived, pinned_at, created_at, updated_at)
+                VALUES (?, ?, 0, 0, NULL, ?, ?);
                 """,
                 (cid, title.strip() or "New Conversation", now, now),
             )
@@ -41,6 +41,9 @@ class ConversationRepository:
         return {
             "id": cid,
             "title": title.strip() or "New Conversation",
+            "is_pinned": False,
+            "is_archived": False,
+            "pinned_at": None,
             "created_at": now,
             "updated_at": now,
             "message_count": 0,
@@ -52,7 +55,7 @@ class ConversationRepository:
         with get_db_connection() as conn:
             cursor = conn.execute(
                 """
-                SELECT c.id, c.title, c.created_at, c.updated_at,
+                SELECT c.id, c.title, c.is_pinned, c.is_archived, c.pinned_at, c.created_at, c.updated_at,
                        COUNT(m.id) as message_count
                 FROM conversations c
                 LEFT JOIN messages m ON c.id = m.conversation_id
@@ -64,25 +67,110 @@ class ConversationRepository:
             row = cursor.fetchone()
             if not row:
                 return None
-            return dict(row)
+            res = dict(row)
+            res["is_pinned"] = bool(res.get("is_pinned", 0))
+            res["is_archived"] = bool(res.get("is_archived", 0))
+            return res
 
     @staticmethod
-    def list_conversations(limit: int = 50) -> List[Dict[str, Any]]:
-        """Retrieve all conversations ordered by updated_at descending."""
+    def list_conversations(
+        limit: int = 100,
+        include_archived: bool = True,
+        archived_only: bool = False,
+        search_query: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Retrieve conversations ordered by pinned status (descending) and last activity (descending).
+        Supports searching across conversation titles and message contents with parameterized SQL.
+        """
         with get_db_connection() as conn:
-            cursor = conn.execute(
-                """
-                SELECT c.id, c.title, c.created_at, c.updated_at,
+            params: List[Any] = []
+            where_clauses: List[str] = []
+
+            if archived_only:
+                where_clauses.append("c.is_archived = 1")
+            elif not include_archived:
+                where_clauses.append("c.is_archived = 0")
+
+            if search_query and search_query.strip():
+                clean_term = f"%{search_query.strip()}%"
+                where_clauses.append("(c.title LIKE ? OR m.content LIKE ?)")
+                params.extend([clean_term, clean_term])
+
+            where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
+
+            query = f"""
+                SELECT c.id, c.title, c.is_pinned, c.is_archived, c.pinned_at, c.created_at, c.updated_at,
                        COUNT(m.id) as message_count
                 FROM conversations c
                 LEFT JOIN messages m ON c.id = m.conversation_id
+                {where_sql}
                 GROUP BY c.id
-                ORDER BY c.updated_at DESC
+                ORDER BY c.is_pinned DESC, c.updated_at DESC
                 LIMIT ?;
+            """
+            params.append(limit)
+
+            cursor = conn.execute(query, params)
+            rows = []
+            for r in cursor.fetchall():
+                d = dict(r)
+                d["is_pinned"] = bool(d.get("is_pinned", 0))
+                d["is_archived"] = bool(d.get("is_archived", 0))
+                rows.append(d)
+            return rows
+
+    @staticmethod
+    def pin_conversation(conv_id: str, is_pinned: bool) -> Optional[Dict[str, Any]]:
+        """Toggle or set pinned state of a conversation."""
+        now = _utc_now_iso()
+        pinned_at = now if is_pinned else None
+        pinned_val = 1 if is_pinned else 0
+
+        with get_db_connection() as conn:
+            cursor = conn.execute(
+                """
+                UPDATE conversations
+                SET is_pinned = ?, pinned_at = ?
+                WHERE id = ?;
                 """,
-                (limit,),
+                (pinned_val, pinned_at, conv_id),
             )
-            return [dict(r) for r in cursor.fetchall()]
+            if cursor.rowcount == 0:
+                return None
+
+        return ConversationRepository.get_conversation(conv_id)
+
+    @staticmethod
+    def archive_conversation(conv_id: str, is_archived: bool) -> Optional[Dict[str, Any]]:
+        """Toggle or set archived state of a conversation."""
+        archived_val = 1 if is_archived else 0
+        now = _utc_now_iso()
+
+        with get_db_connection() as conn:
+            # When archiving, we also unpin to keep pinned list clean
+            if is_archived:
+                cursor = conn.execute(
+                    """
+                    UPDATE conversations
+                    SET is_archived = ?, is_pinned = 0, pinned_at = NULL, updated_at = ?
+                    WHERE id = ?;
+                    """,
+                    (archived_val, now, conv_id),
+                )
+            else:
+                cursor = conn.execute(
+                    """
+                    UPDATE conversations
+                    SET is_archived = ?, updated_at = ?
+                    WHERE id = ?;
+                    """,
+                    (archived_val, now, conv_id),
+                )
+            if cursor.rowcount == 0:
+                return None
+
+        return ConversationRepository.get_conversation(conv_id)
 
     @staticmethod
     def update_conversation_title(conv_id: str, title: str) -> Optional[Dict[str, Any]]:
@@ -386,8 +474,28 @@ class ConversationRepository:
         return await asyncio.to_thread(cls.get_conversation, conv_id)
 
     @classmethod
-    async def a_list_conversations(cls, limit: int = 50) -> List[Dict[str, Any]]:
-        return await asyncio.to_thread(cls.list_conversations, limit)
+    async def a_list_conversations(
+        cls,
+        limit: int = 100,
+        include_archived: bool = True,
+        archived_only: bool = False,
+        search_query: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        return await asyncio.to_thread(
+            cls.list_conversations,
+            limit=limit,
+            include_archived=include_archived,
+            archived_only=archived_only,
+            search_query=search_query,
+        )
+
+    @classmethod
+    async def a_pin_conversation(cls, conv_id: str, is_pinned: bool) -> Optional[Dict[str, Any]]:
+        return await asyncio.to_thread(cls.pin_conversation, conv_id, is_pinned)
+
+    @classmethod
+    async def a_archive_conversation(cls, conv_id: str, is_archived: bool) -> Optional[Dict[str, Any]]:
+        return await asyncio.to_thread(cls.archive_conversation, conv_id, is_archived)
 
     @classmethod
     async def a_update_conversation_title(cls, conv_id: str, title: str) -> Optional[Dict[str, Any]]:

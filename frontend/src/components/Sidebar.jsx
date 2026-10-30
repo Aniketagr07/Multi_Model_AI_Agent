@@ -1,15 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { ConnectionStatus } from './ConnectionStatus';
+import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 
 export function Sidebar({
   isOpen,
   onClose,
-  conversations,
+  conversations = [],
   activeConversationId,
   onSelectConversation,
   onNewChat,
   onRenameConversation,
   onDeleteConversation,
+  onPinConversation,
+  onArchiveConversation,
+  onExportConversation,
+  searchQuery = '',
+  onSearchChange,
   healthStatus,
   onCheckHealth,
   activeView = 'chat',
@@ -18,10 +24,36 @@ export function Sidebar({
   const [editingId, setEditingId] = useState(null);
   const [editTitle, setEditTitle] = useState('');
 
+  // Delete modal state
+  const [deleteTarget, setDeleteTarget] = useState(null); // { id, title }
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Export menu dropdown state: convId or null
+  const [exportMenuId, setExportMenuId] = useState(null);
+  const exportMenuRef = useRef(null);
+
+  // Collapsible archived section
+  const [isArchivedExpanded, setIsArchivedExpanded] = useState(false);
+
+  // Close export dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target)) {
+        setExportMenuId(null);
+      }
+    }
+    if (exportMenuId) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [exportMenuId]);
+
+  // Rename handlers
   const handleStartRename = (conv, e) => {
     e.stopPropagation();
     setEditingId(conv.id);
     setEditTitle(conv.title || '');
+    setExportMenuId(null);
   };
 
   const handleSaveRename = (convId, e) => {
@@ -37,12 +69,304 @@ export function Sidebar({
     setEditingId(null);
   };
 
-  const handleDeleteWithConfirm = (convId, title, e) => {
+  // Delete modal handlers
+  const handleOpenDeleteModal = (conv, e) => {
     e.stopPropagation();
-    const confirmed = window.confirm(`Permanently delete conversation "${title || 'Untitled Session'}" from SQLite?`);
-    if (confirmed && onDeleteConversation) {
-      onDeleteConversation(convId);
+    setExportMenuId(null);
+    setDeleteTarget({ id: conv.id, title: conv.title });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget || !onDeleteConversation) return;
+    setIsDeleting(true);
+    try {
+      await onDeleteConversation(deleteTarget.id);
+      setDeleteTarget(null);
+    } catch (err) {
+      console.error('Delete failed:', err);
+    } finally {
+      setIsDeleting(false);
     }
+  };
+
+  // Pin / Archive handlers
+  const handleTogglePin = (conv, e) => {
+    e.stopPropagation();
+    if (onPinConversation) {
+      onPinConversation(conv.id, !conv.isPinned);
+    }
+  };
+
+  const handleToggleArchive = (conv, e) => {
+    e.stopPropagation();
+    if (onArchiveConversation) {
+      onArchiveConversation(conv.id, !conv.isArchived);
+    }
+  };
+
+  // Export handler
+  const handleExport = async (convId, format, e) => {
+    e.stopPropagation();
+    setExportMenuId(null);
+    if (onExportConversation) {
+      try {
+        await onExportConversation(convId, format);
+      } catch (err) {
+        console.error('Export error:', err);
+      }
+    }
+  };
+
+  // Split conversations into sections
+  const pinnedConversations = conversations.filter(c => c.isPinned && !c.isArchived);
+  const recentConversations = conversations.filter(c => !c.isPinned && !c.isArchived);
+  const archivedConversations = conversations.filter(c => c.isArchived);
+
+  // Render a single conversation item
+  const renderConversationItem = (conv, isArchivedSection = false) => {
+    const isActive = conv.id === activeConversationId;
+    const isEditing = editingId === conv.id;
+    const isExportOpen = exportMenuId === conv.id;
+
+    return (
+      <div
+        key={conv.id}
+        className={`group relative flex items-center justify-between rounded-lg px-2.5 py-2 text-xs transition-colors cursor-pointer ${
+          isActive && activeView === 'chat'
+            ? 'bg-[#151923] text-white border border-[#282D38]'
+            : 'text-slate-400 hover:text-slate-200 hover:bg-[#151923]/60 border border-transparent'
+        }`}
+        onClick={() => {
+          if (isEditing) return;
+          if (onSelectView) onSelectView('chat');
+          onSelectConversation(conv.id);
+          if (window.innerWidth < 768) onClose();
+        }}
+      >
+        <div className="flex items-center gap-2 min-w-0 pr-16 flex-1">
+          {/* Status Icon: Pin or Chat */}
+          {conv.isPinned && !conv.isArchived ? (
+            <svg
+              className="w-3.5 h-3.5 text-purple-400 shrink-0"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+            >
+              <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z" />
+            </svg>
+          ) : isArchivedSection ? (
+            <svg
+              className="w-3.5 h-3.5 text-slate-500 shrink-0"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <polyline points="21 8 21 21 3 21 3 8" />
+              <rect x="1" y="3" width="22" height="5" />
+              <line x1="10" y1="12" x2="14" y2="12" />
+            </svg>
+          ) : (
+            <svg
+              className={`w-3.5 h-3.5 shrink-0 ${isActive && activeView === 'chat' ? 'text-purple-400' : 'text-slate-500'}`}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+          )}
+
+          {isEditing ? (
+            <div className="flex items-center gap-1 flex-1 min-w-0" onClick={e => e.stopPropagation()}>
+              <input
+                type="text"
+                value={editTitle}
+                onChange={e => setEditTitle(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') handleSaveRename(conv.id, e);
+                  if (e.key === 'Escape') handleCancelRename(e);
+                }}
+                autoFocus
+                className="w-full bg-[#0B0D12] text-white text-xs px-1.5 py-0.5 rounded border border-purple-500 focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={e => handleSaveRename(conv.id, e)}
+                title="Save title"
+                className="p-1 text-emerald-400 hover:text-emerald-300"
+              >
+                ✓
+              </button>
+              <button
+                type="button"
+                onClick={handleCancelRename}
+                title="Cancel"
+                className="p-1 text-slate-400 hover:text-slate-300"
+              >
+                ✕
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-col min-w-0 flex-1">
+              <span className="truncate font-medium">{conv.title || 'Untitled Session'}</span>
+              <div className="flex items-center gap-2 text-[10px] text-slate-500">
+                <span>{conv.dateLabel}</span>
+                {typeof conv.messageCount === 'number' && conv.messageCount > 0 && (
+                  <span>• {conv.messageCount} msgs</span>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Action Toolbar on Hover */}
+        {!isEditing && (
+          <div
+            className={`absolute right-1.5 flex items-center gap-0.5 ${
+              isExportOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+            } transition-opacity bg-[#151923]/95 px-1 py-0.5 rounded-md shadow-sm border border-[#282D38]/60`}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Pin Toggle Button (Only for unarchived) */}
+            {!isArchivedSection && onPinConversation && (
+              <button
+                type="button"
+                title={conv.isPinned ? 'Unpin conversation' : 'Pin to top'}
+                onClick={e => handleTogglePin(conv, e)}
+                className={`p-1 rounded transition-colors ${
+                  conv.isPinned
+                    ? 'text-purple-400 hover:text-purple-300 hover:bg-[#1E2330]'
+                    : 'text-slate-400 hover:text-purple-300 hover:bg-[#1E2330]'
+                }`}
+              >
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill={conv.isPinned ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
+                  <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z" />
+                </svg>
+              </button>
+            )}
+
+            {/* Rename Button */}
+            {onRenameConversation && (
+              <button
+                type="button"
+                title="Rename conversation"
+                onClick={e => handleStartRename(conv, e)}
+                className="p-1 text-slate-400 hover:text-purple-300 hover:bg-[#1E2330] rounded transition-colors"
+              >
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 20h9" />
+                  <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+                </svg>
+              </button>
+            )}
+
+            {/* Export Dropdown Trigger */}
+            {onExportConversation && (
+              <div className="relative">
+                <button
+                  type="button"
+                  title="Export conversation"
+                  onClick={e => {
+                    e.stopPropagation();
+                    setExportMenuId(prev => (prev === conv.id ? null : conv.id));
+                  }}
+                  className={`p-1 rounded transition-colors ${
+                    isExportOpen
+                      ? 'text-purple-400 bg-[#1E2330]'
+                      : 'text-slate-400 hover:text-purple-300 hover:bg-[#1E2330]'
+                  }`}
+                >
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                  </svg>
+                </button>
+
+                {/* Export Options Menu */}
+                {isExportOpen && (
+                  <div
+                    ref={exportMenuRef}
+                    className="absolute right-0 bottom-full mb-1 w-36 rounded-lg bg-[#10131A] border border-[#282D38] shadow-xl p-1 z-50 text-[11px] animate-in fade-in duration-100"
+                  >
+                    <div className="px-2 py-1 text-[10px] font-semibold text-slate-400 uppercase tracking-wider border-b border-[#282D38]/60 mb-0.5">
+                      Export As
+                    </div>
+                    <button
+                      type="button"
+                      onClick={e => handleExport(conv.id, 'markdown', e)}
+                      className="w-full text-left px-2 py-1 rounded hover:bg-[#151923] text-slate-200 hover:text-purple-300 flex items-center justify-between"
+                    >
+                      <span>Markdown</span>
+                      <span className="text-[10px] text-purple-400 font-mono">.md</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={e => handleExport(conv.id, 'text', e)}
+                      className="w-full text-left px-2 py-1 rounded hover:bg-[#151923] text-slate-200 hover:text-purple-300 flex items-center justify-between"
+                    >
+                      <span>Plain Text</span>
+                      <span className="text-[10px] text-slate-400 font-mono">.txt</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={e => handleExport(conv.id, 'json', e)}
+                      className="w-full text-left px-2 py-1 rounded hover:bg-[#151923] text-slate-200 hover:text-purple-300 flex items-center justify-between"
+                    >
+                      <span>JSON Data</span>
+                      <span className="text-[10px] text-emerald-400 font-mono">.json</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Archive / Restore Button */}
+            {onArchiveConversation && (
+              <button
+                type="button"
+                title={conv.isArchived ? 'Restore to recent list' : 'Archive conversation'}
+                onClick={e => handleToggleArchive(conv, e)}
+                className="p-1 text-slate-400 hover:text-amber-400 hover:bg-[#1E2330] rounded transition-colors"
+              >
+                {conv.isArchived ? (
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="1 4 1 10 7 10" />
+                    <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+                  </svg>
+                ) : (
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="21 8 21 21 3 21 3 8" />
+                    <rect x="1" y="3" width="22" height="5" />
+                    <line x1="10" y1="12" x2="14" y2="12" />
+                  </svg>
+                )}
+              </button>
+            )}
+
+            {/* Delete Button */}
+            {onDeleteConversation && (
+              <button
+                type="button"
+                title="Delete conversation"
+                onClick={e => handleOpenDeleteModal(conv, e)}
+                className="p-1 text-slate-400 hover:text-red-400 hover:bg-[#1E2330] rounded transition-colors"
+              >
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="3 6 5 6 21 6" />
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                </svg>
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -76,7 +400,7 @@ export function Sidebar({
               <div className="flex items-center gap-1.5">
                 <h1 className="text-sm font-bold tracking-tight text-[#F3F4F6]">OmniAI</h1>
                 <span className="text-[10px] px-1.5 py-0.2 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20 font-medium">
-                  Day 7
+                  Day 7+
                 </span>
               </div>
               <p className="text-[11px] text-[#9CA3AF]">Intelligent Multi-Model</p>
@@ -98,7 +422,7 @@ export function Sidebar({
         </div>
 
         {/* Action: New Chat Button */}
-        <div className="p-3">
+        <div className="p-3 pb-2">
           <button
             type="button"
             onClick={() => {
@@ -116,9 +440,43 @@ export function Sidebar({
           </button>
         </div>
 
+        {/* TASK 1: Search Bar */}
+        <div className="px-3 pb-2">
+          <div className="relative">
+            <svg
+              className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => onSearchChange && onSearchChange(e.target.value)}
+              placeholder="Search title & messages..."
+              className="w-full bg-[#151923] text-xs text-slate-200 placeholder-slate-500 rounded-lg pl-8 pr-7 py-1.5 border border-[#282D38] focus:border-purple-500/60 focus:outline-none transition-colors"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => onSearchChange && onSearchChange('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 p-0.5"
+                title="Clear search"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+        </div>
+
         {/* Secondary Navigation */}
-        <div className="px-3 pb-3 border-b border-[#282D38]/60 space-y-1">
-          {/* Chat View Button */}
+        <div className="px-3 pb-2 border-b border-[#282D38]/60 space-y-1">
           <button
             type="button"
             onClick={() => {
@@ -140,7 +498,6 @@ export function Sidebar({
             {activeView === 'chat' && <span className="w-1.5 h-1.5 rounded-full bg-purple-400"></span>}
           </button>
 
-          {/* Compare Models Button */}
           <button
             type="button"
             onClick={() => {
@@ -163,151 +520,102 @@ export function Sidebar({
             </div>
             {activeView === 'compare' && <span className="w-1.5 h-1.5 rounded-full bg-purple-400"></span>}
           </button>
-
-          {/* AI Council (Coming Soon) */}
-          <div
-            title="Coming in Day 8"
-            className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-xs font-medium text-slate-500 hover:text-slate-400 cursor-not-allowed"
-          >
-            <div className="flex items-center gap-2">
-              <svg className="w-4 h-4 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                <circle cx="9" cy="7" r="4" />
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-              </svg>
-              <span>AI Council</span>
-            </div>
-            <span className="text-[10px] px-1.5 py-0.2 rounded bg-[#151923] text-slate-500 border border-[#282D38]">
-              Coming Soon
-            </span>
-          </div>
         </div>
 
-        {/* Conversation History List */}
-        <div className="flex-1 overflow-y-auto px-3 py-3 space-y-1">
-          <div className="px-2 pb-1.5 flex items-center justify-between text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-            <span>Conversations</span>
-            <span className="text-[10px] font-normal text-purple-400/80">SQLite</span>
-          </div>
+        {/* TASK 3: Conversation History List Organized into Pinned, Recent, and Archived */}
+        <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
+          {/* Active Search Result State */}
+          {searchQuery && (
+            <div className="px-1 flex items-center justify-between text-[11px] text-purple-400 font-medium">
+              <span>Search results: {conversations.length}</span>
+              <button
+                type="button"
+                onClick={() => onSearchChange && onSearchChange('')}
+                className="text-[10px] text-slate-400 hover:text-white underline cursor-pointer"
+              >
+                Reset
+              </button>
+            </div>
+          )}
 
           {conversations.length === 0 ? (
             <div className="p-4 text-center text-xs text-slate-500 italic">
-              No conversations yet
+              {searchQuery ? `No sessions matching "${searchQuery}"` : 'No conversations yet'}
             </div>
           ) : (
-            conversations.map((conv) => {
-              const isActive = conv.id === activeConversationId;
-              const isEditing = editingId === conv.id;
+            <>
+              {/* SECTION 1: 📌 PINNED CONVERSATIONS */}
+              {pinnedConversations.length > 0 && (
+                <div className="space-y-1">
+                  <div className="px-2 pb-1 flex items-center justify-between text-[10px] font-bold text-purple-400 uppercase tracking-wider">
+                    <span className="flex items-center gap-1.5">
+                      <span>📌</span>
+                      <span>Pinned</span>
+                    </span>
+                    <span className="text-[10px] font-mono bg-purple-500/10 px-1 rounded text-purple-300">
+                      {pinnedConversations.length}
+                    </span>
+                  </div>
+                  <div className="space-y-1">
+                    {pinnedConversations.map(conv => renderConversationItem(conv, false))}
+                  </div>
+                </div>
+              )}
 
-              return (
-                <div
-                  key={conv.id}
-                  className={`group relative flex items-center justify-between rounded-lg px-2.5 py-2 text-xs transition-colors cursor-pointer ${
-                    isActive && activeView === 'chat'
-                      ? 'bg-[#151923] text-white border border-[#282D38]'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-[#151923]/50 border border-transparent'
-                  }`}
-                  onClick={() => {
-                    if (isEditing) return;
-                    if (onSelectView) onSelectView('chat');
-                    onSelectConversation(conv.id);
-                    if (window.innerWidth < 768) onClose();
-                  }}
-                >
-                  <div className="flex items-center gap-2 min-w-0 pr-12 flex-1">
+              {/* SECTION 2: 🕒 RECENT CONVERSATIONS */}
+              {recentConversations.length > 0 && (
+                <div className="space-y-1">
+                  <div className="px-2 pb-1 flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    <span className="flex items-center gap-1.5">
+                      <span>🕒</span>
+                      <span>Recent</span>
+                    </span>
+                    <span className="text-[10px] font-mono text-slate-500">
+                      {recentConversations.length}
+                    </span>
+                  </div>
+                  <div className="space-y-1">
+                    {recentConversations.map(conv => renderConversationItem(conv, false))}
+                  </div>
+                </div>
+              )}
+
+              {/* SECTION 3: 📦 ARCHIVED CONVERSATIONS (Collapsible) */}
+              {archivedConversations.length > 0 && (
+                <div className="space-y-1 pt-2 border-t border-[#282D38]/60">
+                  <button
+                    type="button"
+                    onClick={() => setIsArchivedExpanded(prev => !prev)}
+                    className="w-full px-2 py-1 flex items-center justify-between text-[10px] font-bold text-slate-400 hover:text-slate-200 uppercase tracking-wider transition-colors cursor-pointer"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <span>📦</span>
+                      <span>Archived</span>
+                      <span className="text-[9px] font-mono bg-amber-500/10 text-amber-400 px-1 rounded border border-amber-500/20 lowercase">
+                        {archivedConversations.length}
+                      </span>
+                    </span>
                     <svg
-                      className={`w-3.5 h-3.5 shrink-0 ${isActive && activeView === 'chat' ? 'text-purple-400' : 'text-slate-500'}`}
+                      className={`w-3.5 h-3.5 text-slate-500 transition-transform duration-200 ${
+                        isArchivedExpanded ? 'rotate-180' : ''
+                      }`}
                       viewBox="0 0 24 24"
                       fill="none"
                       stroke="currentColor"
                       strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
                     >
-                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                      <polyline points="6 9 12 15 18 9" />
                     </svg>
+                  </button>
 
-                    {isEditing ? (
-                      <div className="flex items-center gap-1 flex-1 min-w-0" onClick={e => e.stopPropagation()}>
-                        <input
-                          type="text"
-                          value={editTitle}
-                          onChange={e => setEditTitle(e.target.value)}
-                          onKeyDown={e => {
-                            if (e.key === 'Enter') handleSaveRename(conv.id, e);
-                            if (e.key === 'Escape') handleCancelRename(e);
-                          }}
-                          autoFocus
-                          className="w-full bg-[#0B0D12] text-white text-xs px-1.5 py-0.5 rounded border border-purple-500 focus:outline-none"
-                        />
-                        <button
-                          type="button"
-                          onClick={e => handleSaveRename(conv.id, e)}
-                          title="Save title"
-                          className="p-1 text-emerald-400 hover:text-emerald-300"
-                        >
-                          ✓
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleCancelRename}
-                          title="Cancel"
-                          className="p-1 text-slate-400 hover:text-slate-300"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col min-w-0 flex-1">
-                        <span className="truncate font-medium">{conv.title || 'Untitled Session'}</span>
-                        <div className="flex items-center gap-2 text-[10px] text-slate-500">
-                          <span>{conv.dateLabel}</span>
-                          {typeof conv.messageCount === 'number' && conv.messageCount > 0 && (
-                            <span>• {conv.messageCount} msgs</span>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Actions: Rename & Delete Buttons */}
-                  {!isEditing && (
-                    <div className="absolute right-1.5 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                      {/* Rename Button */}
-                      {onRenameConversation && (
-                        <button
-                          type="button"
-                          title="Rename conversation"
-                          onClick={e => handleStartRename(conv, e)}
-                          className="p-1 text-slate-500 hover:text-purple-300 hover:bg-[#1E2330] rounded transition-colors"
-                        >
-                          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M12 20h9" />
-                            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
-                          </svg>
-                        </button>
-                      )}
-
-                      {/* Delete Button */}
-                      {onDeleteConversation && (
-                        <button
-                          type="button"
-                          title="Delete conversation"
-                          onClick={e => handleDeleteWithConfirm(conv.id, conv.title, e)}
-                          className="p-1 text-slate-500 hover:text-red-400 hover:bg-[#1E2330] rounded transition-colors"
-                        >
-                          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <polyline points="3 6 5 6 21 6" />
-                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                          </svg>
-                        </button>
-                      )}
+                  {isArchivedExpanded && (
+                    <div className="space-y-1 pl-1 border-l border-[#282D38]/80 mt-1">
+                      {archivedConversations.map(conv => renderConversationItem(conv, true))}
                     </div>
                   )}
                 </div>
-              );
-            })
+              )}
+            </>
           )}
         </div>
 
@@ -317,10 +625,19 @@ export function Sidebar({
 
           <div className="flex items-center justify-between text-[11px] text-slate-500 px-1 pt-1">
             <span>OmniAI • B.Tech AI & ML</span>
-            <span className="font-mono text-slate-400">v0.1.0 (Day 7)</span>
+            <span className="font-mono text-slate-400">v0.1.0 (Day 7+)</span>
           </div>
         </div>
       </aside>
+
+      {/* Permanent Deletion Confirmation Modal */}
+      <ConfirmDeleteModal
+        isOpen={Boolean(deleteTarget)}
+        conversationTitle={deleteTarget?.title}
+        isDeleting={isDeleting}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </>
   );
 }

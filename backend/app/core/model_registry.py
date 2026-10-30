@@ -77,6 +77,18 @@ REGISTERED_MODELS: Dict[str, Dict] = {
         "context_window": 32768,
         "cost_tier": "Free tier (30 RPM / 6k TPM)",
     },
+    "gemini-3.6-flash": {
+        "id": "gemini-3.6-flash",
+        "name": "Gemini 3.6 Flash (High Speed)",
+        "provider": "gemini",
+        "provider_model_id": "gemini-3.6-flash",
+        "description": "Google's active high-speed multimodal intelligence with verified low latency",
+        "tag": "Google AI Studio",
+        "supported_categories": ["reasoning", "general", "writing", "coding"],
+        "strengths": ["Instant token synthesis", "High multimodal comprehension", "Verified active endpoint"],
+        "context_window": 1048576,
+        "cost_tier": "Free tier (15 RPM / 1M TPM)",
+    },
     "gemini-3.8-flash": {
         "id": "gemini-3.8-flash",
         "name": "Gemini 3.8 Flash (Latest)",

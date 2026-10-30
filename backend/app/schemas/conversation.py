@@ -44,10 +44,23 @@ class MessageResponse(BaseModel):
     created_at: str
 
 
+class ConversationPinRequest(BaseModel):
+    """Schema for pinning/unpinning a conversation."""
+    is_pinned: bool = Field(..., description="Whether the conversation is pinned to the top")
+
+
+class ConversationArchiveRequest(BaseModel):
+    """Schema for archiving/restoring a conversation."""
+    is_archived: bool = Field(..., description="Whether the conversation is archived")
+
+
 class ConversationResponse(BaseModel):
     """Summary schema for a conversation item in the sidebar list."""
     id: str
     title: str
+    is_pinned: bool = False
+    is_archived: bool = False
+    pinned_at: Optional[str] = None
     created_at: str
     updated_at: str
     message_count: int = 0
@@ -57,6 +70,9 @@ class ConversationDetailResponse(BaseModel):
     """Detailed schema for a conversation including all message history."""
     id: str
     title: str
+    is_pinned: bool = False
+    is_archived: bool = False
+    pinned_at: Optional[str] = None
     created_at: str
     updated_at: str
     messages: List[MessageResponse] = Field(default_factory=list)

@@ -37,6 +37,9 @@ def init_db() -> None:
     CREATE TABLE IF NOT EXISTS conversations (
         id TEXT PRIMARY KEY,
         title TEXT NOT NULL,
+        is_pinned INTEGER DEFAULT 0,
+        is_archived INTEGER DEFAULT 0,
+        pinned_at TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
     );
@@ -88,6 +91,28 @@ def init_db() -> None:
         conn.execute("PRAGMA journal_mode = WAL;")
         conn.execute("PRAGMA busy_timeout = 5000;")
         conn.executescript(schema_sql)
+
+        # Migrate existing conversations table if columns are missing
+        c_cursor = conn.execute("PRAGMA table_info(conversations);")
+        c_cols = [r[1] for r in c_cursor.fetchall()]
+        if "is_pinned" not in c_cols and c_cols:
+            try:
+                conn.execute("ALTER TABLE conversations ADD COLUMN is_pinned INTEGER DEFAULT 0;")
+            except Exception:
+                pass
+        if "is_archived" not in c_cols and c_cols:
+            try:
+                conn.execute("ALTER TABLE conversations ADD COLUMN is_archived INTEGER DEFAULT 0;")
+            except Exception:
+                pass
+        if "pinned_at" not in c_cols and c_cols:
+            try:
+                conn.execute("ALTER TABLE conversations ADD COLUMN pinned_at TEXT;")
+            except Exception:
+                pass
+
+        # Create status index after columns exist
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_conversations_status ON conversations(is_pinned, is_archived, updated_at DESC);")
 
         # Migrate existing messages table if columns are missing
         cursor = conn.execute("PRAGMA table_info(messages);")
