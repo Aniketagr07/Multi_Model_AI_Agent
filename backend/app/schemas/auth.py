@@ -10,6 +10,7 @@ class UserResponse(BaseModel):
     primary_provider: Optional[str] = "email"
     avatar_url: Optional[str] = None
     last_login_at: Optional[str] = None
+    byok_setup_completed: Optional[bool] = False
     linked_providers: Optional[List[str]] = None
 
 

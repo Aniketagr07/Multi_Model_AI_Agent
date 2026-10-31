@@ -39,7 +39,8 @@ class Settings(BaseSettings):
     # Allowed models list (comma-separated IDs)
     ALLOWED_MODELS: str = "gemini-3.8-flash,gemini-3.6-flash,gemini-3.5-flash,gemini-flash-lite-latest,gemini-1.5-flash,gemini-1.5-pro,gemini-2.0-flash-exp,llama-3.1-8b-instant,llama-3.3-70b-versatile,mixtral-8x7b-32768"
 
-    # Database Configuration (Day 7 Persistent SQLite)
+    # Database Configuration (Neon PostgreSQL in production / SQLite in local dev)
+    DATABASE_URL: Optional[str] = None
     SQLITE_DB_PATH: str = "data/omniai.db"
 
     # Single-Tenant Access Control (Production Authentication)
@@ -57,6 +58,7 @@ class Settings(BaseSettings):
 
     # Server-Side Session & Cookie Security
     APP_SESSION_SECRET: str = "omniai-secure-session-secret-key-32chars"
+    API_KEY_ENCRYPTION_SECRET: Optional[str] = None
 
     # Request Limits, Rate Limiting & Safeguards
     REQUEST_TIMEOUT_SECONDS: float = 45.0
@@ -107,6 +109,24 @@ class Settings(BaseSettings):
     def allowed_document_extensions_list(self) -> List[str]:
         """Parse allowed document extensions into lowercase normalized list."""
         return [ext.strip().lower() for ext in self.ALLOWED_DOCUMENT_EXTENSIONS.split(",") if ext.strip()]
+
+    @property
+    def is_postgres(self) -> bool:
+        """Return True if PostgreSQL / Neon database URL is configured."""
+        if not self.DATABASE_URL:
+            return False
+        clean = self.DATABASE_URL.strip().lower()
+        return clean.startswith("postgres://") or clean.startswith("postgresql://")
+
+    @property
+    def postgres_connection_uri(self) -> Optional[str]:
+        """Normalize postgres:// to postgresql:// for standard driver compatibility."""
+        if not self.DATABASE_URL:
+            return None
+        uri = self.DATABASE_URL.strip()
+        if uri.startswith("postgres://"):
+            return "postgresql://" + uri[len("postgres://"):]
+        return uri
 
     @property
     def is_google_auth_configured(self) -> bool:

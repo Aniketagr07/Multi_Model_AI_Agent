@@ -10,6 +10,7 @@ import { ApiKeyModal } from './components/ApiKeyModal';
 import { AuthModal } from './components/AuthModal';
 import { ShareConversationModal } from './components/ShareConversationModal';
 import { CreateProjectModal } from './components/CreateProjectModal';
+import BYOKOnboardingModal from './components/BYOKOnboardingModal';
 import { ProjectWorkspace } from './components/ProjectWorkspace';
 import { useChat } from './hooks/useChat';
 import { useAuth } from './hooks/useAuth';
@@ -34,6 +35,8 @@ export default function App() {
   // Modals for Collaboration & Projects
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isCreateProjectModalOpen, setIsCreateProjectModalOpen] = useState(false);
+  const [isBYOKModalOpen, setIsBYOKModalOpen] = useState(false);
+  const [hasDismissedBYOK, setHasDismissedBYOK] = useState(false);
   const [projects, setProjects] = useState([]);
   const [activeProjectId, setActiveProjectId] = useState(null);
 
@@ -111,6 +114,13 @@ export default function App() {
   });
 
   const { status: healthStatus, checkHealth: onCheckHealth } = useHealthCheck();
+
+  // Auto-trigger BYOK Setup for new or existing users who have not completed key setup
+  useEffect(() => {
+    if (user && !isGuest && user.byok_setup_completed === false && !hasDismissedBYOK) {
+      setIsBYOKModalOpen(true);
+    }
+  }, [user, isGuest, hasDismissedBYOK]);
 
   // Real-time conversation synchronization via WebSockets
   const {
@@ -509,7 +519,7 @@ export default function App() {
               effort={effort}
               onSelectEffort={setEffort}
               customModels={customModels}
-              onOpenApiKeyModal={() => setIsApiKeyModalOpen(true)}
+              onOpenApiKeyModal={() => setIsBYOKModalOpen(true)}
               attachedDocument={attachedDocument}
               isUploadingDocument={isUploadingDocument}
               uploadProgress={uploadProgress}
@@ -565,6 +575,20 @@ export default function App() {
         isOpen={isCreateProjectModalOpen}
         onClose={() => setIsCreateProjectModalOpen(false)}
         onProjectCreated={handleProjectCreated}
+      />
+
+      {/* BYOK Onboarding & Provider Setup Modal */}
+      <BYOKOnboardingModal
+        isOpen={isBYOKModalOpen}
+        onClose={() => {
+          setIsBYOKModalOpen(false);
+          setHasDismissedBYOK(true);
+        }}
+        onComplete={() => {
+          setIsBYOKModalOpen(false);
+          if (refreshUser) refreshUser();
+        }}
+        isExistingUser={Boolean(user?.created_at && new Date(user.created_at) < new Date(Date.now() - 60000))}
       />
     </div>
   );

@@ -32,6 +32,7 @@ class ComparisonService:
         model_id: str,
         prompt: str,
         effort: str = "medium",
+        user_id: Optional[str] = None,
         custom_api_key: Optional[str] = None,
         custom_provider: Optional[str] = None,
         custom_base_url: Optional[str] = None,
@@ -40,6 +41,7 @@ class ComparisonService:
         """Execute query against one model, measuring latency and capturing failures safely."""
         model_info, provider = self.chat_service.resolve_model_and_provider(
             model_id,
+            user_id=user_id,
             custom_api_key=custom_api_key,
             custom_provider=custom_provider,
             custom_base_url=custom_base_url,
@@ -158,16 +160,18 @@ class ComparisonService:
                 error=f"Unexpected error executing {model_info.name}.",
             )
 
-    async def compare_models(self, request: CompareRequest) -> CompareResponse:
+    async def compare_models(self, request: CompareRequest, user: Optional[dict] = None) -> CompareResponse:
         """
         Broadcast the same user prompt concurrently to both models via asyncio.gather.
         Ensures partial failures are captured without aborting successful tasks.
         """
+        user_id = user.get("id") if user else None
         effort = getattr(request, "effort", "medium") or "medium"
         task_a = self._execute_single_model(
             request.model_a_id,
             request.prompt,
             effort=effort,
+            user_id=user_id,
             custom_api_key=getattr(request, "custom_api_key_a", None),
             custom_provider=getattr(request, "custom_provider_a", None),
             custom_base_url=getattr(request, "custom_base_url_a", None),
@@ -177,6 +181,7 @@ class ComparisonService:
             request.model_b_id,
             request.prompt,
             effort=effort,
+            user_id=user_id,
             custom_api_key=getattr(request, "custom_api_key_b", None),
             custom_provider=getattr(request, "custom_provider_b", None),
             custom_base_url=getattr(request, "custom_base_url_b", None),

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AVAILABLE_MODELS } from './ModelSelector';
-import { fetchModelRegistry, fetchLinkedProviders, unlinkProvider, fetchOAuthUrl } from '../services/api';
+import { fetchModelRegistry, fetchLinkedProviders, unlinkProvider, fetchOAuthUrl, getBYOKStatus, validateBYOKKey, saveBYOKKey, deleteBYOKKey } from '../services/api';
 import { GoogleLogo, GitHubLogo } from './AuthModal';
 
 export function SettingsView({
@@ -22,6 +22,91 @@ export function SettingsView({
   const [isLoadingLinked, setIsLoadingLinked] = useState(false);
   const [accountActionMessage, setAccountActionMessage] = useState(null);
   const [accountActionError, setAccountActionError] = useState(null);
+  const [byokStatus, setByokStatus] = useState(null);
+  const [isLoadingBYOK, setIsLoadingBYOK] = useState(false);
+  const [byokKeysInput, setByokKeysInput] = useState({ gemini: '', groq: '' });
+  const [showByokKey, setShowByokKey] = useState({ gemini: false, groq: false });
+  const [byokTestStatus, setByokTestStatus] = useState({});
+  const [byokSaveLoading, setByokSaveLoading] = useState({});
+  const [byokActionMsg, setByokActionMsg] = useState(null);
+  const [byokActionErr, setByokActionErr] = useState(null);
+
+  const loadBYOK = async () => {
+    setIsLoadingBYOK(true);
+    try {
+      const data = await getBYOKStatus();
+      setByokStatus(data);
+    } catch (err) {
+      console.warn('Could not load BYOK status:', err);
+    } finally {
+      setIsLoadingBYOK(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'providers' && user) {
+      loadBYOK();
+    }
+  }, [activeTab, user]);
+
+  const handleTestBYOK = async (provider) => {
+    const key = (byokKeysInput[provider] || '').trim();
+    if (!key) {
+      setByokTestStatus((prev) => ({
+        ...prev,
+        [provider]: { loading: false, success: false, message: 'Please enter an API key first.' },
+      }));
+      return;
+    }
+    setByokTestStatus((prev) => ({
+      ...prev,
+      [provider]: { loading: true, success: null, message: 'Testing upstream API...' },
+    }));
+    try {
+      const res = await validateBYOKKey(provider, key);
+      setByokTestStatus((prev) => ({
+        ...prev,
+        [provider]: { loading: false, success: res.success, message: res.status + (res.message ? ': ' + res.message : '') },
+      }));
+    } catch (err) {
+      setByokTestStatus((prev) => ({
+        ...prev,
+        [provider]: { loading: false, success: false, message: err.message || 'Validation request failed' },
+      }));
+    }
+  };
+
+  const handleSaveBYOK = async (provider) => {
+    const key = (byokKeysInput[provider] || '').trim();
+    if (!key) return;
+    setByokSaveLoading((prev) => ({ ...prev, [provider]: true }));
+    setByokActionErr(null);
+    setByokActionMsg(null);
+    try {
+      await saveBYOKKey(provider, key);
+      setByokKeysInput((prev) => ({ ...prev, [provider]: '' }));
+      setByokActionMsg(provider.toUpperCase() + ' API key saved and verified successfully.');
+      setByokTestStatus((prev) => ({ ...prev, [provider]: null }));
+      await loadBYOK();
+    } catch (err) {
+      setByokActionErr(err.message || 'Failed to save API key');
+    } finally {
+      setByokSaveLoading((prev) => ({ ...prev, [provider]: false }));
+    }
+  };
+
+  const handleDeleteBYOK = async (provider) => {
+    setByokActionErr(null);
+    setByokActionMsg(null);
+    try {
+      await deleteBYOKKey(provider);
+      setByokActionMsg(provider.toUpperCase() + ' API key removed.');
+      setByokTestStatus((prev) => ({ ...prev, [provider]: null }));
+      await loadBYOK();
+    } catch (err) {
+      setByokActionErr(err.message || 'Failed to remove API key');
+    }
+  };
 
   // Local draft of custom instructions for responsive typing
   const [customInstructionsDraft, setCustomInstructionsDraft] = useState(
@@ -168,6 +253,7 @@ export function SettingsView({
           {[
             { id: 'general', label: 'General', icon: '⚙️' },
             { id: 'account', label: 'Account & Security', icon: '👤' },
+            { id: 'providers', label: 'AI Providers / API Keys', icon: '🔑' },
             { id: 'appearance', label: 'Appearance', icon: '🎨' },
             { id: 'ai', label: 'AI Preferences', icon: '🧠' },
             { id: 'personalization', label: 'Personalization', icon: '✍️' },
@@ -421,6 +507,185 @@ export function SettingsView({
                       Sign In or Create Account
                     </button>
                   </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB: AI PROVIDERS / API KEYS (BYOK) */}
+          {activeTab === 'providers' && (
+            <div className="space-y-6 animate-in fade-in duration-150">
+              <div>
+                <h3 className="text-base font-semibold text-white">AI Providers & API Keys (BYOK)</h3>
+                <p className="text-xs text-slate-400 mt-1">
+                  Connect your personal AI provider API keys. Keys are authenticated with AES-256 encryption at rest and used strictly for your requests.
+                </p>
+              </div>
+
+              {byokActionErr && (
+                <div className="p-3 rounded-xl bg-red-950/40 border border-red-500/40 text-xs text-red-200 flex items-start gap-2">
+                  <span className="text-red-400 font-bold shrink-0">⚠️</span>
+                  <span>{byokActionErr}</span>
+                </div>
+              )}
+
+              {byokActionMsg && (
+                <div className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/40 text-xs text-emerald-200 flex items-start gap-2">
+                  <span className="text-emerald-400 font-bold shrink-0">✓</span>
+                  <span>{byokActionMsg}</span>
+                </div>
+              )}
+
+              {user ? (
+                <div className="space-y-4">
+                  {[
+                    {
+                      id: 'gemini',
+                      name: 'Google Gemini',
+                      tagline: 'Multimodal, Complex Reasoning & Fast Coding',
+                      url: 'https://aistudio.google.com/app/apikey',
+                      portalName: 'Google AI Studio',
+                      placeholder: 'AIzaSy...',
+                    },
+                    {
+                      id: 'groq',
+                      name: 'Groq Cloud',
+                      tagline: 'Ultra-Fast Llama & Reasoning Inference (500+ T/s)',
+                      url: 'https://console.groq.com/keys',
+                      portalName: 'Groq Console',
+                      placeholder: 'gsk_...',
+                    },
+                  ].map((prov) => {
+                    const statusItem = byokStatus?.providers?.find((p) => p.provider === prov.id);
+                    const isConnected = statusItem?.is_connected;
+                    const testState = byokTestStatus[prov.id];
+
+                    return (
+                      <div
+                        key={prov.id}
+                        className="bg-[#10131A] border border-[#282D38] rounded-2xl p-5 space-y-4"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-0.5">
+                            <div className="flex items-center gap-2">
+                              <h4 className="text-sm font-bold text-white">{prov.name}</h4>
+                              {isConnected ? (
+                                <span className="text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                                  ✓ Connected
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-medium text-slate-400 bg-slate-800/40 px-2 py-0.5 rounded-full border border-slate-700/40">
+                                  Disconnected
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-slate-400">{prov.tagline}</p>
+                          </div>
+
+                          <a
+                            href={prov.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-purple-400 hover:text-purple-300 font-medium px-3 py-1.5 rounded-lg bg-purple-500/10 border border-purple-500/20 transition-colors inline-flex items-center gap-1"
+                          >
+                            <span>{prov.portalName} ↗</span>
+                          </a>
+                        </div>
+
+                        {isConnected && (
+                          <div className="p-3 bg-[#151923] rounded-xl border border-[#282D38] flex items-center justify-between text-xs">
+                            <div>
+                              <span className="text-[10px] text-slate-400 block">Active Key Fingerprint</span>
+                              <span className="font-mono text-emerald-300 font-semibold mt-0.5 block">
+                                {statusItem.key_fingerprint}
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteBYOK(prov.id)}
+                              className="px-3 py-1.5 rounded-lg text-xs font-medium text-red-400 hover:text-red-300 bg-red-950/20 hover:bg-red-950/40 border border-red-500/30 transition-colors cursor-pointer"
+                            >
+                              Disconnect Key
+                            </button>
+                          </div>
+                        )}
+
+                        <div className="space-y-2 pt-1">
+                          <label className="text-[11px] font-medium text-slate-300 block">
+                            {isConnected ? 'Replace API Key' : 'Enter API Key'}
+                          </label>
+                          <div className="relative">
+                            <input
+                              type={showByokKey[prov.id] ? 'text' : 'password'}
+                              value={byokKeysInput[prov.id] || ''}
+                              onChange={(e) =>
+                                setByokKeysInput((prev) => ({ ...prev, [prov.id]: e.target.value }))
+                              }
+                              placeholder={prov.placeholder}
+                              className="w-full bg-[#151923] border border-[#282D38] rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 font-mono pr-10"
+                            />
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setShowByokKey((prev) => ({ ...prev, [prov.id]: !prev[prov.id] }))
+                              }
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-xs"
+                            >
+                              {showByokKey[prov.id] ? 'Hide' : 'Show'}
+                            </button>
+                          </div>
+                        </div>
+
+                        {testState?.message && (
+                          <div
+                            className={`p-2.5 rounded-xl border text-xs flex items-center gap-2 ${
+                              testState.success
+                                ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                                : testState.loading
+                                ? 'bg-purple-500/10 border-purple-500/20 text-purple-400'
+                                : 'bg-red-500/10 border-red-500/20 text-red-400'
+                            }`}
+                          >
+                            <span>{testState.message}</span>
+                          </div>
+                        )}
+
+                        <div className="flex items-center gap-2.5 pt-1">
+                          <button
+                            type="button"
+                            disabled={testState?.loading || !(byokKeysInput[prov.id] || '').trim()}
+                            onClick={() => handleTestBYOK(prov.id)}
+                            className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-[#151923] hover:bg-[#1E2330] text-slate-200 border border-[#282D38] transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                          >
+                            {testState?.loading ? 'Testing...' : 'Test Connection'}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={byokSaveLoading[prov.id] || !(byokKeysInput[prov.id] || '').trim()}
+                            onClick={() => handleSaveBYOK(prov.id)}
+                            className="px-4 py-1.5 rounded-xl text-xs font-semibold bg-purple-600 hover:bg-purple-500 text-white transition-all shadow-sm shadow-purple-600/25 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                          >
+                            {byokSaveLoading[prov.id] ? 'Saving...' : 'Save API Key'}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="bg-[#10131A] border border-[#282D38] rounded-2xl p-6 text-center space-y-3">
+                  <div className="text-2xl">🔑</div>
+                  <h4 className="text-sm font-bold text-white">Sign In to Manage Your API Keys</h4>
+                  <p className="text-xs text-slate-400 max-w-md mx-auto">
+                    API keys are stored encrypted and scoped to your personal registered account. Sign in to configure your personal keys.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => onOpenAuth('signin')}
+                    className="px-4 py-2 rounded-xl text-xs font-semibold bg-purple-600 hover:bg-purple-500 text-white transition-all cursor-pointer"
+                  >
+                    Sign In
+                  </button>
                 </div>
               )}
             </div>

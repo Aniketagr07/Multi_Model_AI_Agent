@@ -1193,3 +1193,62 @@ export async function deleteProjectFile(projectId, fileId) {
   }
   return await response.json();
 }
+
+// -----------------------------------------------------------------------------
+// BYOK (Bring Your Own API Key) Service Methods
+// -----------------------------------------------------------------------------
+
+export async function getBYOKStatus() {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/byok/status`;
+  const response = await authFetch(url, {
+    method: 'GET',
+    headers: { 'Accept': 'application/json' },
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ detail: 'Failed to load API key status' }));
+    throw new Error(err.detail || 'Failed to load API key status');
+  }
+  return await response.json();
+}
+
+export async function validateBYOKKey(provider, apiKey) {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/byok/validate`;
+  const response = await authFetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ provider, api_key: apiKey }),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ detail: 'Validation request failed' }));
+    throw new Error(err.detail || 'Validation request failed');
+  }
+  return await response.json();
+}
+
+export async function saveBYOKKey(provider, apiKey) {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/byok/save`;
+  const response = await authFetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ provider, api_key: apiKey }),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ detail: 'Failed to save API key' }));
+    throw new Error(err.detail || 'Failed to save API key');
+  }
+  return await response.json();
+}
+
+export async function deleteBYOKKey(provider) {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/byok/${encodeURIComponent(provider)}`;
+  const response = await authFetch(url, {
+    method: 'DELETE',
+    headers: { 'Accept': 'application/json' },
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ detail: 'Failed to remove API key' }));
+    throw new Error(err.detail || 'Failed to remove API key');
+  }
+  return await response.json();
+}
+

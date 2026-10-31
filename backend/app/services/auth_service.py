@@ -112,6 +112,7 @@ def register_user(email: str, username: str, password: str) -> Dict[str, Any]:
             "primary_provider": "email",
             "avatar_url": None,
             "last_login_at": now_iso,
+            "byok_setup_completed": False,
             "created_at": now_iso,
             "linked_providers": [],
         },
@@ -126,7 +127,7 @@ def authenticate_user(email: str, password: str) -> Dict[str, Any]:
     with get_db_connection() as conn:
         row = conn.execute(
             """
-            SELECT id, email, username, password_hash, primary_provider, avatar_url, created_at
+            SELECT id, email, username, password_hash, primary_provider, avatar_url, byok_setup_completed, created_at
             FROM users WHERE email = ?
             """,
             (norm_email,),
@@ -163,6 +164,7 @@ def authenticate_user(email: str, password: str) -> Dict[str, Any]:
             "primary_provider": row["primary_provider"] or "email",
             "avatar_url": row["avatar_url"],
             "last_login_at": now_iso,
+            "byok_setup_completed": bool(dict(row).get("byok_setup_completed", 0)),
             "created_at": row["created_at"],
             "linked_providers": linked,
         },
@@ -184,7 +186,7 @@ def get_user_by_token(token: Optional[str]) -> Optional[Dict[str, Any]]:
         row = conn.execute(
             """
             SELECT u.id, u.email, u.username, u.primary_provider, u.avatar_url,
-                   u.last_login_at, u.created_at, s.expires_at
+                   u.byok_setup_completed, u.last_login_at, u.created_at, s.expires_at
             FROM user_sessions s
             JOIN users u ON s.user_id = u.id
             WHERE s.token = ?
@@ -212,6 +214,7 @@ def get_user_by_token(token: Optional[str]) -> Optional[Dict[str, Any]]:
             "primary_provider": row["primary_provider"] or "email",
             "avatar_url": row["avatar_url"],
             "last_login_at": row["last_login_at"],
+            "byok_setup_completed": bool(dict(row).get("byok_setup_completed", 0)),
             "created_at": row["created_at"],
             "linked_providers": linked,
         }
@@ -500,7 +503,7 @@ async def handle_google_callback(
             # Existing user logging in via Google
             user_id = existing_link["user_id"]
             user_row = conn.execute(
-                "SELECT id, email, username, primary_provider, avatar_url, created_at FROM users WHERE id = ?",
+                "SELECT id, email, username, primary_provider, avatar_url, byok_setup_completed, created_at FROM users WHERE id = ?",
                 (user_id,),
             ).fetchone()
             if not user_row:
@@ -524,8 +527,8 @@ async def handle_google_callback(
             user_id = f"user-{uuid.uuid4().hex[:12]}"
             conn.execute(
                 """
-                INSERT INTO users (id, email, username, password_hash, primary_provider, avatar_url, last_login_at, created_at, updated_at)
-                VALUES (?, ?, ?, 'OAUTH_MANAGED', 'google', ?, ?, ?, ?)
+                INSERT INTO users (id, email, username, password_hash, primary_provider, avatar_url, byok_setup_completed, last_login_at, created_at, updated_at)
+                VALUES (?, ?, ?, 'OAUTH_MANAGED', 'google', ?, 0, ?, ?, ?)
                 """,
                 (user_id, email, display_name, avatar_url, now_iso, now_iso, now_iso),
             )
@@ -540,7 +543,7 @@ async def handle_google_callback(
             )
 
             user_row = conn.execute(
-                "SELECT id, email, username, primary_provider, avatar_url, created_at FROM users WHERE id = ?",
+                "SELECT id, email, username, primary_provider, avatar_url, byok_setup_completed, created_at FROM users WHERE id = ?",
                 (user_id,),
             ).fetchone()
 
@@ -568,6 +571,7 @@ async def handle_google_callback(
             "primary_provider": user_row["primary_provider"] or "google",
             "avatar_url": user_row["avatar_url"],
             "last_login_at": now_iso,
+            "byok_setup_completed": bool(dict(user_row).get("byok_setup_completed", 0)),
             "created_at": user_row["created_at"],
             "linked_providers": linked,
         },
@@ -731,7 +735,7 @@ async def handle_github_callback(
         if existing_link:
             user_id = existing_link["user_id"]
             user_row = conn.execute(
-                "SELECT id, email, username, primary_provider, avatar_url, created_at FROM users WHERE id = ?",
+                "SELECT id, email, username, primary_provider, avatar_url, byok_setup_completed, created_at FROM users WHERE id = ?",
                 (user_id,),
             ).fetchone()
             if not user_row:
@@ -753,8 +757,8 @@ async def handle_github_callback(
             user_id = f"user-{uuid.uuid4().hex[:12]}"
             conn.execute(
                 """
-                INSERT INTO users (id, email, username, password_hash, primary_provider, avatar_url, last_login_at, created_at, updated_at)
-                VALUES (?, ?, ?, 'OAUTH_MANAGED', 'github', ?, ?, ?, ?)
+                INSERT INTO users (id, email, username, password_hash, primary_provider, avatar_url, byok_setup_completed, last_login_at, created_at, updated_at)
+                VALUES (?, ?, ?, 'OAUTH_MANAGED', 'github', ?, 0, ?, ?, ?)
                 """,
                 (user_id, email, username, avatar_url, now_iso, now_iso, now_iso),
             )
@@ -769,7 +773,7 @@ async def handle_github_callback(
             )
 
             user_row = conn.execute(
-                "SELECT id, email, username, primary_provider, avatar_url, created_at FROM users WHERE id = ?",
+                "SELECT id, email, username, primary_provider, avatar_url, byok_setup_completed, created_at FROM users WHERE id = ?",
                 (user_id,),
             ).fetchone()
 
@@ -796,6 +800,7 @@ async def handle_github_callback(
             "primary_provider": user_row["primary_provider"] or "github",
             "avatar_url": user_row["avatar_url"],
             "last_login_at": now_iso,
+            "byok_setup_completed": bool(dict(user_row).get("byok_setup_completed", 0)),
             "created_at": user_row["created_at"],
             "linked_providers": linked,
         },

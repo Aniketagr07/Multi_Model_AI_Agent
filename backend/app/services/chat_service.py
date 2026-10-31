@@ -52,6 +52,7 @@ class ChatService:
     def resolve_model_and_provider(
         self,
         model_id: str,
+        user_id: Optional[str] = None,
         custom_api_key: Optional[str] = None,
         custom_provider: Optional[str] = None,
         custom_base_url: Optional[str] = None,
@@ -60,8 +61,10 @@ class ChatService:
         """
         Validate model identifier against the server registry or dynamic registry and return
         its ModelInfo along with its corresponding provider adapter.
-        Supports on-the-fly BYOK custom credentials.
+        Supports on-the-fly BYOK custom credentials and user-scoped decrypted keys.
         """
+        from app.services.byok_service import BYOKService
+
         model_info = ModelRegistry.get_model(model_id)
         if not model_info:
             if custom_api_key or model_id.startswith("custom-"):
@@ -87,26 +90,45 @@ class ChatService:
                     detail=f"Model '{model_id}' is not recognized in the server registry. Registered models: {valid_models}",
                 )
 
-        if custom_api_key and custom_api_key.strip():
+        effective_key = custom_api_key.strip() if custom_api_key and custom_api_key.strip() else None
+
+        # If user is authenticated, retrieve user's encrypted key
+        if not effective_key and user_id:
+            effective_key = BYOKService.get_decrypted_user_key(user_id, model_info.provider)
+            if not effective_key:
+                from app.core.config import get_settings
+                settings = get_settings()
+                if not settings.is_production:
+                    dev_key = settings.GEMINI_API_KEY if model_info.provider == "gemini" else settings.GROQ_API_KEY
+                    if dev_key:
+                        effective_key = dev_key
+                if not effective_key:
+                    prov_title = "Google Gemini" if model_info.provider == "gemini" else "Groq" if model_info.provider == "groq" else model_info.provider.capitalize()
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"You have not connected your {prov_title} API key yet. Please connect your {prov_title} key in Settings or Onboarding.",
+                    )
+
+        if effective_key:
             prov_type = custom_provider or model_info.provider
             if prov_type == "gemini":
                 from app.providers.gemini_provider import GeminiProvider
                 provider = GeminiProvider(
-                    api_key=custom_api_key.strip(),
+                    api_key=effective_key,
                     base_url=custom_base_url or "https://generativelanguage.googleapis.com/v1beta",
                     timeout=45.0,
                 )
             elif prov_type == "groq":
                 from app.providers.groq_provider import GroqProvider
                 provider = GroqProvider(
-                    api_key=custom_api_key.strip(),
+                    api_key=effective_key,
                     base_url=custom_base_url or "https://api.groq.com/openai/v1",
                     timeout=45.0,
                 )
             else:
                 from app.providers.openai_provider import OpenAICompatibleProvider
                 provider = OpenAICompatibleProvider(
-                    api_key=custom_api_key.strip(),
+                    api_key=effective_key,
                     base_url=custom_base_url or "https://api.openai.com/v1",
                     timeout=45.0,
                 )
@@ -125,7 +147,7 @@ class ChatService:
 
         return model_info, provider
 
-    async def _resolve_conversation(self, conv_id: Optional[str], initial_prompt: str) -> str:
+    async def _resolve_conversation(self, conv_id: Optional[str], initial_prompt: str, user_id: Optional[str] = None) -> str:
         """Ensure conversation exists in SQLite. If missing or None, creates it."""
         title = initial_prompt.strip()[:35] + ("..." if len(initial_prompt.strip()) > 35 else "")
         if not title:
@@ -135,10 +157,10 @@ class ChatService:
             existing = await ConversationRepository.a_get_conversation(conv_id)
             if existing:
                 return conv_id
-            created = await ConversationRepository.a_create_conversation(conv_id=conv_id, title=title)
+            created = await ConversationRepository.a_create_conversation(conv_id=conv_id, title=title, user_id=user_id)
             return created["id"]
 
-        created = await ConversationRepository.a_create_conversation(title=title)
+        created = await ConversationRepository.a_create_conversation(title=title, user_id=user_id)
         return created["id"]
 
     def _sanitize_custom_instructions(self, instructions: Optional[str]) -> Optional[str]:
@@ -246,8 +268,12 @@ class ChatService:
         is_auto_mode = request.model_id.lower() == "auto"
         routing_decision: Optional[RoutingDecision] = None
 
+        author_id = user["id"] if user and "id" in user else None
+        user_id = author_id
+        author_name = (user.get("display_name") or user.get("username") or (user.get("email", "").split("@")[0] if user.get("email") else "You")) if user else "Guest"
+
         # 1. Resolve or create persistent conversation in SQLite
-        conv_id = await self._resolve_conversation(request.conversation_id, request.message)
+        conv_id = await self._resolve_conversation(request.conversation_id, request.message, user_id=author_id)
 
         # Verify collaboration permissions on conversation
         from app.services.collaboration_service import CollaborationService
@@ -256,9 +282,6 @@ class ChatService:
             err_event = {"type": "error", "error": "Viewers have read-only access and cannot send messages."}
             yield f"data: {json.dumps(err_event)}\n\n"
             return
-
-        author_id = user["id"] if user else None
-        author_name = (user.get("display_name") or user.get("username") or (user.get("email", "").split("@")[0] if user.get("email") else "You")) if user else "Guest"
 
         # 2. Check for attached document context
         doc_name: Optional[str] = None
@@ -335,26 +358,52 @@ class ChatService:
 
         # 5. Resolve Model & Provider
         if is_auto_mode:
-            available_models = ModelRegistry.get_available_models()
-            if not available_models:
-                error_event = {
-                    "type": "error",
-                    "error": "No configured AI models are available. Please configure GEMINI_API_KEY or GROQ_API_KEY.",
-                }
-                yield f"data: {json.dumps(error_event)}\n\n"
-                return
+            from app.services.byok_service import BYOKService
+            from app.core.config import get_settings
+            settings = get_settings()
+            if user_id:
+                user_provs = BYOKService.list_user_active_providers(user_id)
+                if not user_provs and not settings.is_production:
+                    available_models = ModelRegistry.get_available_models()
+                else:
+                    available_models = [m for m in ModelRegistry.get_available_models() if m.provider in user_provs]
+                if not available_models:
+                    error_event = {
+                        "type": "error",
+                        "error": "You have not connected any AI providers yet. Please connect your Google Gemini or Groq API key in Settings or Onboarding.",
+                    }
+                    yield f"data: {json.dumps(error_event)}\n\n"
+                    return
+            else:
+                available_models = ModelRegistry.get_available_models()
+                if not available_models:
+                    error_event = {
+                        "type": "error",
+                        "error": "No configured AI models are available. Please configure an API key in Settings.",
+                    }
+                    yield f"data: {json.dumps(error_event)}\n\n"
+                    return
 
             routing_decision = self._router.route_request(request.message, available_models)
             model_info = routing_decision.chosen_model
-            provider = self._providers.get(model_info.provider)
-            if not provider:
-                error_event = {"type": "error", "error": f"Provider adapter '{model_info.provider}' missing."}
-                yield f"data: {json.dumps(error_event)}\n\n"
+            try:
+                model_info, provider = self.resolve_model_and_provider(
+                    model_info.id,
+                    user_id=user_id,
+                    custom_api_key=request.custom_api_key,
+                    custom_provider=request.custom_provider,
+                    custom_base_url=request.custom_base_url,
+                    custom_provider_model_id=request.custom_provider_model_id,
+                )
+            except Exception as e:
+                err_text = getattr(e, "detail", str(e))
+                yield f"data: {json.dumps({'type': 'error', 'error': err_text})}\n\n"
                 return
         else:
             try:
                 model_info, provider = self.resolve_model_and_provider(
                     request.model_id,
+                    user_id=user_id,
                     custom_api_key=request.custom_api_key,
                     custom_provider=request.custom_provider,
                     custom_base_url=request.custom_base_url,
@@ -476,8 +525,12 @@ class ChatService:
         is_auto_mode = request.model_id.lower() == "auto"
         routing_decision: Optional[RoutingDecision] = None
 
+        author_id = user["id"] if user and "id" in user else None
+        user_id = author_id
+        author_name = (user.get("display_name") or user.get("username") or (user.get("email", "").split("@")[0] if user.get("email") else "You")) if user else "Guest"
+
         # 1. Resolve or create persistent conversation in SQLite
-        conv_id = await self._resolve_conversation(request.conversation_id, request.message)
+        conv_id = await self._resolve_conversation(request.conversation_id, request.message, user_id=author_id)
 
         # Verify collaboration permissions on conversation
         from app.services.collaboration_service import CollaborationService
@@ -487,9 +540,6 @@ class ChatService:
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Viewers have read-only access and cannot send messages.",
             )
-
-        author_id = user["id"] if user else None
-        author_name = (user.get("display_name") or user.get("username") or (user.get("email", "").split("@")[0] if user.get("email") else "You")) if user else "Guest"
 
         # 2. Check for attached document context
         doc_name: Optional[str] = None
@@ -566,20 +616,41 @@ class ChatService:
 
         # 5. Resolve Model & Provider
         if is_auto_mode:
-            available_models = ModelRegistry.get_available_models()
-            if not available_models:
-                raise HTTPException(
-                    status_code=503,
-                    detail="No configured AI models are available. Please configure GEMINI_API_KEY or GROQ_API_KEY.",
-                )
+            from app.services.byok_service import BYOKService
+            from app.core.config import get_settings
+            settings = get_settings()
+            if user_id:
+                user_provs = BYOKService.list_user_active_providers(user_id)
+                if not user_provs and not settings.is_production:
+                    available_models = ModelRegistry.get_available_models()
+                else:
+                    available_models = [m for m in ModelRegistry.get_available_models() if m.provider in user_provs]
+                if not available_models:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="You have not connected any AI providers yet. Please connect your Google Gemini or Groq API key in Settings or Onboarding.",
+                    )
+            else:
+                available_models = ModelRegistry.get_available_models()
+                if not available_models:
+                    raise HTTPException(
+                        status_code=503,
+                        detail="No configured AI models are available. Please configure an API key in Settings.",
+                    )
             routing_decision = self._router.route_request(request.message, available_models)
             model_info = routing_decision.chosen_model
-            provider = self._providers.get(model_info.provider)
-            if not provider:
-                raise HTTPException(status_code=500, detail=f"Provider adapter '{model_info.provider}' missing.")
+            model_info, provider = self.resolve_model_and_provider(
+                model_info.id,
+                user_id=user_id,
+                custom_api_key=request.custom_api_key,
+                custom_provider=request.custom_provider,
+                custom_base_url=request.custom_base_url,
+                custom_provider_model_id=request.custom_provider_model_id,
+            )
         else:
             model_info, provider = self.resolve_model_and_provider(
                 request.model_id,
+                user_id=user_id,
                 custom_api_key=request.custom_api_key,
                 custom_provider=request.custom_provider,
                 custom_base_url=request.custom_base_url,

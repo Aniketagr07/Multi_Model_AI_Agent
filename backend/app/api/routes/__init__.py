@@ -10,6 +10,7 @@ from app.api.routes.usage import router as usage_router
 from app.api.routes.auth import router as auth_router
 from app.api.routes.skills import router as skills_router
 from app.api.routes.projects import router as projects_router
+from app.api.routes.byok import router as byok_router
 
 api_router = APIRouter()
 
@@ -45,3 +46,6 @@ api_router.include_router(skills_router, prefix="", tags=["Skills Marketplace"])
 
 # Mount collaborative projects routes at /api/projects
 api_router.include_router(projects_router, prefix="/projects", tags=["Collaborative Projects"])
+
+# Mount BYOK API keys routes at /api/byok
+api_router.include_router(byok_router, prefix="", tags=["BYOK API Keys"])

@@ -1,0 +1,70 @@
+# ==============================================================================
+# OmniAI Render Blueprint Specification
+# Deploys the FastAPI backend on Render with WebSockets, health-checks, and Neon DB
+# ==============================================================================
+
+services:
+  - type: web
+    name: omniai-backend
+    runtime: python
+    region: ohio
+    plan: free # or starter ($7/month) for non-sleeping instances
+    branch: main
+    buildCommand: "pip install -r backend/requirements.txt"
+    startCommand: "cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1"
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: APP_ENV
+        value: production
+      - key: DEBUG
+        value: false
+      - key: LOG_LEVEL
+        value: INFO
+      - key: ENABLE_DOCS
+        value: false
+
+      # Neon PostgreSQL Connection URL
+      # Obtain from Neon Console: https://console.neon.tech
+      - key: DATABASE_URL
+        sync: false
+
+      # CORS Allowed Origins (Set to your Vercel frontend domain)
+      - key: CORS_ORIGINS
+        value: "https://your-omniai-frontend.vercel.app"
+
+      # Server-Side Session Security
+      - key: APP_SESSION_SECRET
+        generateValue: true
+
+      # AI Provider API Keys
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+
+      # Google OAuth 2.0 Credentials
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REDIRECT_URI
+        value: "https://your-omniai-frontend.vercel.app/auth/callback/google"
+
+      # GitHub OAuth Credentials
+      - key: GITHUB_CLIENT_ID
+        sync: false
+      - key: GITHUB_CLIENT_SECRET
+        sync: false
+      - key: GITHUB_REDIRECT_URI
+        value: "https://your-omniai-frontend.vercel.app/auth/callback/github"
+
+      # Safeguards & Rate Limiting
+      - key: RATE_LIMIT_ENABLED
+        value: true
+      - key: RATE_LIMIT_PER_MINUTE
+        value: 60
+      - key: MAX_REQUEST_SIZE_BYTES
+        value: 15728640
+

@@ -169,12 +169,24 @@ def init_db() -> None:
     Safe to execute multiple times (idempotent).
     """
     global _db_initialized
+    settings = get_settings()
+
+    if settings.is_postgres:
+        init_postgres_db()
+        _db_initialized = True
+        return
+
     schema_sql = """
     CREATE TABLE IF NOT EXISTS users (
         id TEXT PRIMARY KEY,
         email TEXT UNIQUE NOT NULL,
         username TEXT NOT NULL,
         password_hash TEXT NOT NULL,
+        primary_provider TEXT DEFAULT 'email',
+        avatar_url TEXT,
+        last_login_at TEXT,
+        display_name TEXT,
+        byok_setup_completed INTEGER DEFAULT 0,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
     );
@@ -429,6 +441,21 @@ def init_db() -> None:
         created_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS user_provider_credentials (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        provider TEXT NOT NULL CHECK(provider IN ('gemini', 'groq', 'openai', 'anthropic')),
+        encrypted_api_key TEXT NOT NULL,
+        key_fingerprint TEXT NOT NULL,
+        connection_status TEXT NOT NULL DEFAULT 'active' CHECK(connection_status IN ('active', 'error', 'revoked')),
+        last_validated_at TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        UNIQUE(user_id, provider)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_user_prov_creds_user ON user_provider_credentials(user_id);
     CREATE INDEX IF NOT EXISTS idx_project_members_user ON project_members(user_id);
     CREATE INDEX IF NOT EXISTS idx_project_members_proj ON project_members(project_id);
     CREATE INDEX IF NOT EXISTS idx_conv_members_user ON conversation_members(user_id);
@@ -547,6 +574,11 @@ def init_db() -> None:
                 conn.execute("ALTER TABLE users ADD COLUMN display_name TEXT;")
             except Exception:
                 pass
+        if "byok_setup_completed" not in u_cols and u_cols:
+            try:
+                conn.execute("ALTER TABLE users ADD COLUMN byok_setup_completed INTEGER DEFAULT 0;")
+            except Exception:
+                pass
 
         # Migrate existing messages table if columns are missing
         cursor = conn.execute("PRAGMA table_info(messages);")
@@ -573,8 +605,9 @@ def init_db() -> None:
         for skill in BUILTIN_SKILLS:
             conn.execute(
                 """
-                INSERT OR IGNORE INTO skills (id, name, description, category, provider, version, icon, permissions, is_builtin, is_featured, created_at)
+                INSERT INTO skills (id, name, description, category, provider, version, icon, permissions, is_builtin, is_featured, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+                ON CONFLICT(id) DO NOTHING;
                 """,
                 (
                     skill["id"],
@@ -596,26 +629,431 @@ def init_db() -> None:
         conn.close()
 
 
-@contextmanager
-def get_db_connection() -> Generator[sqlite3.Connection, None, None]:
+# -----------------------------------------------------------------------------
+# PostgreSQL / Neon Production Compatibility Layer
+# -----------------------------------------------------------------------------
+
+class PostgresCursorWrapper:
+    """Wraps a psycopg Cursor to provide a SQLite-compatible query interface."""
+
+    def __init__(self, cursor):
+        self._cursor = cursor
+
+    def execute(self, query: str, params: Any = None):
+        pg_query = query.replace("?", "%s")
+        if "INSERT OR IGNORE INTO" in pg_query:
+            pg_query = pg_query.replace("INSERT OR IGNORE INTO", "INSERT INTO")
+            if "ON CONFLICT" not in pg_query:
+                pg_query = pg_query.rstrip().rstrip(";") + " ON CONFLICT DO NOTHING;"
+        if params is not None:
+            self._cursor.execute(pg_query, params)
+        else:
+            self._cursor.execute(pg_query)
+        return self
+
+    def fetchone(self):
+        row = self._cursor.fetchone()
+        return dict(row) if row is not None else None
+
+    def fetchall(self):
+        rows = self._cursor.fetchall()
+        return [dict(r) for r in rows]
+
+    def __iter__(self):
+        for row in self._cursor:
+            yield dict(row) if row is not None else None
+
+    @property
+    def rowcount(self):
+        return self._cursor.rowcount
+
+    @property
+    def description(self):
+        return self._cursor.description
+
+
+class PostgresConnectionWrapper:
+    """Wraps a psycopg Connection to provide a SQLite-compatible execution interface."""
+
+    def __init__(self, conn):
+        self._conn = conn
+
+    def execute(self, query: str, params: Any = None):
+        cur = self._conn.cursor()
+        wrapper = PostgresCursorWrapper(cur)
+        wrapper.execute(query, params)
+        return wrapper
+
+    def executescript(self, script: str):
+        lines = []
+        for line in script.splitlines():
+            if line.strip().upper().startswith("PRAGMA "):
+                continue
+            lines.append(line)
+        cleaned = "\n".join(lines)
+        with self._conn.cursor() as cur:
+            cur.execute(cleaned)
+
+    def commit(self):
+        self._conn.commit()
+
+    def rollback(self):
+        self._conn.rollback()
+
+    def close(self):
+        self._conn.close()
+
+
+def init_postgres_db() -> None:
+    """Initializes schema and tables for PostgreSQL / Neon in production."""
+    settings = get_settings()
+    try:
+        import psycopg
+        from psycopg.rows import dict_row
+    except ImportError:
+        raise RuntimeError("psycopg package is required for PostgreSQL. Run: pip install psycopg[binary]")
+
+    pg_schema_sql = """
+    CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        email TEXT UNIQUE NOT NULL,
+        username TEXT NOT NULL,
+        password_hash TEXT NOT NULL,
+        primary_provider TEXT DEFAULT 'email',
+        avatar_url TEXT,
+        display_name TEXT,
+        last_login_at TEXT,
+        byok_setup_completed INTEGER DEFAULT 0,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS user_sessions (
+        token TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        expires_at TEXT NOT NULL,
+        created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS projects (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT,
+        icon TEXT DEFAULT 'folder',
+        visibility TEXT NOT NULL DEFAULT 'private' CHECK(visibility IN ('private', 'invite_only')),
+        owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS conversations (
+        id TEXT PRIMARY KEY,
+        user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+        project_id TEXT REFERENCES projects(id) ON DELETE CASCADE,
+        title TEXT NOT NULL,
+        is_pinned INTEGER DEFAULT 0,
+        is_archived INTEGER DEFAULT 0,
+        pinned_at TEXT,
+        sharing_enabled INTEGER DEFAULT 0,
+        share_permission TEXT DEFAULT 'editor',
+        share_token TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS messages (
+        id TEXT PRIMARY KEY,
+        conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+        role TEXT NOT NULL CHECK(role IN ('user', 'assistant')),
+        content TEXT NOT NULL,
+        model_id TEXT,
+        provider TEXT,
+        latency_ms INTEGER,
+        routed INTEGER DEFAULT 0,
+        routing_category TEXT,
+        routing_explanation TEXT,
+        effort TEXT DEFAULT 'medium',
+        document_id TEXT,
+        document_name TEXT,
+        author_id TEXT,
+        author_name TEXT,
+        created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS documents (
+        id TEXT PRIMARY KEY,
+        conversation_id TEXT REFERENCES conversations(id) ON DELETE CASCADE,
+        filename TEXT NOT NULL,
+        file_type TEXT NOT NULL,
+        file_size INTEGER NOT NULL,
+        storage_path TEXT NOT NULL,
+        extracted_text TEXT NOT NULL,
+        char_count INTEGER NOT NULL,
+        chunk_count INTEGER NOT NULL,
+        created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS user_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS model_usage (
+        id TEXT PRIMARY KEY,
+        model_id TEXT NOT NULL,
+        provider TEXT NOT NULL,
+        tokens INTEGER DEFAULT 0,
+        created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS skills (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT NOT NULL,
+        category TEXT NOT NULL,
+        provider TEXT NOT NULL,
+        version TEXT NOT NULL,
+        icon TEXT NOT NULL,
+        permissions TEXT NOT NULL,
+        is_builtin INTEGER DEFAULT 1,
+        is_featured INTEGER DEFAULT 0,
+        created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS user_skills (
+        id TEXT PRIMARY KEY,
+        user_id TEXT,
+        skill_id TEXT NOT NULL REFERENCES skills(id) ON DELETE CASCADE,
+        is_enabled INTEGER DEFAULT 1,
+        installed_at TEXT NOT NULL,
+        config TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS skill_executions (
+        id TEXT PRIMARY KEY,
+        user_id TEXT,
+        skill_id TEXT NOT NULL REFERENCES skills(id) ON DELETE CASCADE,
+        conversation_id TEXT,
+        input_data TEXT,
+        output_data TEXT,
+        status TEXT NOT NULL,
+        error_message TEXT,
+        executed_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS user_oauth_providers (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        provider TEXT NOT NULL CHECK(provider IN ('google', 'github')),
+        provider_user_id TEXT NOT NULL,
+        email TEXT,
+        display_name TEXT,
+        avatar_url TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        UNIQUE(provider, provider_user_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS oauth_states (
+        state TEXT PRIMARY KEY,
+        provider TEXT NOT NULL,
+        action TEXT NOT NULL DEFAULT 'login',
+        user_id TEXT,
+        redirect_uri TEXT,
+        code_verifier TEXT,
+        expires_at TEXT NOT NULL,
+        created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS password_reset_tokens (
+        token TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        expires_at TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        used INTEGER DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS project_members (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        role TEXT NOT NULL CHECK(role IN ('owner', 'admin', 'member', 'viewer')),
+        joined_at TEXT NOT NULL,
+        UNIQUE(project_id, user_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS project_invitations (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        inviter_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        email TEXT,
+        token TEXT UNIQUE NOT NULL,
+        role TEXT NOT NULL CHECK(role IN ('admin', 'member', 'viewer')),
+        status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'accepted', 'revoked', 'expired')),
+        expires_at TEXT NOT NULL,
+        created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS conversation_members (
+        id TEXT PRIMARY KEY,
+        conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        role TEXT NOT NULL CHECK(role IN ('owner', 'editor', 'viewer')),
+        joined_at TEXT NOT NULL,
+        UNIQUE(conversation_id, user_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS conversation_invitations (
+        id TEXT PRIMARY KEY,
+        conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+        inviter_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        email TEXT,
+        token TEXT UNIQUE NOT NULL,
+        role TEXT NOT NULL CHECK(role IN ('editor', 'viewer')),
+        status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'accepted', 'revoked', 'expired')),
+        expires_at TEXT NOT NULL,
+        created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS project_files (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        uploaded_by TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        filename TEXT NOT NULL,
+        file_type TEXT NOT NULL,
+        file_size INTEGER NOT NULL,
+        storage_path TEXT NOT NULL,
+        created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS project_skills (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        skill_id TEXT NOT NULL REFERENCES skills(id) ON DELETE CASCADE,
+        is_enabled INTEGER DEFAULT 1,
+        enabled_by TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        UNIQUE(project_id, skill_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS activity_events (
+        id TEXT PRIMARY KEY,
+        project_id TEXT,
+        conversation_id TEXT,
+        user_id TEXT,
+        event_type TEXT NOT NULL,
+        details TEXT,
+        created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS user_provider_credentials (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        provider TEXT NOT NULL CHECK(provider IN ('gemini', 'groq', 'openai', 'anthropic')),
+        encrypted_api_key TEXT NOT NULL,
+        key_fingerprint TEXT NOT NULL,
+        connection_status TEXT NOT NULL DEFAULT 'active' CHECK(connection_status IN ('active', 'error', 'revoked')),
+        last_validated_at TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        UNIQUE(user_id, provider)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_user_prov_creds_user ON user_provider_credentials(user_id);
+
+    CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+    CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id);
+    CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id);
+    CREATE INDEX IF NOT EXISTS idx_conversations_updated_at ON conversations(updated_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_conversations_user ON conversations(user_id, updated_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_conversations_project ON conversations(project_id, updated_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_conversations_share_token ON conversations(share_token);
+    CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at ASC);
+    CREATE INDEX IF NOT EXISTS idx_documents_conversation_id ON documents(conversation_id);
+    CREATE INDEX IF NOT EXISTS idx_documents_created_at ON documents(created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_model_usage_created_at ON model_usage(created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_model_usage_provider ON model_usage(provider);
+    CREATE INDEX IF NOT EXISTS idx_skills_category ON skills(category);
+    CREATE INDEX IF NOT EXISTS idx_user_skills_user ON user_skills(user_id, skill_id);
+    CREATE INDEX IF NOT EXISTS idx_skill_executions_user ON skill_executions(user_id, executed_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_oauth_provider_uid ON user_oauth_providers(provider, provider_user_id);
+    CREATE INDEX IF NOT EXISTS idx_oauth_user_id ON user_oauth_providers(user_id);
+    CREATE INDEX IF NOT EXISTS idx_oauth_states_expires ON oauth_states(expires_at);
+    CREATE INDEX IF NOT EXISTS idx_project_members_user ON project_members(user_id);
+    CREATE INDEX IF NOT EXISTS idx_project_members_proj ON project_members(project_id);
+    CREATE INDEX IF NOT EXISTS idx_conv_members_user ON conversation_members(user_id);
+    CREATE INDEX IF NOT EXISTS idx_conv_members_conv ON conversation_members(conversation_id);
+    CREATE INDEX IF NOT EXISTS idx_activity_proj ON activity_events(project_id, created_at DESC);
     """
-    Context manager providing a configured SQLite database connection.
-    Enforces foreign keys, WAL journaling for concurrent access, and dictionary row factory.
-    Automatically initializes tables if not yet executed in this process.
+
+    conn = psycopg.connect(settings.postgres_connection_uri, row_factory=dict_row)
+    try:
+        with conn.cursor() as cur:
+            cur.execute(pg_schema_sql)
+            import datetime
+            now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+            for skill in BUILTIN_SKILLS:
+                cur.execute(
+                    """
+                    INSERT INTO skills (id, name, description, category, provider, version, icon, permissions, is_builtin, is_featured, created_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 1, %s, %s)
+                    ON CONFLICT(id) DO NOTHING;
+                    """,
+                    (
+                        skill["id"],
+                        skill["name"],
+                        skill["description"],
+                        skill["category"],
+                        skill["provider"],
+                        skill["version"],
+                        skill["icon"],
+                        json.dumps(skill["permissions"]),
+                        skill["is_featured"],
+                        now_iso,
+                    ),
+                )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+@contextmanager
+def get_db_connection() -> Generator[Any, None, None]:
+    """
+    Context manager providing a configured database connection.
+    Automatically connects to PostgreSQL if DATABASE_URL is configured (Neon / Render),
+    otherwise seamlessly connects to SQLite (data/omniai.db) for local development.
     """
     global _db_initialized
     if not _db_initialized:
         init_db()
 
-    db_path = get_db_path()
-    conn = sqlite3.connect(str(db_path), timeout=10.0)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON;")
-    try:
-        yield conn
-        conn.commit()
-    except Exception:
-        conn.rollback()
-        raise
-    finally:
-        conn.close()
+    settings = get_settings()
+
+    if settings.is_postgres:
+        import psycopg
+        from psycopg.rows import dict_row
+        conn = psycopg.connect(settings.postgres_connection_uri, row_factory=dict_row)
+        wrapper = PostgresConnectionWrapper(conn)
+        try:
+            yield wrapper
+            wrapper.commit()
+        except Exception:
+            wrapper.rollback()
+            raise
+        finally:
+            wrapper.close()
+    else:
+        db_path = get_db_path()
+        conn = sqlite3.connect(str(db_path), timeout=10.0)
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA foreign_keys = ON;")
+        try:
+            yield conn
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
