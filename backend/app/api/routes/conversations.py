@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, status, Query, Response, Depends
 from typing import Optional
 from app.api.routes.auth import get_current_user_optional
+from app.services.collaboration_service import CollaborationService
 
 from app.db.repository import ConversationRepository
 from app.schemas.conversation import (
@@ -56,6 +57,10 @@ async def list_conversations(
             created_at=c["created_at"],
             updated_at=c["updated_at"],
             message_count=c.get("message_count", 0),
+            project_id=c.get("project_id"),
+            sharing_enabled=bool(c.get("sharing_enabled", 0)),
+            share_permission=c.get("share_permission") or "editor",
+            share_token=c.get("share_token"),
         )
         for c in convs
     ]
@@ -96,15 +101,19 @@ async def create_conversation(
     summary="Get Conversation Details",
     description="Retrieve conversation metadata and all associated message history in chronological order.",
 )
-async def get_conversation(conversation_id: str) -> ConversationDetailResponse:
-    """Fetch conversation by ID and its complete message list."""
-    conv = await ConversationRepository.a_get_conversation(conversation_id)
-    if not conv:
+async def get_conversation(
+    conversation_id: str,
+    user: Optional[dict] = Depends(get_current_user_optional),
+) -> ConversationDetailResponse:
+    """Fetch conversation by ID and its complete message list, verifying access."""
+    access = CollaborationService.get_conversation_access(conversation_id, user)
+    if not access["can_read"]:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Conversation '{conversation_id}' was not found in persistent storage.",
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to access this conversation.",
         )
 
+    conv = access["conversation"]
     messages_raw = await ConversationRepository.a_get_messages(conversation_id)
     messages = [
         MessageResponse(
@@ -119,6 +128,8 @@ async def get_conversation(conversation_id: str) -> ConversationDetailResponse:
             routing_category=m.get("routing_category"),
             routing_explanation=m.get("routing_explanation"),
             effort=m.get("effort", "medium"),
+            author_id=m.get("author_id"),
+            author_name=m.get("author_name"),
             created_at=m["created_at"],
         )
         for m in messages_raw
@@ -132,6 +143,11 @@ async def get_conversation(conversation_id: str) -> ConversationDetailResponse:
         pinned_at=conv.get("pinned_at"),
         created_at=conv["created_at"],
         updated_at=conv["updated_at"],
+        project_id=conv.get("project_id"),
+        sharing_enabled=bool(conv.get("sharing_enabled", 0)),
+        share_permission=conv.get("share_permission") or "editor",
+        share_token=conv.get("share_token"),
+        current_user_role=access["role"],
         messages=messages,
     )
 
@@ -291,6 +307,13 @@ async def delete_conversation(
     user: Optional[dict] = Depends(get_current_user_optional),
 ) -> None:
     """Delete conversation and all its cascaded messages."""
+    access = CollaborationService.get_conversation_access(conversation_id, user)
+    if not access["can_manage"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the conversation owner can delete this conversation.",
+        )
+
     user_id = user["id"] if user else None
     deleted = await ConversationRepository.a_delete_conversation(conversation_id, user_id=user_id)
     if not deleted:

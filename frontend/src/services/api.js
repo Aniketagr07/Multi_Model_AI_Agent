@@ -873,3 +873,323 @@ export async function fetchSkillExecutionHistory(limit = 20) {
   }
   return await response.json();
 }
+
+
+
+// ----------------------------------------------------------------------------
+// OAuth & Extended Account Services
+// ----------------------------------------------------------------------------
+
+export async function fetchOAuthProvidersStatus() {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/auth/oauth/providers`;
+  const response = await authFetch(url, { method: 'GET', headers: { 'Accept': 'application/json' } });
+  if (!response.ok) {
+    throw new Error('Failed to fetch OAuth providers status');
+  }
+  return await response.json();
+}
+
+export async function fetchOAuthUrl(provider, action = 'login', redirectUri = null) {
+  const params = new URLSearchParams({ action });
+  if (redirectUri) {
+    params.append('redirect_uri', redirectUri);
+  }
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/auth/oauth/${encodeURIComponent(provider)}/url?${params.toString()}`;
+  const response = await authFetch(url, { method: 'GET', headers: { 'Accept': 'application/json' } });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ detail: 'Failed to generate OAuth URL' }));
+    throw new Error(err.detail || 'Failed to generate OAuth URL');
+  }
+  return await response.json();
+}
+
+export async function handleOAuthCallback(provider, code, state, redirectUri = null) {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/auth/oauth/${encodeURIComponent(provider)}/callback`;
+  const response = await authFetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    body: JSON.stringify({ code, state, redirect_uri: redirectUri }),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ detail: 'OAuth authentication failed' }));
+    throw new Error(err.detail || 'OAuth authentication failed');
+  }
+  return await response.json();
+}
+
+export async function fetchLinkedProviders() {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/auth/linked-providers`;
+  const response = await authFetch(url, { method: 'GET', headers: { 'Accept': 'application/json' } });
+  if (!response.ok) {
+    throw new Error('Failed to fetch linked providers');
+  }
+  return await response.json();
+}
+
+export async function unlinkProvider(provider) {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/auth/linked-providers/${encodeURIComponent(provider)}`;
+  const response = await authFetch(url, { method: 'DELETE', headers: { 'Accept': 'application/json' } });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ detail: 'Failed to unlink provider' }));
+    throw new Error(err.detail || 'Failed to unlink provider');
+  }
+  return await response.json();
+}
+
+export async function requestPasswordReset(email) {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/auth/forgot-password`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ detail: 'Failed to request password reset' }));
+    throw new Error(err.detail || 'Failed to request password reset');
+  }
+  return await response.json();
+}
+
+export async function migrateGuestConversations(conversationIds = null) {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/auth/migrate-guest-conversations`;
+  const response = await authFetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    body: JSON.stringify(conversationIds ? { conversation_ids: conversationIds } : {}),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ detail: 'Failed to migrate guest conversations' }));
+    throw new Error(err.detail || 'Failed to migrate guest conversations');
+  }
+  return await response.json();
+}
+
+// -----------------------------------------------------------------------------
+// Conversation Sharing & Real-Time Collaboration
+// -----------------------------------------------------------------------------
+
+export async function getConversationShareSettings(conversationId) {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/conversations/${encodeURIComponent(conversationId)}/share`;
+  const response = await authFetch(url, { method: 'GET', headers: { 'Accept': 'application/json' } });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ detail: 'Failed to load share settings' }));
+    throw new Error(err.detail || 'Failed to load share settings');
+  }
+  return await response.json();
+}
+
+export async function updateConversationShareSettings(conversationId, { sharing_enabled, share_permission }) {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/conversations/${encodeURIComponent(conversationId)}/share`;
+  const response = await authFetch(url, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    body: JSON.stringify({ sharing_enabled, share_permission }),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ detail: 'Failed to update share settings' }));
+    throw new Error(err.detail || 'Failed to update share settings');
+  }
+  return await response.json();
+}
+
+export async function createConversationInvitation(conversationId, { email, role = 'editor', expiry_days = 7 }) {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/conversations/${encodeURIComponent(conversationId)}/invitations`;
+  const response = await authFetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    body: JSON.stringify({ email: email || null, role, expiry_days }),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ detail: 'Failed to send invitation' }));
+    throw new Error(err.detail || 'Failed to send invitation');
+  }
+  return await response.json();
+}
+
+export async function revokeConversationInvitation(conversationId, invitationId) {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/conversations/${encodeURIComponent(conversationId)}/invitations/${encodeURIComponent(invitationId)}`;
+  const response = await authFetch(url, { method: 'DELETE' });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ detail: 'Failed to revoke invitation' }));
+    throw new Error(err.detail || 'Failed to revoke invitation');
+  }
+  return await response.json();
+}
+
+export async function removeConversationMember(conversationId, targetUserId) {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/conversations/${encodeURIComponent(conversationId)}/members/${encodeURIComponent(targetUserId)}`;
+  const response = await authFetch(url, { method: 'DELETE' });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ detail: 'Failed to remove member' }));
+    throw new Error(err.detail || 'Failed to remove member');
+  }
+  return await response.json();
+}
+
+export async function joinConversationByToken(token) {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/conversations/join/${encodeURIComponent(token)}`;
+  const response = await authFetch(url, { method: 'POST', headers: { 'Accept': 'application/json' } });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ detail: 'Failed to join conversation' }));
+    throw new Error(err.detail || 'Failed to join conversation');
+  }
+  return await response.json();
+}
+
+// -----------------------------------------------------------------------------
+// Collaborative Projects Workspaces
+// -----------------------------------------------------------------------------
+
+export async function fetchProjects() {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/projects`;
+  const response = await authFetch(url, { method: 'GET', headers: { 'Accept': 'application/json' } });
+  if (!response.ok) {
+    throw new Error('Failed to fetch projects');
+  }
+  return await response.json();
+}
+
+export async function createProject({ name, description, icon = 'folder', visibility = 'private' }) {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/projects`;
+  const response = await authFetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    body: JSON.stringify({ name, description, icon, visibility }),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ detail: 'Failed to create project' }));
+    throw new Error(err.detail || 'Failed to create project');
+  }
+  return await response.json();
+}
+
+export async function fetchProjectDetail(projectId) {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/projects/${encodeURIComponent(projectId)}`;
+  const response = await authFetch(url, { method: 'GET', headers: { 'Accept': 'application/json' } });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ detail: 'Failed to load project details' }));
+    throw new Error(err.detail || 'Failed to load project details');
+  }
+  return await response.json();
+}
+
+export async function updateProject(projectId, updateData) {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/projects/${encodeURIComponent(projectId)}`;
+  const response = await authFetch(url, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    body: JSON.stringify(updateData),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ detail: 'Failed to update project' }));
+    throw new Error(err.detail || 'Failed to update project');
+  }
+  return await response.json();
+}
+
+export async function deleteProject(projectId) {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/projects/${encodeURIComponent(projectId)}`;
+  const response = await authFetch(url, { method: 'DELETE' });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ detail: 'Failed to delete project' }));
+    throw new Error(err.detail || 'Failed to delete project');
+  }
+  return await response.json();
+}
+
+export async function createProjectInvitation(projectId, { email, role = 'member', expiry_days = 7 }) {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/projects/${encodeURIComponent(projectId)}/invitations`;
+  const response = await authFetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    body: JSON.stringify({ email: email || null, role, expiry_days }),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ detail: 'Failed to invite project member' }));
+    throw new Error(err.detail || 'Failed to invite project member');
+  }
+  return await response.json();
+}
+
+export async function joinProjectByToken(token) {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/projects/join/${encodeURIComponent(token)}`;
+  const response = await authFetch(url, { method: 'POST', headers: { 'Accept': 'application/json' } });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ detail: 'Failed to join project' }));
+    throw new Error(err.detail || 'Failed to join project');
+  }
+  return await response.json();
+}
+
+export async function updateProjectMemberRole(projectId, targetUserId, role) {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/projects/${encodeURIComponent(projectId)}/members/${encodeURIComponent(targetUserId)}?role=${encodeURIComponent(role)}`;
+  const response = await authFetch(url, { method: 'PATCH' });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ detail: 'Failed to update member role' }));
+    throw new Error(err.detail || 'Failed to update member role');
+  }
+  return await response.json();
+}
+
+export async function removeProjectMember(projectId, targetUserId) {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/projects/${encodeURIComponent(projectId)}/members/${encodeURIComponent(targetUserId)}`;
+  const response = await authFetch(url, { method: 'DELETE' });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ detail: 'Failed to remove member' }));
+    throw new Error(err.detail || 'Failed to remove member');
+  }
+  return await response.json();
+}
+
+export async function moveConversationToProject(projectId, conversationId) {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/projects/${encodeURIComponent(projectId)}/conversations/move`;
+  const response = await authFetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    body: JSON.stringify({ conversation_id: conversationId }),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ detail: 'Failed to move conversation' }));
+    throw new Error(err.detail || 'Failed to move conversation');
+  }
+  return await response.json();
+}
+
+export async function toggleProjectSkill(projectId, skillId, isEnabled) {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/projects/${encodeURIComponent(projectId)}/skills/${encodeURIComponent(skillId)}?is_enabled=${isEnabled ? 'true' : 'false'}`;
+  const response = await authFetch(url, { method: 'PATCH' });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ detail: 'Failed to toggle project skill' }));
+    throw new Error(err.detail || 'Failed to toggle project skill');
+  }
+  return await response.json();
+}
+
+export async function uploadProjectFile(projectId, file) {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/projects/${encodeURIComponent(projectId)}/files`;
+  const formData = new FormData();
+  formData.append('file', file);
+  const authHeaders = getAuthHeaders();
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      ...authHeaders,
+    },
+    body: formData,
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ detail: 'Failed to upload project file' }));
+    throw new Error(err.detail || 'Failed to upload project file');
+  }
+  return await response.json();
+}
+
+export async function deleteProjectFile(projectId, fileId) {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/projects/${encodeURIComponent(projectId)}/files/${encodeURIComponent(fileId)}`;
+  const response = await authFetch(url, { method: 'DELETE' });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ detail: 'Failed to delete file' }));
+    throw new Error(err.detail || 'Failed to delete file');
+  }
+  return await response.json();
+}

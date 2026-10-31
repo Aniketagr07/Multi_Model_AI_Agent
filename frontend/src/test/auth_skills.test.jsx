@@ -120,13 +120,36 @@ describe('User Authentication Modal', () => {
       />
     );
 
-    expect(screen.getByRole('heading', { name: /sign in to omniai/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /welcome to omniai/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /continue with google/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /continue with github/i })).toBeInTheDocument();
+    expect(screen.getByText(/continue with email and password/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /continue as guest/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /forgot password\?/i })).toBeInTheDocument();
 
     // Switch to Create Account tab
-    const registerTab = screen.getByRole('button', { name: /create account/i });
+    const registerTab = screen.getAllByRole('button', { name: /create account/i })[0];
     fireEvent.click(registerTab);
 
     expect(screen.getByText('Display Username')).toBeInTheDocument();
     expect(screen.getByText('Min 8 characters')).toBeInTheDocument();
+  });
+
+  it('toggles to forgot password mode and displays recovery instructions button', () => {
+    render(
+      <AuthModal
+        isOpen={true}
+        onClose={vi.fn()}
+        initialMode="signin"
+        onLogin={vi.fn()}
+        onRegister={vi.fn()}
+      />
+    );
+
+    const forgotBtn = screen.getByRole('button', { name: /forgot password\?/i });
+    fireEvent.click(forgotBtn);
+
+    expect(screen.getByRole('button', { name: /send recovery instructions/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /back to sign in/i })).toBeInTheDocument();
   });
 });

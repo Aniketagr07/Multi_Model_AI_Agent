@@ -3,7 +3,7 @@ import json
 import asyncio
 import logging
 from typing import Dict, List, Optional, Tuple, AsyncGenerator
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 
 from app.core.config import get_settings
 from app.core.model_registry import ModelRegistry, ModelInfo
@@ -237,7 +237,7 @@ class ChatService:
 
         return None
 
-    async def stream_chat(self, request: ChatRequest) -> AsyncGenerator[str, None]:
+    async def stream_chat(self, request: ChatRequest, user: Optional[dict] = None) -> AsyncGenerator[str, None]:
         """
         Stream progressive real-time SSE tokens from the resolved model adapter.
         Supports document analysis context grounding, client disconnections,
@@ -248,6 +248,17 @@ class ChatService:
 
         # 1. Resolve or create persistent conversation in SQLite
         conv_id = await self._resolve_conversation(request.conversation_id, request.message)
+
+        # Verify collaboration permissions on conversation
+        from app.services.collaboration_service import CollaborationService
+        access = CollaborationService.get_conversation_access(conv_id, user)
+        if not access["can_write"]:
+            err_event = {"type": "error", "error": "Viewers have read-only access and cannot send messages."}
+            yield f"data: {json.dumps(err_event)}\n\n"
+            return
+
+        author_id = user["id"] if user else None
+        author_name = (user.get("display_name") or user.get("username") or (user.get("email", "").split("@")[0] if user.get("email") else "You")) if user else "Guest"
 
         # 2. Check for attached document context
         doc_name: Optional[str] = None
@@ -261,12 +272,21 @@ class ChatService:
                 logger.warning("Failed to retrieve document context '%s': %s", request.document_id, doc_err)
 
         # 3. Save user message to persistent storage immediately
-        await ConversationRepository.a_add_message(
+        user_msg = await ConversationRepository.a_add_message(
             conv_id=conv_id,
             role="user",
             content=request.message,
             document_id=request.document_id,
             document_name=doc_name,
+            author_id=author_id,
+            author_name=author_name,
+        )
+
+        from app.core.websocket_manager import get_ws_manager
+        ws_mgr = get_ws_manager()
+        await ws_mgr.broadcast_to_conversation(
+            conv_id,
+            {"type": "new_message", "conversation_id": conv_id, "message": user_msg},
         )
 
         # 4. Prepare sliding-window context history
@@ -376,6 +396,10 @@ class ChatService:
             ):
                 accumulated_chunks.append(token)
                 token_event = {"type": "token", "token": token}
+                await ws_mgr.broadcast_to_conversation(
+                    conv_id,
+                    {"type": "assistant_chunk", "conversation_id": conv_id, "token": token, "model_id": model_info.id},
+                )
                 yield f"data: {json.dumps(token_event)}\n\n"
 
             is_completed = True
@@ -393,7 +417,7 @@ class ChatService:
             full_response = "".join(accumulated_chunks).strip()
             elapsed_ms = int((time.perf_counter() - start_time) * 1000)
 
-            await ConversationRepository.a_add_message(
+            asst_msg = await ConversationRepository.a_add_message(
                 conv_id=conv_id,
                 role="assistant",
                 content=full_response,
@@ -406,6 +430,11 @@ class ChatService:
                 effort=effort,
                 document_id=request.document_id,
                 document_name=doc_name,
+            )
+
+            await ws_mgr.broadcast_to_conversation(
+                conv_id,
+                {"type": "assistant_done", "conversation_id": conv_id, "message": asst_msg},
             )
 
             prompt_tokens = max(1, len(request.message) // 4)
@@ -438,7 +467,7 @@ class ChatService:
             }
             yield f"data: {json.dumps(done_event)}\n\n"
 
-    async def process_chat(self, request: ChatRequest) -> ChatResponse:
+    async def process_chat(self, request: ChatRequest, user: Optional[dict] = None) -> ChatResponse:
         """
         Process chat request synchronously (non-streaming), performing automatic model routing,
         document analysis grounding, persisting messages into SQLite, executing with monotonic
@@ -449,6 +478,18 @@ class ChatService:
 
         # 1. Resolve or create persistent conversation in SQLite
         conv_id = await self._resolve_conversation(request.conversation_id, request.message)
+
+        # Verify collaboration permissions on conversation
+        from app.services.collaboration_service import CollaborationService
+        access = CollaborationService.get_conversation_access(conv_id, user)
+        if not access["can_write"]:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Viewers have read-only access and cannot send messages.",
+            )
+
+        author_id = user["id"] if user else None
+        author_name = (user.get("display_name") or user.get("username") or (user.get("email", "").split("@")[0] if user.get("email") else "You")) if user else "Guest"
 
         # 2. Check for attached document context
         doc_name: Optional[str] = None
@@ -462,12 +503,21 @@ class ChatService:
                 logger.warning("Failed to retrieve document context '%s': %s", request.document_id, doc_err)
 
         # 3. Save user message to persistent storage immediately
-        await ConversationRepository.a_add_message(
+        user_msg = await ConversationRepository.a_add_message(
             conv_id=conv_id,
             role="user",
             content=request.message,
             document_id=request.document_id,
             document_name=doc_name,
+            author_id=author_id,
+            author_name=author_name,
+        )
+
+        from app.core.websocket_manager import get_ws_manager
+        ws_mgr = get_ws_manager()
+        await ws_mgr.broadcast_to_conversation(
+            conv_id,
+            {"type": "new_message", "conversation_id": conv_id, "message": user_msg},
         )
 
         # 4. Prepare sliding-window context history
@@ -607,7 +657,7 @@ class ChatService:
         elapsed_ms = int((time.perf_counter() - start_time) * 1000)
 
         # 7. Save assistant message into SQLite persistent storage
-        await ConversationRepository.a_add_message(
+        asst_msg = await ConversationRepository.a_add_message(
             conv_id=conv_id,
             role="assistant",
             content=response_text,
@@ -620,6 +670,11 @@ class ChatService:
             effort=effort,
             document_id=request.document_id,
             document_name=doc_name,
+        )
+
+        await ws_mgr.broadcast_to_conversation(
+            conv_id,
+            {"type": "assistant_done", "conversation_id": conv_id, "message": asst_msg},
         )
 
         prompt_tokens = max(1, len(request.message) // 4)

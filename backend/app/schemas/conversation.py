@@ -41,6 +41,8 @@ class MessageResponse(BaseModel):
     routing_category: Optional[str] = None
     routing_explanation: Optional[str] = None
     effort: Optional[str] = "medium"
+    author_id: Optional[str] = None
+    author_name: Optional[str] = None
     created_at: str
 
 
@@ -64,6 +66,11 @@ class ConversationResponse(BaseModel):
     created_at: str
     updated_at: str
     message_count: int = 0
+    project_id: Optional[str] = None
+    sharing_enabled: bool = False
+    share_permission: Optional[str] = "editor"
+    share_token: Optional[str] = None
+    current_user_role: Optional[str] = None
 
 
 class ConversationDetailResponse(BaseModel):
@@ -75,6 +82,11 @@ class ConversationDetailResponse(BaseModel):
     pinned_at: Optional[str] = None
     created_at: str
     updated_at: str
+    project_id: Optional[str] = None
+    sharing_enabled: bool = False
+    share_permission: Optional[str] = "editor"
+    share_token: Optional[str] = None
+    current_user_role: Optional[str] = None
     messages: List[MessageResponse] = Field(default_factory=list)
 
 

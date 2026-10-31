@@ -25,6 +25,10 @@ export function Sidebar({
   onOpenSettings,
   onLogout,
   onDeleteAccount,
+  projects = [],
+  activeProjectId = null,
+  onSelectProject,
+  onOpenCreateProject,
 }) {
   const [editingId, setEditingId] = useState(null);
   const [editTitle, setEditTitle] = useState('');
@@ -218,7 +222,15 @@ export function Sidebar({
             </div>
           ) : (
             <div className="flex flex-col min-w-0 flex-1">
-              <span className="truncate font-medium">{conv.title || 'Untitled Session'}</span>
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="truncate font-medium">{conv.title || 'Untitled Session'}</span>
+                {conv.sharing_enabled && (
+                  <span className="text-[10px] text-purple-400 shrink-0" title="Shared conversation">🔗</span>
+                )}
+                {conv.project_id && (
+                  <span className="text-[10px] text-blue-400 shrink-0" title="Project conversation">📁</span>
+                )}
+              </div>
               <div className="flex items-center gap-2 text-[10px] text-slate-500">
                 <span>{conv.dateLabel}</span>
                 {typeof conv.messageCount === 'number' && conv.messageCount > 0 && (
@@ -571,6 +583,67 @@ export function Sidebar({
             </div>
             {activeView === 'settings' && <span className="w-1.5 h-1.5 rounded-full bg-purple-400"></span>}
           </button>
+        </div>
+
+        {/* Collaborative Projects Section */}
+        <div className="px-3 py-2 border-b border-[#282D38]/60 space-y-1 shrink-0">
+          <div className="flex items-center justify-between px-1 pb-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+              Projects
+            </span>
+            {user && (
+              <button
+                type="button"
+                onClick={() => onOpenCreateProject && onOpenCreateProject()}
+                title="Create New Project"
+                className="w-5 h-5 rounded flex items-center justify-center text-slate-400 hover:text-purple-300 hover:bg-[#151923] text-sm font-bold transition-colors cursor-pointer"
+              >
+                +
+              </button>
+            )}
+          </div>
+
+          {projects && projects.length > 0 ? (
+            <div className="space-y-0.5 max-h-36 overflow-y-auto">
+              {projects.map((proj) => {
+                const isProjActive = activeView === 'project' && activeProjectId === proj.id;
+                return (
+                  <button
+                    key={proj.id}
+                    type="button"
+                    onClick={() => {
+                      if (onSelectProject) onSelectProject(proj.id);
+                      if (window.innerWidth < 768) onClose();
+                    }}
+                    className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+                      isProjActive
+                        ? 'bg-[#151923] text-purple-300 border border-purple-500/20 shadow-sm'
+                        : 'text-slate-400 hover:text-white hover:bg-[#151923]/50 border border-transparent'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 min-w-0 pr-1">
+                      <span className="text-sm">📁</span>
+                      <span className="truncate">{proj.name}</span>
+                    </div>
+                    <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-800 text-slate-400 font-mono">
+                      {proj.member_count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : user ? (
+            <div className="px-2 py-1 text-[11px] text-slate-500 italic">
+              No projects yet.{' '}
+              <button
+                type="button"
+                onClick={() => onOpenCreateProject && onOpenCreateProject()}
+                className="text-purple-400 hover:underline cursor-pointer"
+              >
+                Create one
+              </button>
+            </div>
+          ) : null}
         </div>
 
         {/* Conversation History List Organized into Pinned, Recent, and Archived */}

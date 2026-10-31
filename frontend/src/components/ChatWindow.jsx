@@ -11,6 +11,8 @@ export function ChatWindow({
   onRegenerate,
   onSelectView,
   showTokenMetrics = true,
+  currentUserRole = 'owner',
+  typingUsers = [],
 }) {
   const containerRef = useRef(null);
   const bottomRef = useRef(null);
@@ -38,11 +40,21 @@ export function ChatWindow({
     if (shouldAutoScrollRef.current) {
       bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [messages, isLoading]);
+  }, [messages, isLoading, typingUsers]);
+
+  const isViewer = currentUserRole === 'viewer';
 
   if (!messages || messages.length === 0) {
     return (
       <div className="flex-1 overflow-y-auto min-h-0 flex flex-col">
+        {isViewer && (
+          <div className="max-w-4xl w-full mx-auto mt-4 px-4">
+            <div className="p-3 rounded-xl bg-blue-950/40 border border-blue-500/30 text-blue-200 text-xs flex items-center gap-2.5">
+              <span className="text-base">👁️</span>
+              <span><strong>View-Only Mode:</strong> You have read-only access to this conversation. You cannot send or modify messages.</span>
+            </div>
+          </div>
+        )}
         <WelcomeScreen onSelectPrompt={onSelectPrompt} onSelectView={onSelectView} />
       </div>
     );
@@ -57,6 +69,14 @@ export function ChatWindow({
       onScroll={handleScroll}
       className="flex-1 overflow-y-auto min-h-0 px-2 sm:px-4 py-4 sm:py-6 space-y-4 relative scroll-smooth"
     >
+      {/* View-Only Warning Banner */}
+      {isViewer && (
+        <div className="max-w-4xl w-full mx-auto p-3 rounded-xl bg-blue-950/50 border border-blue-500/30 text-blue-200 text-xs flex items-center gap-2.5 shadow-sm">
+          <span className="text-base">👁️</span>
+          <span><strong>View-Only Mode:</strong> You have read-only access to this conversation. You can view message history and real-time updates. Sending messages is disabled.</span>
+        </div>
+      )}
+
       {messages.map((message, index) => (
         <MessageBubble
           key={message.id}
@@ -70,6 +90,14 @@ export function ChatWindow({
           }
         />
       ))}
+
+      {/* Typing indicator */}
+      {typingUsers && typingUsers.length > 0 && (
+        <div className="flex items-center gap-2 max-w-4xl w-full mx-auto px-4 py-1.5 text-xs text-purple-300 italic animate-pulse">
+          <span className="w-2 h-2 rounded-full bg-purple-400"></span>
+          <span>{typingUsers.join(', ')} {typingUsers.length > 1 ? 'are' : 'is'} typing...</span>
+        </div>
+      )}
 
       {/* Loading state indicator (shown only while connecting before tokens stream) */}
       {isLoading && !isStreamingActive && (

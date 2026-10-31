@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AVAILABLE_MODELS } from './ModelSelector';
-import { fetchModelRegistry } from '../services/api';
+import { fetchModelRegistry, fetchLinkedProviders, unlinkProvider, fetchOAuthUrl } from '../services/api';
+import { GoogleLogo, GitHubLogo } from './AuthModal';
 
 export function SettingsView({
   settings,
@@ -9,10 +10,18 @@ export function SettingsView({
   saveError = null,
   onBackToChat,
   customModels = [],
+  user = null,
+  onOpenAuth = () => {},
+  onLogout = () => {},
+  onDeleteAccount = () => {},
 }) {
   const [activeTab, setActiveTab] = useState('general');
   const [registryModels, setRegistryModels] = useState([]);
   const [isLoadingModels, setIsLoadingModels] = useState(false);
+  const [linkedProviders, setLinkedProviders] = useState([]);
+  const [isLoadingLinked, setIsLoadingLinked] = useState(false);
+  const [accountActionMessage, setAccountActionMessage] = useState(null);
+  const [accountActionError, setAccountActionError] = useState(null);
 
   // Local draft of custom instructions for responsive typing
   const [customInstructionsDraft, setCustomInstructionsDraft] = useState(
@@ -22,6 +31,48 @@ export function SettingsView({
   useEffect(() => {
     setCustomInstructionsDraft(settings.custom_instructions || '');
   }, [settings.custom_instructions]);
+
+  // Load linked OAuth providers when tab is active or user changes
+  useEffect(() => {
+    if (user && activeTab === 'account') {
+      setIsLoadingLinked(true);
+      setAccountActionError(null);
+      fetchLinkedProviders()
+        .then(data => setLinkedProviders(data.providers || []))
+        .catch(err => console.warn('Could not load linked providers:', err))
+        .finally(() => setIsLoadingLinked(false));
+    }
+  }, [user, activeTab]);
+
+  const handleLinkProvider = async (provider) => {
+    setAccountActionError(null);
+    setAccountActionMessage(null);
+    try {
+      const data = await fetchOAuthUrl(provider, 'link');
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('omniai_oauth_provider', provider);
+        sessionStorage.setItem('omniai_oauth_action', 'link');
+      }
+      if (data && data.url) {
+        window.location.href = data.url;
+      }
+    } catch (err) {
+      setAccountActionError(err.message || `Failed to initiate ${provider} linking.`);
+    }
+  };
+
+  const handleUnlinkProvider = async (provider) => {
+    setAccountActionError(null);
+    setAccountActionMessage(null);
+    try {
+      await unlinkProvider(provider);
+      setAccountActionMessage(`Successfully unlinked ${provider.toUpperCase()}.`);
+      const updated = await fetchLinkedProviders();
+      setLinkedProviders(updated.providers || []);
+    } catch (err) {
+      setAccountActionError(err.message || `Failed to unlink ${provider}.`);
+    }
+  };
 
   // Load real model information from backend /api/models
   useEffect(() => {
@@ -116,6 +167,7 @@ export function SettingsView({
         <nav className="w-60 border-r border-[#282D38] bg-[#10131A] p-3 space-y-1 shrink-0 overflow-y-auto">
           {[
             { id: 'general', label: 'General', icon: '⚙️' },
+            { id: 'account', label: 'Account & Security', icon: '👤' },
             { id: 'appearance', label: 'Appearance', icon: '🎨' },
             { id: 'ai', label: 'AI Preferences', icon: '🧠' },
             { id: 'personalization', label: 'Personalization', icon: '✍️' },
@@ -140,6 +192,240 @@ export function SettingsView({
 
         {/* Content Pane */}
         <main className="flex-1 overflow-y-auto p-6 lg:p-8 space-y-8 max-w-4xl">
+          {/* TAB: ACCOUNT & SECURITY */}
+          {activeTab === 'account' && (
+            <div className="space-y-6 animate-in fade-in duration-150">
+              <div>
+                <h3 className="text-base font-semibold text-white">Account & Security</h3>
+                <p className="text-xs text-slate-400 mt-1">
+                  Manage your OmniAI user identity, authentication credentials, and linked accounts.
+                </p>
+              </div>
+
+              {accountActionError && (
+                <div className="p-3 rounded-xl bg-red-950/40 border border-red-500/40 text-xs text-red-200 flex items-start gap-2">
+                  <span className="text-red-400 font-bold shrink-0">⚠️</span>
+                  <span>{accountActionError}</span>
+                </div>
+              )}
+
+              {accountActionMessage && (
+                <div className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/40 text-xs text-emerald-200 flex items-start gap-2">
+                  <span className="text-emerald-400 font-bold shrink-0">✓</span>
+                  <span>{accountActionMessage}</span>
+                </div>
+              )}
+
+              {user ? (
+                <>
+                  {/* User Profile Card */}
+                  <div className="bg-[#10131A] border border-[#282D38] rounded-2xl p-5 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-xl bg-purple-600/20 border border-purple-500/40 flex items-center justify-center text-purple-300 font-bold text-lg">
+                          {user.username ? user.username.charAt(0).toUpperCase() : 'U'}
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-bold text-white">{user.username || 'Authenticated User'}</h4>
+                          <p className="text-xs text-slate-400">{user.email}</p>
+                        </div>
+                      </div>
+                      <span className="text-[11px] font-medium px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        Active Account
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 text-xs border-t border-[#282D38]">
+                      <div className="p-3 bg-[#151923] rounded-xl border border-[#282D38]">
+                        <span className="text-[10px] text-slate-400 block">Primary Provider</span>
+                        <span className="font-semibold text-slate-200 uppercase mt-0.5 block">{user.primary_provider || 'Email'}</span>
+                      </div>
+                      <div className="p-3 bg-[#151923] rounded-xl border border-[#282D38]">
+                        <span className="text-[10px] text-slate-400 block">OmniAI User ID</span>
+                        <span className="font-mono text-slate-300 text-[11px] mt-0.5 block truncate" title={user.id}>{user.id}</span>
+                      </div>
+                      <div className="p-3 bg-[#151923] rounded-xl border border-[#282D38]">
+                        <span className="text-[10px] text-slate-400 block">Account Created</span>
+                        <span className="font-semibold text-slate-200 mt-0.5 block">
+                          {user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Linked OAuth Providers */}
+                  <div className="bg-[#10131A] border border-[#282D38] rounded-2xl p-5 space-y-4">
+                    <div>
+                      <h4 className="text-xs font-semibold text-slate-200 uppercase tracking-wider">
+                        Linked Authentication Providers
+                      </h4>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        Link your Google or GitHub account to sign in with single-sign-on without creating duplicate accounts.
+                      </p>
+                    </div>
+
+                    {isLoadingLinked ? (
+                      <div className="text-xs text-slate-500 py-3 text-center animate-pulse">Loading linked accounts...</div>
+                    ) : (
+                      <div className="space-y-3">
+                        {/* Google Provider Card */}
+                        {(() => {
+                          const googleLink = linkedProviders.find(p => p.provider === 'google');
+                          const isPrimaryGoogle = user.primary_provider === 'google';
+                          const isLinked = Boolean(googleLink || isPrimaryGoogle);
+
+                          return (
+                            <div className="flex items-center justify-between p-3.5 bg-[#151923] rounded-xl border border-[#282D38]">
+                              <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
+                                  <GoogleLogo className="w-5 h-5" />
+                                </div>
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs font-bold text-white">Google Account</span>
+                                    {isLinked && (
+                                      <span className="text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                                        Linked
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-[11px] text-slate-400 mt-0.5">
+                                    {isLinked
+                                      ? `Connected via Google ID: ${googleLink?.provider_user_id || 'Primary'}`
+                                      : 'Not linked to this OmniAI account'}
+                                  </p>
+                                </div>
+                              </div>
+                              <div>
+                                {isLinked ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUnlinkProvider('google')}
+                                    className="px-3 py-1.5 rounded-lg text-xs font-medium text-red-400 hover:text-red-300 hover:bg-red-950/30 border border-red-500/30 transition-colors cursor-pointer"
+                                  >
+                                    Unlink
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleLinkProvider('google')}
+                                    className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-purple-600 hover:bg-purple-500 text-white transition-colors cursor-pointer shadow-xs"
+                                  >
+                                    Link Google
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })()}
+
+                        {/* GitHub Provider Card */}
+                        {(() => {
+                          const githubLink = linkedProviders.find(p => p.provider === 'github');
+                          const isPrimaryGithub = user.primary_provider === 'github';
+                          const isLinked = Boolean(githubLink || isPrimaryGithub);
+
+                          return (
+                            <div className="flex items-center justify-between p-3.5 bg-[#151923] rounded-xl border border-[#282D38]">
+                              <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
+                                  <GitHubLogo className="w-5 h-5 text-white" />
+                                </div>
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs font-bold text-white">GitHub Account</span>
+                                    {isLinked && (
+                                      <span className="text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                                        Linked
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-[11px] text-slate-400 mt-0.5">
+                                    {isLinked
+                                      ? `Connected via GitHub ID: ${githubLink?.provider_user_id || 'Primary'}`
+                                      : 'Not linked to this OmniAI account'}
+                                  </p>
+                                </div>
+                              </div>
+                              <div>
+                                {isLinked ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUnlinkProvider('github')}
+                                    className="px-3 py-1.5 rounded-lg text-xs font-medium text-red-400 hover:text-red-300 hover:bg-red-950/30 border border-red-500/30 transition-colors cursor-pointer"
+                                  >
+                                    Unlink
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleLinkProvider('github')}
+                                    className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-purple-600 hover:bg-purple-500 text-white transition-colors cursor-pointer shadow-xs"
+                                  >
+                                    Link GitHub
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Account Actions & Danger Zone */}
+                  <div className="bg-[#10131A] border border-[#282D38] rounded-2xl p-5 space-y-3">
+                    <h4 className="text-xs font-semibold text-slate-200 uppercase tracking-wider">
+                      Account Session & Management
+                    </h4>
+                    <div className="flex flex-wrap items-center gap-3 pt-1">
+                      <button
+                        type="button"
+                        onClick={onLogout}
+                        className="px-4 py-2 rounded-xl text-xs font-semibold bg-[#151923] hover:bg-[#1E2330] text-slate-200 border border-[#282D38] transition-colors cursor-pointer"
+                      >
+                        Sign Out
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (window.confirm('Are you sure you want to permanently delete your account and all associated conversations? This action cannot be undone.')) {
+                            onDeleteAccount();
+                          }
+                        }}
+                        className="px-4 py-2 rounded-xl text-xs font-semibold bg-red-950/40 hover:bg-red-900/50 text-red-300 border border-red-500/30 transition-colors cursor-pointer"
+                      >
+                        Delete Account Permanently
+                      </button>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                /* Guest Mode State */
+                <div className="bg-[#10131A] border border-[#282D38] rounded-2xl p-6 text-center space-y-4">
+                  <div className="w-12 h-12 rounded-2xl bg-purple-600/20 border border-purple-500/40 flex items-center justify-center text-purple-300 text-xl mx-auto">
+                    👤
+                  </div>
+                  <div className="max-w-md mx-auto">
+                    <h4 className="text-sm font-bold text-white">You are currently using Guest Mode</h4>
+                    <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                      Conversations are saved locally on this machine. Create an account or sign in with Google or GitHub to link your identity, configure custom models, and keep your history safe.
+                    </p>
+                  </div>
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      onClick={() => onOpenAuth('signin')}
+                      className="px-5 py-2.5 rounded-xl text-xs font-semibold bg-purple-600 hover:bg-purple-500 text-white transition-all shadow-md shadow-purple-500/25 cursor-pointer"
+                    >
+                      Sign In or Create Account
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* TAB 1: GENERAL */}
           {activeTab === 'general' && (
             <div className="space-y-6 animate-in fade-in duration-150">

@@ -105,6 +105,28 @@ export function useAuth() {
     }
   }, []);
 
+  
+  const setAuthSession = useCallback((authData) => {
+    if (authData?.token) {
+      localStorage.setItem('omniai_user_token', authData.token);
+      setToken(authData.token);
+    }
+    if (authData?.user) {
+      setUser(authData.user);
+    }
+    return authData?.user;
+  }, []);
+
+  const refreshUser = useCallback(async () => {
+    try {
+      const userData = await fetchCurrentUser();
+      setUser(userData);
+      return userData;
+    } catch (_) {
+      return null;
+    }
+  }, []);
+
   return {
     user,
     token,
@@ -115,6 +137,8 @@ export function useAuth() {
     register,
     logout,
     deleteAccount,
+    setAuthSession,
+    refreshUser,
   };
 }
 

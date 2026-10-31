@@ -1,5 +1,7 @@
+from typing import Optional
 from fastapi import APIRouter, Depends, status
 from fastapi.responses import StreamingResponse
+from app.api.routes.auth import get_current_user_optional
 from app.core.model_registry import ModelRegistry
 from app.schemas.chat import (
     ChatRequest,
@@ -71,9 +73,10 @@ async def discover_models(
 async def chat_completion(
     request: ChatRequest,
     chat_service: ChatService = Depends(get_chat_service),
+    user: Optional[dict] = Depends(get_current_user_optional),
 ) -> ChatResponse:
     """Process incoming chat request and generate AI model completion."""
-    return await chat_service.process_chat(request)
+    return await chat_service.process_chat(request, user=user)
 
 
 @router.post(
@@ -85,10 +88,11 @@ async def chat_completion(
 async def chat_stream(
     request: ChatRequest,
     chat_service: ChatService = Depends(get_chat_service),
+    user: Optional[dict] = Depends(get_current_user_optional),
 ) -> StreamingResponse:
     """Stream AI model completion tokens progressively via Server-Sent Events."""
     return StreamingResponse(
-        chat_service.stream_chat(request),
+        chat_service.stream_chat(request, user=user),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

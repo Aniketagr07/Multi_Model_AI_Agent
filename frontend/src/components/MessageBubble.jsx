@@ -134,6 +134,14 @@ export const MessageBubble = React.memo(function MessageBubble({
           isUser ? 'items-end' : 'items-start'
         }`}
       >
+        {/* User Author Attribution for Collaborative Conversations */}
+        {isUser && message.author_name && (
+          <div className="flex items-center gap-1.5 text-[11px] text-purple-300 font-medium px-1 mb-0.5 select-none">
+            <span className="w-1.5 h-1.5 rounded-full bg-purple-400"></span>
+            <span>{message.author_name}</span>
+          </div>
+        )}
+
         {/* Compact, subtle model attribution immediately above response bubble */}
         {!isUser && !isError && (respondingModelName || isStreaming) && (
           <div className="flex items-center gap-1.5 px-0.5 text-xs text-slate-300 font-medium select-none mb-0.5">

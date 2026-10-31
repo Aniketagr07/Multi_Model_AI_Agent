@@ -137,6 +137,7 @@ def test_conversation_user_scoping_and_isolation():
     assert conv_a_id not in ids_b
 
     # Guest lists conversations -> sees neither User A nor User B's conversations
+    client.cookies.clear()
     guest_list = client.get("/api/conversations").json()
     guest_ids = [c["id"] for c in guest_list["conversations"]]
     assert conv_a_id not in guest_ids

@@ -165,3 +165,4 @@ describe('Responding Model Attribution in MessageBubble', () => {
     expect(screen.queryByText('Resolving model...')).not.toBeInTheDocument();
   });
 });
+

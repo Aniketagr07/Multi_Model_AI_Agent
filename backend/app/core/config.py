@@ -45,6 +45,19 @@ class Settings(BaseSettings):
     # Single-Tenant Access Control (Production Authentication)
     APP_ACCESS_TOKEN: Optional[str] = None
 
+    # Google OAuth 2.0 Credentials
+    GOOGLE_CLIENT_ID: Optional[str] = None
+    GOOGLE_CLIENT_SECRET: Optional[str] = None
+    GOOGLE_REDIRECT_URI: str = "http://localhost:5173/auth/callback/google"
+
+    # GitHub OAuth Credentials
+    GITHUB_CLIENT_ID: Optional[str] = None
+    GITHUB_CLIENT_SECRET: Optional[str] = None
+    GITHUB_REDIRECT_URI: str = "http://localhost:5173/auth/callback/github"
+
+    # Server-Side Session & Cookie Security
+    APP_SESSION_SECRET: str = "omniai-secure-session-secret-key-32chars"
+
     # Request Limits, Rate Limiting & Safeguards
     REQUEST_TIMEOUT_SECONDS: float = 45.0
     MAX_MESSAGE_LENGTH: int = 4000
@@ -94,6 +107,16 @@ class Settings(BaseSettings):
     def allowed_document_extensions_list(self) -> List[str]:
         """Parse allowed document extensions into lowercase normalized list."""
         return [ext.strip().lower() for ext in self.ALLOWED_DOCUMENT_EXTENSIONS.split(",") if ext.strip()]
+
+    @property
+    def is_google_auth_configured(self) -> bool:
+        """Return True if Google OAuth client ID and secret are configured."""
+        return bool(self.GOOGLE_CLIENT_ID and self.GOOGLE_CLIENT_SECRET)
+
+    @property
+    def is_github_auth_configured(self) -> bool:
+        """Return True if GitHub OAuth client ID and secret are configured."""
+        return bool(self.GITHUB_CLIENT_ID and self.GITHUB_CLIENT_SECRET)
 
 
 @lru_cache()

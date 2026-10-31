@@ -6,7 +6,7 @@
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.x-38B2AC?logo=tailwind-css&logoColor=white)](https://tailwindcss.com)
 [![SQLite](https://img.shields.io/badge/SQLite-WAL_Mode-003B57?logo=sqlite&logoColor=white)](https://sqlite.org)
 [![Python](https://img.shields.io/badge/Python-3.11%20|%203.14-3776AB?logo=python&logoColor=white)](https://python.org)
-[![Tests: 118 Passed](https://img.shields.io/badge/Tests-118%20Passed%20(100%25)-brightgreen.svg)](docs/TESTING_AND_RESULTS.md)
+[![Tests: 145 Passed](https://img.shields.io/badge/Tests-145%20Passed%20(100%25)-brightgreen.svg)](docs/TESTING_AND_RESULTS.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-purple.svg)](LICENSE)
 
 OmniAI is an intelligent, multi-model AI chatbot application developed as an advanced B.Tech Capstone Project. OmniAI provides a unified, decoupled interface allowing users to converse with multiple leading AI models (Google Gemini, Groq-hosted Llama 3.1 & Mixtral, and OpenAI-compatible endpoints), stream tokens in real-time via Server-Sent Events (SSE), compare outputs side-by-side concurrently, upload and ground prompts in PDF/TXT/Markdown documents, route queries intelligently via an automatic rule-based classifier, search and manage conversations with pinning and archiving, export chat history, and personalize system behavior with custom instructions and theme preferences.
@@ -24,6 +24,30 @@ Modern AI workflows frequently require switching between different LLMs dependin
 ---
 
 ## 2. Key Features
+
+* **👥 Shared Conversations & Real-Time Multi-User Collaboration**:
+  * **Interactive Sharing Dialog**: Generate copyable share links and invite team members by email with granular access roles (`Owner`, `Editor`, `Viewer`).
+  * **View-Only vs. Collaborative Modes**:
+    * **View Only (`viewer`)**: Read-only access to messages with input composers securely locked and warning banners.
+    * **Collaborative Access (`editor`)**: Live multi-user participation where team members send prompts, trigger AI responses, and view synchronized results.
+  * **Real-Time WebSocket Synchronization (`/api/conversations/{id}/ws`)**:
+    * Instant message broadcasts to all active room participants.
+    * Real-time assistant token stream broadcasting across all connected collaborator viewports.
+    * Live user presence tracking with online counts and participant badges.
+    * Live multi-user typing indicators (`Alice is typing...`).
+    * Clear message author attribution tags showing who prompted each query.
+  * **Participant & Permission Management**: Owners can invite members, revoke invitations, change permissions, or remove participants; collaborators can leave threads gracefully.
+
+* **📁 Collaborative Projects & Multi-Member Workspaces**:
+  * **Comprehensive Project Workspaces**: Dedicated workspace hub with 6 functional tabs:
+    1. **Overview**: Project description, member summaries, activity feed, and quick actions.
+    2. **Conversations**: Team conversations grouped under the project with direct navigation.
+    3. **Members**: Role management (`Owner`, `Admin`, `Member`, `Viewer`) and email invitations.
+    4. **Files**: Shared project documents (`.pdf`, `.txt`, `.md`) accessible across project chats.
+    5. **Skills**: Workspace-level toggle to enable or disable specific AI skills for the project.
+    6. **Settings**: Edit project name, icon, visibility (`private` vs `link`), and workspace deletion.
+  * **Project Navigation & Moving Conversations**: Sidebar project list with `+` creation button, and ability to move personal conversations into shared team projects.
+  * **Workspace Audit Trail**: Real-time project activity event logging tracking file uploads, member joins, and conversation additions.
 
 * **🔐 Dual-Mode User Authentication & Account Isolation**:
   * **Guest Mode**: Instant access with zero registration; conversations persist in local browser sessions with clear notices.
@@ -274,34 +298,30 @@ Access the application in your browser:
 
 ## 10. Automated Testing
 
-OmniAI features a full-stack automated test suite with **101 total tests** (81 Backend pytest tests + 20 Frontend Vitest tests) executing hermetically with zero real API token consumption.
+OmniAI features an extensive full-stack automated test suite with **145 total tests** (108 Backend pytest tests + 37 Frontend Vitest tests) executing hermetically with zero external network or token costs.
 
-### Run Backend Tests (81 Tests)
+### Run Backend Tests (108 Tests)
 ```bash
 python -m pytest backend/tests -v
 ```
-All tests execute in ~3.6s with zero external network calls:
-* Provider failure recovery, rate limits, timeouts, and auth error handling.
-* Concurrent comparison dispatch with partial failure recovery.
-* Conversation search, pin/unpin, archive/restore, rename, and multi-format export.
-* Document upload validation (PDF, TXT, MD), chunking, and grounded context.
-* SSE streaming with client disconnect cancellation.
-* Single-user token access guard, in-memory rate limiting, and secret masking filter.
-* Complete database online backup and restoration data cycle.
+All tests execute in ~7.5s with zero external network calls:
+* **Collaboration & Sharing**: Share link generation, token validation, email invites, role hierarchy (`owner`, `editor`, `viewer`), permission enforcement, and room lifecycle.
+* **Collaborative Projects**: Project CRUD, member management, moving conversations into projects, shared file upload/deletion, and activity event logging.
+* **OAuth 2.0 & Accounts**: Google & GitHub OAuth state validation, guest conversation migration, session persistence, and multi-tenant isolation.
+* **Core LLM & Routing**: Heuristic rule router, active fallbacks, provider failure recovery, rate limits, and streaming cancellation.
+* **Persistence & Documents**: SQLite WAL repository, foreign key cascade cleanup, document chunking, and grounded context formatting.
 
-### Run Frontend Tests (20 Tests across 6 Suites)
+### Run Frontend Tests (37 Tests across 9 Suites)
 ```bash
 cd frontend
 npm test
 ```
 Tests run with Vitest and React Testing Library:
-* Chat window rendering, message submission, Enter vs Shift+Enter.
-* Model selector switching, auto-router rationale badge rendering.
-* Side-by-side model comparison concurrent dispatch.
-* Conversation sidebar filtering, switching, pin & archive toggles.
-* Theme switching (Dark/Light/System) and settings persistence.
-* Document upload validation and unsupported format rejection.
-* Secure Markdown rendering, syntax-highlighted code blocks, and copy buttons.
+* **Collaboration & Projects**: ShareConversationModal, ChatHeader presence/role badges, MessageBubble author attribution, and ProjectWorkspace creation.
+* **Chat & Real-time**: Streaming token display, typing indicators, auto-scroll locks, and message retry.
+* **Conversation Management**: Sidebar search filtering, thread selection, pinning, archiving, and deletion.
+* **Settings & Customization**: Theme switching (Dark/Light/System), custom model registration, and BYOK credentials.
+* **Document Handling**: Multi-format upload validation, chunk count presentation, and document grounding.
 
 ### Run Production Build Verification
 ```bash

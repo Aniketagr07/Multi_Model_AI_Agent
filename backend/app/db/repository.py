@@ -58,7 +58,8 @@ class ConversationRepository:
         with get_db_connection() as conn:
             cursor = conn.execute(
                 """
-                SELECT c.id, c.title, c.is_pinned, c.is_archived, c.pinned_at, c.created_at, c.updated_at,
+                SELECT c.id, c.user_id, c.title, c.project_id, c.sharing_enabled, c.share_permission, c.share_token,
+                       c.is_pinned, c.is_archived, c.pinned_at, c.created_at, c.updated_at,
                        COUNT(m.id) as message_count
                 FROM conversations c
                 LEFT JOIN messages m ON c.id = m.conversation_id
@@ -73,6 +74,7 @@ class ConversationRepository:
             res = dict(row)
             res["is_pinned"] = bool(res.get("is_pinned", 0))
             res["is_archived"] = bool(res.get("is_archived", 0))
+            res["sharing_enabled"] = bool(res.get("sharing_enabled", 0))
             return res
 
     @staticmethod
@@ -92,8 +94,8 @@ class ConversationRepository:
             where_clauses: List[str] = []
 
             if user_id:
-                where_clauses.append("c.user_id = ?")
-                params.append(user_id)
+                where_clauses.append("(c.user_id = ? OR c.id IN (SELECT conversation_id FROM conversation_members WHERE user_id = ?) OR (c.project_id IS NOT NULL AND c.project_id IN (SELECT project_id FROM project_members WHERE user_id = ?)))")
+                params.extend([user_id, user_id, user_id])
             else:
                 where_clauses.append("(c.user_id IS NULL OR c.user_id = 'guest')")
 
@@ -110,7 +112,8 @@ class ConversationRepository:
             where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
 
             query = f"""
-                SELECT c.id, c.title, c.is_pinned, c.is_archived, c.pinned_at, c.created_at, c.updated_at,
+                SELECT c.id, c.user_id, c.title, c.project_id, c.sharing_enabled, c.share_permission, c.share_token,
+                       c.is_pinned, c.is_archived, c.pinned_at, c.created_at, c.updated_at,
                        COUNT(m.id) as message_count
                 FROM conversations c
                 LEFT JOIN messages m ON c.id = m.conversation_id
@@ -127,6 +130,7 @@ class ConversationRepository:
                 d = dict(r)
                 d["is_pinned"] = bool(d.get("is_pinned", 0))
                 d["is_archived"] = bool(d.get("is_archived", 0))
+                d["sharing_enabled"] = bool(d.get("sharing_enabled", 0))
                 rows.append(d)
             return rows
 
@@ -245,6 +249,8 @@ class ConversationRepository:
         effort: Optional[str] = "medium",
         document_id: Optional[str] = None,
         document_name: Optional[str] = None,
+        author_id: Optional[str] = None,
+        author_name: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Insert a message record and update the parent conversation's updated_at."""
         mid = msg_id or f"msg-{uuid.uuid4().hex[:12]}"
@@ -257,9 +263,10 @@ class ConversationRepository:
                 INSERT INTO messages (
                     id, conversation_id, role, content, model_id,
                     provider, latency_ms, routed, routing_category,
-                    routing_explanation, effort, document_id, document_name, created_at
+                    routing_explanation, effort, document_id, document_name,
+                    author_id, author_name, created_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
                 """,
                 (
                     mid,
@@ -275,6 +282,8 @@ class ConversationRepository:
                     eff,
                     document_id,
                     document_name,
+                    author_id,
+                    author_name,
                     now,
                 ),
             )
@@ -298,6 +307,8 @@ class ConversationRepository:
             "effort": eff,
             "document_id": document_id,
             "document_name": document_name,
+            "author_id": author_id,
+            "author_name": author_name,
             "created_at": now,
         }
 
@@ -307,7 +318,8 @@ class ConversationRepository:
         query = """
             SELECT id, conversation_id, role, content, model_id,
                    provider, latency_ms, routed, routing_category,
-                   routing_explanation, effort, document_id, document_name, created_at
+                   routing_explanation, effort, document_id, document_name,
+                   author_id, author_name, created_at
             FROM messages
             WHERE conversation_id = ?
             ORDER BY created_at ASC

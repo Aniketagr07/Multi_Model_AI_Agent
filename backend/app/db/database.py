@@ -291,9 +291,150 @@ def init_db() -> None:
     CREATE INDEX IF NOT EXISTS idx_documents_created_at ON documents(created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_model_usage_created_at ON model_usage(created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_model_usage_provider ON model_usage(provider);
+    CREATE TABLE IF NOT EXISTS user_oauth_providers (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        provider TEXT NOT NULL CHECK(provider IN ('google', 'github')),
+        provider_user_id TEXT NOT NULL,
+        email TEXT,
+        display_name TEXT,
+        avatar_url TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        UNIQUE(provider, provider_user_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS oauth_states (
+        state TEXT PRIMARY KEY,
+        provider TEXT NOT NULL,
+        action TEXT NOT NULL DEFAULT 'login',
+        user_id TEXT,
+        redirect_uri TEXT,
+        code_verifier TEXT,
+        expires_at TEXT NOT NULL,
+        created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS password_reset_tokens (
+        token TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        used INTEGER DEFAULT 0,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
     CREATE INDEX IF NOT EXISTS idx_skills_category ON skills(category);
     CREATE INDEX IF NOT EXISTS idx_user_skills_user ON user_skills(user_id, skill_id);
     CREATE INDEX IF NOT EXISTS idx_skill_executions_user ON skill_executions(user_id, executed_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_oauth_provider_uid ON user_oauth_providers(provider, provider_user_id);
+    CREATE INDEX IF NOT EXISTS idx_oauth_user_id ON user_oauth_providers(user_id);
+    CREATE INDEX IF NOT EXISTS idx_oauth_states_expires ON oauth_states(expires_at);
+    -- Collaboration & Projects Schema
+    CREATE TABLE IF NOT EXISTS projects (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT,
+        icon TEXT DEFAULT 'folder',
+        visibility TEXT NOT NULL DEFAULT 'private' CHECK(visibility IN ('private', 'invite_only')),
+        owner_id TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS project_members (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        role TEXT NOT NULL CHECK(role IN ('owner', 'admin', 'member', 'viewer')),
+        joined_at TEXT NOT NULL,
+        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        UNIQUE(project_id, user_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS project_invitations (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL,
+        inviter_user_id TEXT NOT NULL,
+        email TEXT,
+        token TEXT UNIQUE NOT NULL,
+        role TEXT NOT NULL CHECK(role IN ('admin', 'member', 'viewer')),
+        status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'accepted', 'revoked', 'expired')),
+        expires_at TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+        FOREIGN KEY (inviter_user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS conversation_members (
+        id TEXT PRIMARY KEY,
+        conversation_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        role TEXT NOT NULL CHECK(role IN ('owner', 'editor', 'viewer')),
+        joined_at TEXT NOT NULL,
+        FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        UNIQUE(conversation_id, user_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS conversation_invitations (
+        id TEXT PRIMARY KEY,
+        conversation_id TEXT NOT NULL,
+        inviter_user_id TEXT NOT NULL,
+        email TEXT,
+        token TEXT UNIQUE NOT NULL,
+        role TEXT NOT NULL CHECK(role IN ('editor', 'viewer')),
+        status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'accepted', 'revoked', 'expired')),
+        expires_at TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
+        FOREIGN KEY (inviter_user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS project_files (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL,
+        uploaded_by TEXT NOT NULL,
+        filename TEXT NOT NULL,
+        file_type TEXT NOT NULL,
+        file_size INTEGER NOT NULL,
+        storage_path TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+        FOREIGN KEY (uploaded_by) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS project_skills (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL,
+        skill_id TEXT NOT NULL,
+        is_enabled INTEGER DEFAULT 1,
+        enabled_by TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+        FOREIGN KEY (skill_id) REFERENCES skills(id) ON DELETE CASCADE,
+        UNIQUE(project_id, skill_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS activity_events (
+        id TEXT PRIMARY KEY,
+        project_id TEXT,
+        conversation_id TEXT,
+        user_id TEXT,
+        event_type TEXT NOT NULL,
+        details TEXT,
+        created_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_project_members_user ON project_members(user_id);
+    CREATE INDEX IF NOT EXISTS idx_project_members_proj ON project_members(project_id);
+    CREATE INDEX IF NOT EXISTS idx_conv_members_user ON conversation_members(user_id);
+    CREATE INDEX IF NOT EXISTS idx_conv_members_conv ON conversation_members(conversation_id);
+    CREATE INDEX IF NOT EXISTS idx_activity_proj ON activity_events(project_id, created_at DESC);
+
     """
 
     db_path = get_db_path()
@@ -331,6 +472,81 @@ def init_db() -> None:
 
         conn.execute("CREATE INDEX IF NOT EXISTS idx_conversations_status ON conversations(is_pinned, is_archived, updated_at DESC);")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_conversations_user ON conversations(user_id, updated_at DESC);")
+
+        # Migrate existing oauth_states table if code_verifier is missing
+        o_cursor = conn.execute("PRAGMA table_info(oauth_states);")
+        o_cols = [r[1] for r in o_cursor.fetchall()]
+        if "code_verifier" not in o_cols and o_cols:
+            try:
+                conn.execute("ALTER TABLE oauth_states ADD COLUMN code_verifier TEXT;")
+            except Exception:
+                pass
+
+
+        # Migrate conversations for Projects & Sharing
+        c_cursor = conn.execute("PRAGMA table_info(conversations);")
+        c_cols = [r[1] for r in c_cursor.fetchall()]
+        if "project_id" not in c_cols and c_cols:
+            try:
+                conn.execute("ALTER TABLE conversations ADD COLUMN project_id TEXT;")
+            except Exception:
+                pass
+        if "sharing_enabled" not in c_cols and c_cols:
+            try:
+                conn.execute("ALTER TABLE conversations ADD COLUMN sharing_enabled INTEGER DEFAULT 0;")
+            except Exception:
+                pass
+        if "share_permission" not in c_cols and c_cols:
+            try:
+                conn.execute("ALTER TABLE conversations ADD COLUMN share_permission TEXT DEFAULT 'editor';")
+            except Exception:
+                pass
+        if "share_token" not in c_cols and c_cols:
+            try:
+                conn.execute("ALTER TABLE conversations ADD COLUMN share_token TEXT;")
+            except Exception:
+                pass
+
+        # Migrate messages for Author attribution in collaboration
+        m_cursor = conn.execute("PRAGMA table_info(messages);")
+        m_cols = [r[1] for r in m_cursor.fetchall()]
+        if "author_id" not in m_cols and m_cols:
+            try:
+                conn.execute("ALTER TABLE messages ADD COLUMN author_id TEXT;")
+            except Exception:
+                pass
+        if "author_name" not in m_cols and m_cols:
+            try:
+                conn.execute("ALTER TABLE messages ADD COLUMN author_name TEXT;")
+            except Exception:
+                pass
+
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_conversations_project ON conversations(project_id, updated_at DESC);")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_conversations_share_token ON conversations(share_token);")
+
+                # Migrate existing users table if OAuth columns are missing
+        u_cursor = conn.execute("PRAGMA table_info(users);")
+        u_cols = [r[1] for r in u_cursor.fetchall()]
+        if "primary_provider" not in u_cols and u_cols:
+            try:
+                conn.execute("ALTER TABLE users ADD COLUMN primary_provider TEXT DEFAULT 'email';")
+            except Exception:
+                pass
+        if "avatar_url" not in u_cols and u_cols:
+            try:
+                conn.execute("ALTER TABLE users ADD COLUMN avatar_url TEXT;")
+            except Exception:
+                pass
+        if "last_login_at" not in u_cols and u_cols:
+            try:
+                conn.execute("ALTER TABLE users ADD COLUMN last_login_at TEXT;")
+            except Exception:
+                pass
+        if "display_name" not in u_cols and u_cols:
+            try:
+                conn.execute("ALTER TABLE users ADD COLUMN display_name TEXT;")
+            except Exception:
+                pass
 
         # Migrate existing messages table if columns are missing
         cursor = conn.execute("PRAGMA table_info(messages);")

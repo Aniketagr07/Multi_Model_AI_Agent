@@ -17,6 +17,7 @@ import {
 export function useChat({ customModels = [], customKeys = {}, userSettings = {}, userToken = null } = {}) {
   const [conversations, setConversations] = useState([]);
   const [activeConversationId, setActiveConversationId] = useState(null); // null = new chat
+  const [currentUserRole, setCurrentUserRole] = useState('owner');
   const [activeMessages, setActiveMessages] = useState([]);
   const [selectedModelId, setSelectedModelId] = useState(() => {
     if (userSettings?.default_routing_mode === 'manual' && userSettings?.default_model) {
@@ -66,6 +67,10 @@ export function useChat({ customModels = [], customKeys = {}, userSettings = {},
           createdAt: c.created_at,
           updatedAt: c.updated_at,
           messageCount: c.message_count,
+          project_id: c.project_id,
+          sharing_enabled: Boolean(c.sharing_enabled),
+          share_permission: c.share_permission,
+          share_token: c.share_token,
         };
       });
       setConversations(formatted);
@@ -103,6 +108,7 @@ export function useChat({ customModels = [], customKeys = {}, userSettings = {},
 
     try {
       const details = await fetchConversationDetails(convId);
+      setCurrentUserRole(details.current_user_role || 'owner');
       const mappedMessages = (details.messages || []).map(m => {
         const actualModel = allModels.find(mod => mod.id === m.model_id);
         return {
@@ -118,6 +124,8 @@ export function useChat({ customModels = [], customKeys = {}, userSettings = {},
           effort: m.effort || 'medium',
           documentId: m.document_id,
           documentName: m.document_name,
+          author_id: m.author_id,
+          author_name: m.author_name,
           timestamp: m.created_at,
           modelName: actualModel ? actualModel.name : (m.model_id || 'OmniAI Assistant'),
           modelTag: actualModel ? actualModel.tag : (m.provider === 'groq' ? 'Groq Cloud' : 'Google AI Studio'),
@@ -131,6 +139,84 @@ export function useChat({ customModels = [], customKeys = {}, userSettings = {},
     }
   }, []);
 
+  // Real-time collaboration message handlers
+  const handleIncomingRealtimeMessage = useCallback((msg) => {
+    if (!msg || !msg.id) return;
+    setActiveMessages(prev => {
+      if (prev.some(m => m.id === msg.id)) return prev;
+      const actualModel = allModels.find(mod => mod.id === msg.model_id);
+      return [
+        ...prev,
+        {
+          id: msg.id,
+          sender: msg.role === 'user' ? 'user' : 'assistant',
+          content: msg.content,
+          modelId: msg.model_id,
+          provider: msg.provider,
+          latencyMs: msg.latency_ms,
+          routed: Boolean(msg.routed),
+          routingCategory: msg.routing_category,
+          routingExplanation: msg.routing_explanation,
+          effort: msg.effort || 'medium',
+          documentId: msg.document_id,
+          documentName: msg.document_name,
+          author_id: msg.author_id,
+          author_name: msg.author_name,
+          timestamp: msg.created_at,
+          modelName: actualModel ? actualModel.name : (msg.model_id || 'OmniAI Assistant'),
+          modelTag: actualModel ? actualModel.tag : (msg.provider === 'groq' ? 'Groq Cloud' : 'Google AI Studio'),
+        }
+      ];
+    });
+  }, [allModels]);
+
+  const handleIncomingRealtimeChunk = useCallback((chunkData) => {
+    setActiveMessages(prev => {
+      const last = prev[prev.length - 1];
+      if (last && last.sender === 'assistant' && last.isStreaming) {
+        return [
+          ...prev.slice(0, -1),
+          { ...last, content: last.content + chunkData.token },
+        ];
+      }
+      const actualModel = allModels.find(mod => mod.id === chunkData.model_id);
+      return [
+        ...prev,
+        {
+          id: `stream-${Date.now()}`,
+          sender: 'assistant',
+          content: chunkData.token,
+          isStreaming: true,
+          modelId: chunkData.model_id,
+          modelName: actualModel ? actualModel.name : 'OmniAI Assistant',
+        }
+      ];
+    });
+  }, [allModels]);
+
+  const handleIncomingRealtimeDone = useCallback((doneMsg) => {
+    setActiveMessages(prev => {
+      const filtered = prev.filter(m => !m.isStreaming);
+      if (filtered.some(m => m.id === doneMsg.id)) return filtered;
+      const actualModel = allModels.find(mod => mod.id === doneMsg.model_id);
+      return [
+        ...filtered,
+        {
+          id: doneMsg.id,
+          sender: 'assistant',
+          content: doneMsg.content,
+          modelId: doneMsg.model_id,
+          provider: doneMsg.provider,
+          latencyMs: doneMsg.latency_ms,
+          author_id: doneMsg.author_id,
+          author_name: doneMsg.author_name,
+          timestamp: doneMsg.created_at,
+          modelName: actualModel ? actualModel.name : 'OmniAI Assistant',
+        }
+      ];
+    });
+  }, [allModels]);
+
   // Action: Start a brand-new chat
   const startNewChat = useCallback(() => {
     if (abortControllerRef.current) {
@@ -138,6 +224,7 @@ export function useChat({ customModels = [], customKeys = {}, userSettings = {},
       abortControllerRef.current = null;
     }
     setActiveConversationId(null);
+    setCurrentUserRole('owner');
     setActiveMessages([]);
     setInput('');
     setAttachedDocument(null);
@@ -578,5 +665,11 @@ export function useChat({ customModels = [], customKeys = {}, userSettings = {},
     uploadProgress,
     attachFile,
     removeDocument,
+    // Realtime & Collaboration support
+    currentUserRole,
+    setCurrentUserRole,
+    handleIncomingRealtimeMessage,
+    handleIncomingRealtimeChunk,
+    handleIncomingRealtimeDone,
   };
 }

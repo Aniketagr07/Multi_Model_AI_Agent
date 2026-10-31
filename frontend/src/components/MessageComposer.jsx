@@ -23,6 +23,8 @@ export function MessageComposer({
   onRemoveDocument,
   onQuickAction,
   onOpenSkills,
+  currentUserRole = 'owner',
+  onTyping,
 }) {
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -201,7 +203,7 @@ export function MessageComposer({
     }
   };
 
-  const isSendDisabled = isLoading || isUploadingDocument || (!input.trim() && !attachedDocument);
+  const isSendDisabled = isLoading || isUploadingDocument || currentUserRole === 'viewer' || (!input.trim() && !attachedDocument);
 
   return (
     <div
@@ -313,11 +315,16 @@ export function MessageComposer({
           ref={textareaRef}
           rows={1}
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={(e) => {
+            setInput(e.target.value);
+            if (onTyping) onTyping(true);
+          }}
           onKeyDown={handleKeyDown}
-          disabled={isLoading}
+          disabled={isLoading || currentUserRole === 'viewer'}
           placeholder={
-            isLoading
+            currentUserRole === 'viewer'
+              ? "You have view-only access to this conversation."
+              : isLoading
               ? "Generating response... Click Stop to halt."
               : attachedDocument
               ? `Ask a question, request summary, or choose a quick analysis for ${attachedDocument.filename}...`
@@ -337,8 +344,8 @@ export function MessageComposer({
                   loadInstalledSkills();
                   setIsAttachOpen(prev => !prev);
                 }}
-                disabled={isLoading || isUploadingDocument}
-                title="Attach Document or Use Skill"
+                disabled={isLoading || isUploadingDocument || currentUserRole === 'viewer'}
+                title={currentUserRole === 'viewer' ? 'Attachments disabled for viewers' : 'Attach Document or Use Skill'}
                 aria-haspopup="true"
                 aria-expanded={isAttachOpen}
                 className="px-2.5 py-1.5 rounded-xl text-xs bg-[#10131A] hover:bg-[#1E2330] text-slate-300 hover:text-purple-300 border border-[#282D38] hover:border-purple-500/40 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-40"

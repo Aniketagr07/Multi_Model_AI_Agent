@@ -103,3 +103,32 @@ This document provides a comprehensive inventory of all user-facing features, ba
 * **Clean Sidebar**: Minimalist layout containing OmniAI branding, New Chat, conversation search, view links, and genuine conversation history with an empty state for new users; zero bottom-left footer clutter.
 * **Integrated Model Selector**: Compact trigger showing `[ Provider Logo ] Short Model Name ▼` with reasoning effort segmented controls and BYOK API key configuration inside the dropdown.
 * **Floating Usage Popover**: Non-intrusive floating popover anchored at the bottom-right displaying 5-hour and 7-day rolling quota windows.
+
+### 10. Shared Conversations & Real-Time Collaboration
+* **Granular Share Dialog**: Instant sharing modal with copyable URL link generation and email address invitations.
+* **Access Modes**:
+  * **View-Only (`viewer`)**: Read-only observation with locked input composers, disabled file uploads, and viewer warning banners.
+  * **Collaborative Access (`editor`)**: Full interactive co-authoring where invited team members can send queries, invoke tools, and prompt AI models.
+* **WebSocket Real-Time Synchronization**:
+  * Real-time room multiplexing at `/api/conversations/{id}/ws` with token and session authorization.
+  * Instant multi-user chat broadcasting (`new_message` events).
+  * Live assistant token streaming (`assistant_chunk` and `assistant_done` events) synced across all connected devices.
+  * Live presence detection (`presence_update` events) with online counter badge in header.
+  * Collaborative typing indicators (`user_typing` events).
+  * Author attribution tagging showing the creator name and timestamp for every user message.
+* **Member Management**:
+  * Owner capabilities: Revoke invitations, remove members, toggle public link permissions, and delete conversations.
+  * Member capabilities: Voluntarily leave shared threads with automatic presence and state cleanup.
+
+### 11. Collaborative Projects & Multi-Member Workspaces
+* **Project Workspaces**: Collaborative project containers organizing related conversations, members, shared files, and specialized AI skills.
+* **6-Tab Dedicated Workspace Interface**:
+  1. **Overview Tab**: Project statistics, description, member avatars, and real-time activity timeline.
+  2. **Conversations Tab**: Conversations attached to the project, with quick creation and one-click chat launching.
+  3. **Members Tab**: Multi-user team roster with role-based permissions (`Owner`, `Admin`, `Member`, `Viewer`), email invitations, and role management.
+  4. **Files Tab**: Shared workspace files (`.pdf`, `.txt`, `.md`) uploaded once and available across all project conversations.
+  5. **Skills Tab**: Workspace-level toggle switches to enable or disable specific AI skills per project.
+  6. **Settings Tab**: Update project title, icon, visibility (`private` vs `link`), and project deletion.
+* **Thread Migration**: Easily move individual personal conversations into collaborative team projects.
+* **Workspace Audit Trail**: Real-time event logging (`activity_events`) recording file uploads, new members, and conversation additions.
+
