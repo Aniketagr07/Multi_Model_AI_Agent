@@ -11,7 +11,11 @@ import { AuthModal } from './components/AuthModal';
 import { ShareConversationModal } from './components/ShareConversationModal';
 import { CreateProjectModal } from './components/CreateProjectModal';
 import BYOKOnboardingModal from './components/BYOKOnboardingModal';
+import LocalModelModal from './components/LocalModelModal';
+import BackgroundDownloadIndicator from './components/BackgroundDownloadIndicator';
 import { ProjectWorkspace } from './components/ProjectWorkspace';
+import { getAllGuestDataForMigration, clearGuestStorage } from './services/guestStorage';
+import { getBYOKStatus } from './services/api';
 import { useChat } from './hooks/useChat';
 import { useAuth } from './hooks/useAuth';
 import { useHealthCheck } from './hooks/useHealthCheck';
@@ -36,7 +40,14 @@ export default function App() {
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isCreateProjectModalOpen, setIsCreateProjectModalOpen] = useState(false);
   const [isBYOKModalOpen, setIsBYOKModalOpen] = useState(false);
-  const [hasDismissedBYOK, setHasDismissedBYOK] = useState(false);
+  const [isLocalModelModalOpen, setIsLocalModelModalOpen] = useState(false);
+  const [hasDismissedBYOK, setHasDismissedBYOK] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('omniai_byok_dismissed') === 'true';
+    }
+    return false;
+  });
+  const [byokStatus, setByokStatus] = useState(null);
   const [projects, setProjects] = useState([]);
   const [activeProjectId, setActiveProjectId] = useState(null);
 
@@ -103,6 +114,9 @@ export default function App() {
     attachFile,
     removeDocument,
     currentUserRole,
+    localModelReady,
+    localModelLoading,
+    setLocalModelReady,
     handleIncomingRealtimeMessage,
     handleIncomingRealtimeChunk,
     handleIncomingRealtimeDone,
@@ -114,6 +128,17 @@ export default function App() {
   });
 
   const { status: healthStatus, checkHealth: onCheckHealth } = useHealthCheck();
+
+  // Fetch BYOK status for authenticated users
+  useEffect(() => {
+    if (token && !isGuest) {
+      getBYOKStatus()
+        .then((data) => setByokStatus(data))
+        .catch((err) => console.warn('[OmniAI BYOK] Status fetch failed:', err.message));
+    } else {
+      setByokStatus(null);
+    }
+  }, [token, isGuest]);
 
   // Auto-trigger BYOK Setup for new or existing users who have not completed key setup
   useEffect(() => {
@@ -268,7 +293,9 @@ export default function App() {
 
   const handleMigrateConversations = async () => {
     try {
-      const res = await migrateGuestConversations();
+      const guestData = getAllGuestDataForMigration();
+      const res = await migrateGuestConversations(guestData.length > 0 ? guestData : null);
+      clearGuestStorage();
       setNotification({
         type: 'success',
         text: res.message || `Successfully imported ${res.migrated_count} conversation(s).`,
@@ -432,7 +459,7 @@ export default function App() {
           <div className="bg-purple-950/50 border-b border-purple-500/30 px-4 py-2.5 flex items-center justify-between text-xs text-purple-200 animate-in fade-in">
             <div className="flex items-center gap-2">
               <span className="text-purple-400 font-semibold">🔄 Guest Conversations:</span>
-              <span>Import previous guest conversations into your account (<strong>{user.username || user.email}</strong>)?</span>
+              <span>Would you like to import your guest conversations into your account?</span>
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -440,14 +467,44 @@ export default function App() {
                 onClick={handleMigrateConversations}
                 className="px-3 py-1 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-medium text-xs transition-colors cursor-pointer"
               >
-                Import to Account
+                Import conversations
               </button>
               <button
                 type="button"
                 onClick={() => setMigrationBanner(false)}
                 className="px-2 py-1 text-slate-400 hover:text-white text-xs transition-colors cursor-pointer"
               >
-                Dismiss
+                Skip for now
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Unobtrusive Prompt for Registered Users Without API Keys */}
+        {user && !isGuest && byokStatus && !byokStatus.has_active_provider && !hasDismissedBYOK && (
+          <div className="bg-purple-950/40 border-b border-purple-500/20 px-4 py-2 flex items-center justify-between text-xs text-purple-200">
+            <div className="flex items-center gap-2">
+              <span>⚡</span>
+              <span>You are currently using the on-device local model. Connect an API provider to unlock Google Gemini, Groq, and OpenAI cloud models.</span>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsBYOKModalOpen(true)}
+                className="px-2.5 py-1 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-medium text-xs transition-colors cursor-pointer"
+              >
+                + Connect Key
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setHasDismissedBYOK(true);
+                  if (typeof window !== 'undefined') localStorage.setItem('omniai_byok_dismissed', 'true');
+                }}
+                className="text-slate-400 hover:text-white px-1 cursor-pointer"
+                title="Dismiss"
+              >
+                ✕
               </button>
             </div>
           </div>
@@ -467,6 +524,7 @@ export default function App() {
               onOpenAuth={handleOpenAuth}
               onLogout={logout}
               onDeleteAccount={deleteAccount}
+              onOpenBYOKModal={() => setIsBYOKModalOpen(true)}
             />
           </main>
         ) : activeView === 'skills' ? (
@@ -520,6 +578,13 @@ export default function App() {
               onSelectEffort={setEffort}
               customModels={customModels}
               onOpenApiKeyModal={() => setIsBYOKModalOpen(true)}
+              onOpenAuthModal={handleOpenAuth}
+              user={user}
+              isGuest={isGuest}
+              byokStatus={byokStatus}
+              localModelReady={localModelReady}
+              localModelLoading={localModelLoading}
+              onOpenLocalModelModal={() => setIsLocalModelModalOpen(true)}
               attachedDocument={attachedDocument}
               isUploadingDocument={isUploadingDocument}
               uploadProgress={uploadProgress}
@@ -533,6 +598,22 @@ export default function App() {
           </main>
         )}
       </div>
+
+      {/* Local Browser Model WebGPU Loading & Cache Modal */}
+      <LocalModelModal
+        isOpen={isLocalModelModalOpen}
+        onClose={() => setIsLocalModelModalOpen(false)}
+        selectedModelId={selectedModelId}
+        onModelReady={(modelId) => {
+          setSelectedModelId(modelId);
+          setLocalModelReady(true);
+        }}
+      />
+
+      {/* Non-Blocking Compact Background Model Download Indicator */}
+      <BackgroundDownloadIndicator
+        onOpenFullModal={() => setIsLocalModelModalOpen(true)}
+      />
 
       {/* Dynamic API Key Modal for Multi-Provider Auto-Discovery */}
       <ApiKeyModal
@@ -563,6 +644,7 @@ export default function App() {
         conversationId={activeConversationId}
         conversationTitle={activeTitle}
         currentUser={user}
+        onOpenAuth={handleOpenAuth}
         onLeftConversation={() => {
           setIsShareModalOpen(false);
           refreshConversations();

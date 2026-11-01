@@ -89,6 +89,22 @@ class CollaborationService:
                 "can_manage": True,
             }
 
+        # If conversation is unassigned (e.g. created as guest before login), assign to current user
+        if not conv.get("user_id") or conv.get("user_id") == "guest":
+            with get_db_connection() as conn:
+                conn.execute(
+                    "UPDATE conversations SET user_id = ? WHERE id = ?;",
+                    (user_id, conv_id),
+                )
+            conv["user_id"] = user_id
+            return {
+                "conversation": conv,
+                "role": "owner",
+                "can_read": True,
+                "can_write": True,
+                "can_manage": True,
+            }
+
         # 3. Check explicit conversation membership
         with get_db_connection() as conn:
             cur = conn.execute(
@@ -504,6 +520,42 @@ class CollaborationService:
             )
 
         return {"success": True, "message": "Participant removed successfully."}
+
+    @classmethod
+    def update_member_role(cls, conv_id: str, current_user: dict, target_user_id: str, new_role: str) -> dict:
+        """Update a participant's role between editor and viewer (Owner only)."""
+        access = cls.get_conversation_access(conv_id, current_user)
+        if not access["can_manage"]:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only conversation owners can modify member roles.",
+            )
+
+        if new_role not in ("editor", "viewer"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Role must be either 'editor' or 'viewer'.",
+            )
+
+        conv = access["conversation"]
+        if conv.get("user_id") == target_user_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="The conversation owner role cannot be modified.",
+            )
+
+        with get_db_connection() as conn:
+            cur = conn.execute(
+                "UPDATE conversation_members SET role = ? WHERE conversation_id = ? AND user_id = ?;",
+                (new_role, conv_id, target_user_id),
+            )
+            if cur.rowcount == 0:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Participant not found in this conversation.",
+                )
+
+        return {"success": True, "conversation_id": conv_id, "user_id": target_user_id, "role": new_role}
 
     @classmethod
     def revoke_invitation(cls, conv_id: str, current_user: dict, invitation_id: str) -> dict:

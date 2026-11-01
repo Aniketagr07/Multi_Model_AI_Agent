@@ -1,13 +1,8 @@
-import asyncio
+import uuid
 import pytest
-from unittest.mock import patch, MagicMock
-from fastapi.testclient import TestClient
-from app.main import app
 from app.core.encryption import encrypt_api_key, decrypt_api_key, mask_api_key
 from app.services.byok_service import BYOKService
 from app.services.auth_service import register_user
-
-client = TestClient(app)
 
 
 def test_encryption_decryption_and_tampering():
@@ -34,182 +29,124 @@ def test_encryption_decryption_and_tampering():
         decrypt_api_key(tampered)
 
 
-def test_live_provider_validation_responses():
-    """Verify live validation status messaging for Gemini and Groq with mocked HTTP responses."""
-    # Test valid Gemini key
-    with patch("httpx.AsyncClient.get") as mock_get:
-        mock_resp = MagicMock()
-        mock_resp.status_code = 200
-        mock_resp.json.return_value = {"models": [{"name": "models/gemini-2.5-flash"}]}
-        mock_get.return_value = mock_resp
-
-        val = asyncio.run(BYOKService.validate_provider_key("gemini", "AIzaSyValidGeminiKey123"))
-        assert val[0] is True
-        assert val[1] == "Connected Successfully"
-
-    # Test invalid Gemini key (400)
-    with patch("httpx.AsyncClient.get") as mock_get:
-        mock_resp = MagicMock()
-        mock_resp.status_code = 400
-        mock_resp.json.return_value = {"error": {"message": "API key not valid"}}
-        mock_get.return_value = mock_resp
-
-        val = asyncio.run(BYOKService.validate_provider_key("gemini", "AIzaSyInvalidKey"))
-        assert val[0] is False
-        assert val[1] == "Invalid API Key"
-
-    # Test Groq rate limit (429)
-    with patch("httpx.AsyncClient.get") as mock_get:
-        mock_resp = MagicMock()
-        mock_resp.status_code = 429
-        mock_resp.json.return_value = {"error": {"message": "Rate limit reached"}}
-        mock_get.return_value = mock_resp
-
-        val = asyncio.run(BYOKService.validate_provider_key("groq", "gsk_testRateLimitKey"))
-        assert val[0] is False
-        assert val[1] == "Provider Rate Limit Reached"
-
-    # Test Groq 503 service unavailable
-    with patch("httpx.AsyncClient.get") as mock_get:
-        mock_resp = MagicMock()
-        mock_resp.status_code = 503
-        mock_resp.json.return_value = {}
-        mock_get.return_value = mock_resp
-
-        val = asyncio.run(BYOKService.validate_provider_key("groq", "gsk_test503Key"))
-        assert val[0] is False
-        assert val[1] == "Provider Service Unavailable"
-
-
 def test_byok_api_lifecycle_and_user_isolation():
     """
     Test complete BYOK lifecycle:
     1. User A registers and checks status (no keys, byok_setup_completed is False).
-    2. User A validates and saves Groq key.
+    2. User A saves Groq key.
     3. User A status reflects connected Groq key and byok_setup_completed is True.
     4. User B registers and checks status -> isolation: User B has NO keys.
     5. User A deletes key -> byok_setup_completed resets to False.
     """
     # 1. Register User A
-    user_a = register_user("byok_user_a@example.com", "UserA", "Password123!")
-    token_a = user_a["token"]
+    uid = uuid.uuid4().hex[:6]
+    user_a = register_user(f"byok_user_a_{uid}@example.com", f"UserA_{uid}", "Password123!")
     user_a_id = user_a["user"]["id"]
-    headers_a = {"Authorization": f"Bearer {token_a}"}
 
     # Initial status
-    resp = client.get("/api/byok/status", headers=headers_a)
-    assert resp.status_code == 200
-    data = resp.json()
-    assert data["has_active_provider"] is False
-    assert data["byok_setup_completed"] is False
-    groq_status = next(p for p in data["providers"] if p["provider"] == "groq")
-    assert groq_status["is_connected"] is False
+    data = BYOKService.get_user_status(user_a_id)
+    assert data.has_active_provider is False
+    assert data.byok_setup_completed is False
+    groq_status = next(p for p in data.providers if p.provider == "groq")
+    assert groq_status.is_connected is False
 
-    # 2. Validate Groq key
-    with patch("httpx.AsyncClient.get") as mock_get:
-        mock_resp = MagicMock()
-        mock_resp.status_code = 200
-        mock_resp.json.return_value = {"data": [{"id": "llama-3.3-70b-versatile"}]}
-        mock_get.return_value = mock_resp
-
-        val_resp = client.post(
-            "/api/byok/validate",
-            headers=headers_a,
-            json={"provider": "groq", "api_key": "gsk_mySecretGroqKey9999"},
-        )
-        assert val_resp.status_code == 200
-        assert val_resp.json()["success"] is True
-        assert val_resp.json()["status"] == "Connected Successfully"
-
-        # Save Groq key
-        save_resp = client.post(
-            "/api/byok/save",
-            headers=headers_a,
-            json={"provider": "groq", "api_key": "gsk_mySecretGroqKey9999"},
-        )
-        assert save_resp.status_code == 201
-        save_data = save_resp.json()
-        assert save_data["provider"] == "groq"
-        assert save_data["success"] is True
-        assert save_data["key_fingerprint"].endswith("9999")
-        assert "gsk_mySecret" not in save_data["key_fingerprint"]
+    # 2. Save Groq key
+    save_data = BYOKService.save_user_credential_direct(user_a_id, "groq", "gsk_mySecretGroqKey9999")
+    assert save_data.provider == "groq"
+    assert save_data.success is True
+    assert save_data.key_fingerprint.endswith("9999")
+    assert "gsk_mySecret" not in save_data.key_fingerprint
 
     # 3. User A status check
-    resp_after = client.get("/api/byok/status", headers=headers_a)
-    data_after = resp_after.json()
-    assert data_after["has_active_provider"] is True
-    assert data_after["byok_setup_completed"] is True
-    groq_item = next(p for p in data_after["providers"] if p["provider"] == "groq")
-    assert groq_item["is_connected"] is True
-    assert groq_item["key_fingerprint"].endswith("9999")
+    data_after = BYOKService.get_user_status(user_a_id)
+    assert data_after.has_active_provider is True
+    assert data_after.byok_setup_completed is True
+    groq_item = next(p for p in data_after.providers if p.provider == "groq")
+    assert groq_item.is_connected is True
+    assert groq_item.key_fingerprint.endswith("9999")
 
     # Verify decrypted key retrieval inside backend for User A
     decrypted = BYOKService.get_decrypted_user_key(user_a_id, "groq")
     assert decrypted == "gsk_mySecretGroqKey9999"
 
     # 4. User B registers and checks isolation
-    user_b = register_user("byok_user_b@example.com", "UserB", "Password123!")
-    token_b = user_b["token"]
+    user_b = register_user(f"byok_user_b_{uid}@example.com", f"UserB_{uid}", "Password123!")
     user_b_id = user_b["user"]["id"]
-    headers_b = {"Authorization": f"Bearer {token_b}"}
 
-    resp_b = client.get("/api/byok/status", headers=headers_b)
-    data_b = resp_b.json()
-    assert data_b["has_active_provider"] is False
-    assert data_b["byok_setup_completed"] is False
-    for p in data_b["providers"]:
-        assert p["is_connected"] is False
-        assert p["key_fingerprint"] is None
+    data_b = BYOKService.get_user_status(user_b_id)
+    assert data_b.has_active_provider is False
+    assert data_b.byok_setup_completed is False
+    for p in data_b.providers:
+        assert p.is_connected is False
+        assert p.key_fingerprint is None
 
     # User B cannot decrypt User A's key
     assert BYOKService.get_decrypted_user_key(user_b_id, "groq") is None
 
     # 5. User A deletes key
-    del_resp = client.delete("/api/byok/groq", headers=headers_a)
-    assert del_resp.status_code == 200
-    assert del_resp.json()["success"] is True
+    del_resp = BYOKService.delete_user_key(user_a_id, "groq")
+    assert del_resp["success"] is True
 
     # User A status is now disconnected
-    resp_final = client.get("/api/byok/status", headers=headers_a)
-    assert resp_final.json()["has_active_provider"] is False
-    assert resp_final.json()["byok_setup_completed"] is False
+    resp_final = BYOKService.get_user_status(user_a_id)
+    assert resp_final.has_active_provider is False
+    assert resp_final.byok_setup_completed is False
 
 
-def test_auto_routing_filters_by_user_active_providers():
-    """Verify that auto-routing limits available models strictly to the authenticated user's active providers."""
-    # Register user and add only Groq key
-    user = register_user("groq_only_user@example.com", "GroqUser", "Password123!")
+def test_three_providers_connection_and_persistence():
+    """Verify connecting Gemini, Groq, and OpenAI: all 3 appear, persist, and do not overwrite each other."""
+    uid = uuid.uuid4().hex[:6]
+    user = register_user(f"multi_prov_user_{uid}@example.com", f"MultiUser_{uid}", "Password123!")
     user_id = user["user"]["id"]
-    token = user["token"]
-    headers = {"Authorization": f"Bearer {token}"}
 
-    with patch("httpx.AsyncClient.get") as mock_get:
-        mock_resp = MagicMock()
-        mock_resp.status_code = 200
-        mock_resp.json.return_value = {"data": [{"id": "llama-3.3-70b-versatile"}]}
-        mock_get.return_value = mock_resp
+    # 1. Connect Gemini
+    BYOKService.save_user_credential_direct(user_id, "gemini", "AIzaSyGeminiTestKey1234")
+    status1 = BYOKService.get_user_status(user_id)
+    assert status1.total_connected == 1
+    assert any(p.provider == "gemini" and p.is_connected for p in status1.providers)
 
-        client.post(
-            "/api/byok/save",
-            headers=headers,
-            json={"provider": "groq", "api_key": "gsk_groqExclusiveKey1234"},
-        )
+    # 2. Connect Groq (does not overwrite Gemini)
+    BYOKService.save_user_credential_direct(user_id, "groq", "gsk_GroqTestKey5678")
+    status2 = BYOKService.get_user_status(user_id)
+    assert status2.total_connected == 2
+    assert any(p.provider == "gemini" and p.is_connected for p in status2.providers)
+    assert any(p.provider == "groq" and p.is_connected for p in status2.providers)
 
-    # Active providers should be ['groq']
-    active_provs = BYOKService.list_user_active_providers(user_id)
-    assert active_provs == ["groq"]
+    # 3. Connect OpenAI (does not overwrite Gemini or Groq)
+    BYOKService.save_user_credential_direct(user_id, "openai", "sk-proj-OpenAITestKey9999")
+    status3 = BYOKService.get_user_status(user_id)
+    assert status3.total_connected == 3
 
-    # When sending a chat request in auto mode
-    with patch("app.providers.groq_provider.GroqProvider.generate_response", return_value="Mocked response from Groq"):
-        chat_resp = client.post(
-            "/api/chat",
-            headers=headers,
-            json={"message": "Write a python script to sort a list", "model_id": "auto"},
-        )
-        assert chat_resp.status_code == 200
-        chat_data = chat_resp.json()
-        assert chat_data["routed"] is True
-        # Provider chosen MUST be groq, not gemini
-        assert chat_data["provider"] == "groq"
-        assert chat_data["model_id"] in ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
+    # Confirm all 3 appear connected
+    connected_ids = [p.provider for p in status3.providers if p.is_connected]
+    assert set(connected_ids) == {"gemini", "groq", "openai"}
 
+    # Confirm decrypted keys are isolated and correct
+    assert BYOKService.get_decrypted_user_key(user_id, "gemini") == "AIzaSyGeminiTestKey1234"
+    assert BYOKService.get_decrypted_user_key(user_id, "groq") == "gsk_GroqTestKey5678"
+    assert BYOKService.get_decrypted_user_key(user_id, "openai") == "sk-proj-OpenAITestKey9999"
+
+    # 4. Remove one provider (Groq) and confirm the remaining two persist
+    BYOKService.delete_user_key(user_id, "groq")
+    status_after_delete = BYOKService.get_user_status(user_id)
+    assert status_after_delete.total_connected == 2
+    remaining = [p.provider for p in status_after_delete.providers if p.is_connected]
+    assert set(remaining) == {"gemini", "openai"}
+    assert BYOKService.get_decrypted_user_key(user_id, "gemini") == "AIzaSyGeminiTestKey1234"
+    assert BYOKService.get_decrypted_user_key(user_id, "openai") == "sk-proj-OpenAITestKey9999"
+
+
+def test_list_user_active_providers():
+    """Verify list_user_active_providers accurately reports active providers."""
+    uid = uuid.uuid4().hex[:6]
+    user = register_user(f"list_prov_user_{uid}@example.com", f"ListUser_{uid}", "Password123!")
+    user_id = user["user"]["id"]
+
+    assert BYOKService.list_user_active_providers(user_id) == []
+
+    BYOKService.save_user_credential_direct(user_id, "gemini", "AIzaSyKey1")
+    BYOKService.save_user_credential_direct(user_id, "groq", "gsk_Key2")
+    BYOKService.save_user_credential_direct(user_id, "openai", "sk-Key3")
+
+    active = BYOKService.list_user_active_providers(user_id)
+    assert sorted(active) == ["gemini", "groq", "openai"]

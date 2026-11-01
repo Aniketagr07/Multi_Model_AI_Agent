@@ -918,3 +918,56 @@ def migrate_guest_conversations(user_id: str, conversation_ids: Optional[List[st
         migrated_count = cursor.rowcount
 
     return migrated_count
+
+
+def import_client_guest_conversations(user_id: str, conversations_payload: List[dict]) -> int:
+    """
+    Import client-stored guest conversations directly into SQLite assigned to the authenticated user.
+    Preserves message order, model information, timestamps, and prevents duplicate imports.
+    """
+    if not conversations_payload:
+        return 0
+
+    imported_count = 0
+    now = datetime.now(timezone.utc).isoformat()
+
+    with get_db_connection() as conn:
+        for conv in conversations_payload:
+            conv_id = conv.get("id") or f"conv-{uuid.uuid4().hex[:12]}"
+            title = (conv.get("title") or "Guest Conversation").strip()[:100]
+            created_at = conv.get("created_at") or now
+            updated_at = conv.get("updated_at") or now
+
+            # Check if this conversation id already exists for this user
+            existing = conn.execute("SELECT id FROM conversations WHERE id = ?", [conv_id]).fetchone()
+            if existing:
+                conn.execute(
+                    "UPDATE conversations SET user_id = ? WHERE id = ? AND (user_id IS NULL OR user_id = ?)",
+                    [user_id, conv_id, user_id],
+                )
+            else:
+                conn.execute(
+                    "INSERT INTO conversations (id, user_id, title, is_pinned, is_archived, created_at, updated_at) VALUES (?, ?, ?, 0, 0, ?, ?)",
+                    [conv_id, user_id, title, created_at, updated_at],
+                )
+                imported_count += 1
+
+            messages = conv.get("messages") or []
+            for msg in messages:
+                msg_id = msg.get("id") or f"msg-{uuid.uuid4().hex[:12]}"
+                role = msg.get("role") or "user"
+                content = msg.get("content") or ""
+                model_id = msg.get("model_id") or "qwen2.5-0.5b"
+                provider = msg.get("provider") or "local"
+                latency_ms = msg.get("latency_ms") or 0
+                msg_created = msg.get("created_at") or now
+
+                msg_exists = conn.execute("SELECT id FROM messages WHERE id = ?", [msg_id]).fetchone()
+                if not msg_exists:
+                    conn.execute(
+                        """INSERT INTO messages (id, conversation_id, role, content, model_id, provider, latency_ms, created_at)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                        [msg_id, conv_id, role, content, model_id, provider, latency_ms, msg_created],
+                    )
+
+    return imported_count

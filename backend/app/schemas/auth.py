@@ -80,8 +80,27 @@ class ForgotPasswordResponse(BaseModel):
     reset_token: Optional[str] = None
 
 
+class GuestMessagePayload(BaseModel):
+    id: Optional[str] = None
+    role: str
+    content: str
+    model_id: Optional[str] = None
+    provider: Optional[str] = None
+    latency_ms: Optional[int] = None
+    created_at: Optional[str] = None
+
+
+class GuestConversationPayload(BaseModel):
+    id: Optional[str] = None
+    title: str
+    messages: List[GuestMessagePayload] = []
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
 class MigrateGuestConversationsRequest(BaseModel):
     conversation_ids: Optional[List[str]] = Field(default=None, description="Optional specific guest conversation IDs to migrate")
+    conversations: Optional[List[GuestConversationPayload]] = Field(default=None, description="Client-side guest conversations to import")
 
 
 class MigrateGuestConversationsResponse(BaseModel):

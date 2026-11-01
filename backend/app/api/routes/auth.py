@@ -35,6 +35,7 @@ from app.services.auth_service import (
     unlink_provider,
     request_password_reset,
     migrate_guest_conversations,
+    import_client_guest_conversations,
     AuthError,
 )
 
@@ -65,12 +66,21 @@ def clear_auth_cookie(response: Response) -> None:
 
 
 def extract_token_from_request(request: Request, authorization: Optional[str] = None) -> Optional[str]:
-    """Extract session token from Authorization header or HTTP-only session cookie."""
-    if authorization and authorization.strip():
+    """Extract session token from Authorization header (case-insensitive Bearer), X-OmniAI-Token, or HTTP-only session cookie."""
+    if authorization and isinstance(authorization, str) and authorization.strip():
         val = authorization.strip()
-        if val.startswith("Bearer "):
+        if val.lower().startswith("bearer "):
             return val[7:].strip()
         return val
+    auth_hdr = request.headers.get("Authorization") or request.headers.get("authorization")
+    if auth_hdr and auth_hdr.strip():
+        val = auth_hdr.strip()
+        if val.lower().startswith("bearer "):
+            return val[7:].strip()
+        return val
+    x_token = request.headers.get("X-OmniAI-Token") or request.headers.get("x-omniai-token")
+    if x_token and x_token.strip():
+        return x_token.strip()
     return request.cookies.get("omniai_session")
 
 
@@ -410,12 +420,19 @@ def migrate_guest_data(
 ):
     """
     Migrate guest conversations into newly registered or signed-in user account.
-    Ensures work done in guest mode is not lost.
+    Supports both client-side stored conversations and server-side unowned conversations.
     """
+    total_migrated = 0
+    if payload and payload.conversations:
+        conv_dicts = [c.model_dump() for c in payload.conversations]
+        total_migrated += import_client_guest_conversations(user["id"], conv_dicts)
+
     ids = payload.conversation_ids if payload else None
-    count = migrate_guest_conversations(user["id"], ids)
+    if ids or not (payload and payload.conversations):
+        total_migrated += migrate_guest_conversations(user["id"], ids)
+
     return MigrateGuestConversationsResponse(
         status="success",
-        migrated_count=count,
-        message=f"Successfully migrated {count} guest conversation(s) to your account.",
+        migrated_count=total_migrated,
+        message=f"Successfully imported {total_migrated} guest conversation(s) to your account.",
     )

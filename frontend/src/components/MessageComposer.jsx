@@ -3,6 +3,7 @@ import { ModelSelector } from './ModelSelector';
 import { DocumentAttachmentCard } from './DocumentAttachmentCard';
 import { UsagePopover } from './UsagePopover';
 import { fetchSkillsCatalog } from '../services/api';
+import { VoiceService } from '../services/voiceService';
 
 export function MessageComposer({
   input,
@@ -16,6 +17,13 @@ export function MessageComposer({
   onSelectEffort,
   customModels = [],
   onOpenApiKeyModal,
+  onOpenAuthModal,
+  user = null,
+  isGuest = false,
+  byokStatus = null,
+  localModelReady = false,
+  localModelLoading = false,
+  onOpenLocalModelModal = null,
   attachedDocument = null,
   isUploadingDocument = false,
   uploadProgress = 0,
@@ -38,6 +46,10 @@ export function MessageComposer({
   const [isSlashOpen, setIsSlashOpen] = useState(false);
   const [slashQuery, setSlashQuery] = useState('');
   const [highlightedIndex, setHighlightedIndex] = useState(0);
+  const [attachedImage, setAttachedImage] = useState(null);
+  const [sttStatus, setSttStatus] = useState('idle'); // 'idle' | 'listening' | 'error'
+  const [sttError, setSttError] = useState(null);
+  const imageInputRef = useRef(null);
 
   // Load installed skills for the user
   const loadInstalledSkills = useCallback(async () => {
@@ -155,10 +167,81 @@ export function MessageComposer({
     }
   };
 
+  const handleImageFile = (file) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file (PNG, JPEG, WebP, GIF).');
+      return;
+    }
+    if (file.size > 20 * 1024 * 1024) {
+      alert('Image file size exceeds the 20MB limit.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setAttachedImage({
+        file,
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        dataUrl: e.target.result,
+        previewUrl: URL.createObjectURL(file),
+      });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const triggerImageUpload = () => {
+    if (imageInputRef.current) {
+      imageInputRef.current.click();
+    }
+    setIsAttachOpen(false);
+  };
+
+  const handleToggleVoiceInput = () => {
+    if (sttStatus === 'listening') {
+      VoiceService.stopListening();
+      setSttStatus('idle');
+      return;
+    }
+
+    if (!VoiceService.isSpeechRecognitionSupported()) {
+      alert('Speech recognition is not supported in this browser. Please use Google Chrome or Microsoft Edge.');
+      return;
+    }
+
+    setSttError(null);
+    setSttStatus('listening');
+
+    VoiceService.startSpeechToText({
+      onTranscript: (transcript, isFinal) => {
+        if (!transcript) return;
+        setInput((prev) => {
+          const trimmed = prev.trim();
+          return trimmed ? (trimmed + ' ' + transcript) : transcript;
+        });
+      },
+      onStateChange: (state) => {
+        if (state === 'complete' || state === 'idle') {
+          setSttStatus('idle');
+        } else if (state === 'listening') {
+          setSttStatus('listening');
+        }
+      },
+      onError: (errMsg) => {
+        setSttError(errMsg);
+        setSttStatus('error');
+        setTimeout(() => setSttError(null), 5000);
+      },
+    });
+  };
+
   const handleSubmit = () => {
     const skillToSend = selectedSkill ? selectedSkill.id : null;
-    onSend(undefined, undefined, undefined, undefined, skillToSend);
+    const imgToSend = attachedImage;
+    onSend(undefined, undefined, undefined, undefined, skillToSend, imgToSend);
     setSelectedSkill(null);
+    setAttachedImage(null);
   };
 
   const handleFileChange = (e) => {
@@ -198,12 +281,16 @@ export function MessageComposer({
     setIsDragging(false);
 
     const droppedFile = e.dataTransfer.files?.[0];
-    if (droppedFile && onAttachFile) {
-      onAttachFile(droppedFile);
+    if (droppedFile) {
+      if (droppedFile.type.startsWith('image/')) {
+        handleImageFile(droppedFile);
+      } else if (onAttachFile) {
+        onAttachFile(droppedFile);
+      }
     }
   };
 
-  const isSendDisabled = isLoading || isUploadingDocument || currentUserRole === 'viewer' || (!input.trim() && !attachedDocument);
+  const isSendDisabled = isLoading || isUploadingDocument || currentUserRole === 'viewer' || (!input.trim() && !attachedDocument && !attachedImage);
 
   return (
     <div
@@ -218,6 +305,18 @@ export function MessageComposer({
         type="file"
         accept=".pdf,.txt,.md,.markdown"
         onChange={handleFileChange}
+        className="hidden"
+      />
+      {/* Hidden Image Input for Vision Model */}
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/gif"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) handleImageFile(file);
+          if (imageInputRef.current) imageInputRef.current.value = '';
+        }}
         className="hidden"
       />
 
@@ -310,6 +409,33 @@ export function MessageComposer({
           />
         )}
 
+        {/* Attached Image Preview Card */}
+        {attachedImage && (
+          <div className="mb-2 p-2 rounded-xl bg-[#10131A] border border-purple-500/30 flex items-center justify-between gap-3 animate-fade-in">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <img
+                src={attachedImage.previewUrl || attachedImage.dataUrl}
+                alt={attachedImage.name}
+                className="w-10 h-10 object-cover rounded-lg border border-[#282D38]"
+              />
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-slate-200 truncate">{attachedImage.name}</p>
+                <p className="text-[10px] text-purple-400 font-mono">
+                  {Math.round(attachedImage.size / 1024)} KB &bull; On-Device Vision (Qwen2.5-VL 3B)
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setAttachedImage(null)}
+              className="w-6 h-6 rounded-lg bg-[#151923] hover:bg-red-950/60 text-slate-400 hover:text-red-300 border border-[#282D38] flex items-center justify-center text-xs transition-colors cursor-pointer"
+              title="Remove image"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         {/* Multiline Text Area */}
         <textarea
           ref={textareaRef}
@@ -367,6 +493,15 @@ export function MessageComposer({
                     Attach File
                   </div>
                   <div className="space-y-0.5">
+                    <button
+                      type="button"
+                      onClick={triggerImageUpload}
+                      className="w-full text-left px-2.5 py-1.5 rounded-xl text-xs text-slate-300 hover:text-white hover:bg-[#151923] flex items-center gap-2 cursor-pointer transition-colors"
+                    >
+                      <span>🖼️</span>
+                      <span className="font-medium">Upload Image (Vision)</span>
+                      <span className="ml-auto text-[10px] font-mono text-purple-400">.png,.jpg</span>
+                    </button>
                     <button
                       type="button"
                       onClick={() => triggerUpload('.pdf')}
@@ -451,6 +586,13 @@ export function MessageComposer({
               disabled={isLoading}
               customModels={customModels}
               onOpenApiKeyModal={onOpenApiKeyModal}
+              onOpenAuthModal={onOpenAuthModal}
+              user={user}
+              isGuest={isGuest}
+              byokStatus={byokStatus}
+              localModelReady={localModelReady}
+              localModelLoading={localModelLoading}
+              onOpenLocalModelModal={onOpenLocalModelModal}
             />
           </div>
 
@@ -474,6 +616,40 @@ export function MessageComposer({
                 Press <kbd className="px-1.5 py-0.5 rounded bg-[#10131A] border border-[#282D38] text-[10px]">Enter</kbd> to send
               </span>
             )}
+
+                        {/* Voice Input (Speech-to-Text) Button */}
+            <button
+              type="button"
+              onClick={handleToggleVoiceInput}
+              disabled={isLoading || currentUserRole === 'viewer'}
+              title={
+                sttStatus === 'listening'
+                  ? 'Listening... Click to stop speaking'
+                  : 'Voice Input (Speech-to-Text)'
+              }
+              aria-label="Voice input"
+              className={`relative inline-flex items-center justify-center w-8 h-8 rounded-xl transition-all cursor-pointer ${
+                sttStatus === 'listening'
+                  ? 'bg-red-500 text-white animate-pulse ring-2 ring-red-400/50 shadow-md shadow-red-500/30'
+                  : sttStatus === 'error'
+                  ? 'bg-red-950/60 text-red-400 border border-red-500/40'
+                  : 'bg-[#10131A] hover:bg-[#1E2330] text-slate-400 hover:text-purple-300 border border-[#282D38]'
+              } disabled:opacity-40 disabled:cursor-not-allowed`}
+            >
+              {sttStatus === 'listening' ? (
+                <span className="flex items-center justify-center">
+                  <span className="w-2.5 h-2.5 rounded-full bg-white animate-ping absolute" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-white relative" />
+                </span>
+              ) : (
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                  <line x1="12" y1="19" x2="12" y2="23" />
+                  <line x1="8" y1="23" x2="16" y2="23" />
+                </svg>
+              )}
+            </button>
 
             {/* Send / Stop Button */}
             {isLoading ? (

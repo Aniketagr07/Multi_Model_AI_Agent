@@ -1,6 +1,9 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { LOCAL_MODELS } from '../core/localModelRegistry';
+import { useModelDownloadManager } from '../services/modelDownloadManager';
 
 export const AVAILABLE_MODELS = [
+  ...LOCAL_MODELS,
   {
     id: 'auto',
     name: 'Auto (Smart Router)',
@@ -106,7 +109,7 @@ export const AVAILABLE_MODELS = [
     providerGroup: 'groq',
     providerGroupLabel: 'GROQ LPU',
     provider: 'groq',
-    tag: 'Groq Heavy LPU',
+    tag: 'High Capacity',
     isOperational: true,
     badgeColor: 'bg-amber-500/10 text-amber-400 border-amber-500/30',
     iconColor: 'bg-amber-600/20 text-amber-500 border-amber-500/30',
@@ -128,18 +131,32 @@ export const AVAILABLE_MODELS = [
     description: 'High-speed Mixture-of-Experts architecture with 32k context on Groq.',
   },
   {
-    id: 'llama-3-8b-local',
-    name: 'Llama 3 (Local)',
-    shortName: 'Llama 3 Local',
-    providerGroup: 'local',
-    providerGroupLabel: 'LOCAL MODELS',
-    provider: 'local',
-    tag: 'Ollama Local',
-    isOperational: false,
-    badgeColor: 'bg-charcoal-800 text-slate-500 border-[#282D38]',
-    iconColor: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
-    contextWindow: '8k tokens',
-    description: 'Privacy-first on-device local execution via Ollama (requires local daemon).',
+    id: 'gpt-4o',
+    name: 'GPT-4o (Omni)',
+    shortName: 'GPT-4o',
+    providerGroup: 'openai',
+    providerGroupLabel: 'OPENAI',
+    provider: 'openai',
+    tag: 'OpenAI Flagship',
+    isOperational: true,
+    badgeColor: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
+    iconColor: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+    contextWindow: '128k tokens',
+    description: 'OpenAI flagship multimodal intelligence with high-speed reasoning.',
+  },
+  {
+    id: 'gpt-4o-mini',
+    name: 'GPT-4o Mini',
+    shortName: 'GPT-4o Mini',
+    providerGroup: 'openai',
+    providerGroupLabel: 'OPENAI',
+    provider: 'openai',
+    tag: 'OpenAI Fast',
+    isOperational: true,
+    badgeColor: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
+    iconColor: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+    contextWindow: '128k tokens',
+    description: 'Lightweight high-efficiency model for fast everyday tasks.',
   },
 ];
 
@@ -169,13 +186,11 @@ export const EFFORT_LEVELS = [
 
 /**
  * Provider Logo Component
- * Renders verified SVG brand icons for Google, Groq, OpenAI, Anthropic, Ollama/Local, and Auto Router.
  */
 export function ProviderLogo({ provider, className = 'w-4 h-4' }) {
   const p = (provider || '').toLowerCase();
 
   if (p.includes('google') || p.includes('gemini')) {
-    // Official Google Gemini 4-Point Star Sparkle
     return (
       <svg className={`${className} shrink-0`} viewBox="0 0 24 24" fill="none">
         <path
@@ -194,7 +209,6 @@ export function ProviderLogo({ provider, className = 'w-4 h-4' }) {
   }
 
   if (p.includes('groq')) {
-    // Groq Amber LPU Lightning Mark
     return (
       <svg className={`${className} shrink-0 text-amber-400`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
         <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" fill="currentColor" fillOpacity="0.2" />
@@ -203,7 +217,6 @@ export function ProviderLogo({ provider, className = 'w-4 h-4' }) {
   }
 
   if (p.includes('openai') || p.includes('gpt')) {
-    // OpenAI Spiral Flower Logo
     return (
       <svg className={`${className} shrink-0 text-emerald-400`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="12" cy="12" r="10" />
@@ -213,19 +226,9 @@ export function ProviderLogo({ provider, className = 'w-4 h-4' }) {
     );
   }
 
-  if (p.includes('anthropic') || p.includes('claude')) {
-    // Anthropic Geometric Mark
+  if (p.includes('local') || p.includes('ollama') || p.includes('qwen') || p.includes('smol')) {
     return (
-      <svg className={`${className} shrink-0 text-orange-400`} viewBox="0 0 24 24" fill="currentColor">
-        <path d="M14.5 3h3.5L11.5 21H8L14.5 3zm-7 18h3.5L4.5 10H1L7.5 21z" />
-      </svg>
-    );
-  }
-
-  if (p.includes('local') || p.includes('ollama')) {
-    // Local / Ollama On-Device CPU Icon
-    return (
-      <svg className={`${className} shrink-0 text-slate-400`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <svg className={`${className} shrink-0 text-emerald-400`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <rect x="4" y="4" width="16" height="16" rx="2" />
         <rect x="9" y="9" width="6" height="6" />
         <line x1="9" y1="1" x2="9" y2="4" />
@@ -245,8 +248,10 @@ export function ProviderLogo({ provider, className = 'w-4 h-4' }) {
 }
 
 /**
- * Integrated Model Selector & Reasoning Effort Component
- * Unifies model switching, provider grouping, and reasoning effort into a single modern popover.
+ * Integrated Model Selector Component
+ * Organizes models into two distinct sections:
+ * 1. LOCAL MODELS (On-Device Browser WebGPU)
+ * 2. CLOUD MODELS (Google Gemini, Groq, OpenAI)
  */
 export function ModelSelector({
   selectedModelId = 'auto',
@@ -256,8 +261,16 @@ export function ModelSelector({
   disabled = false,
   customModels = [],
   onOpenApiKeyModal,
+  onOpenAuthModal,
+  user = null,
+  isGuest = false,
+  byokStatus = null,
+  localModelReady = false,
+  localModelLoading = false,
+  onOpenLocalModelModal = null,
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const { isModelReady, getModelStatus, startDownload } = useModelDownloadManager();
   const dropdownRef = useRef(null);
 
   const allAvailableModels = useMemo(() => {
@@ -268,50 +281,24 @@ export function ModelSelector({
     return allAvailableModels.find((m) => m.id === selectedModelId) || allAvailableModels[0];
   }, [allAvailableModels, selectedModelId]);
 
-  // Dynamically group models by provider
-  const groupedModels = useMemo(() => {
-    const groups = {};
-
-    for (const m of allAvailableModels) {
-      const p = (m.providerGroup || m.provider || 'other').toLowerCase();
-      let key = 'other';
-      let label = 'OTHER MODELS';
-
-      if (m.id === 'auto' || p.includes('router') || p.includes('auto')) {
-        key = 'auto';
-        label = 'AUTO ROUTING';
-      } else if (p.includes('gemini') || p.includes('google')) {
-        key = 'google';
-        label = 'GOOGLE GEMINI';
-      } else if (p.includes('groq')) {
-        key = 'groq';
-        label = 'GROQ LPU';
-      } else if (p.includes('openai') || p.includes('gpt')) {
-        key = 'openai';
-        label = 'OPENAI';
-      } else if (p.includes('anthropic') || p.includes('claude')) {
-        key = 'anthropic';
-        label = 'ANTHROPIC';
-      } else if (p.includes('local') || p.includes('ollama')) {
-        key = 'local';
-        label = 'LOCAL MODELS';
-      }
-
-      if (!groups[key]) {
-        groups[key] = {
-          key,
-          label: m.providerGroupLabel || label,
-          models: [],
-        };
-      }
-      groups[key].models.push(m);
+  // Determine user mode
+  const isGuestUser = Boolean(isGuest || (user && user.isGuest));
+  const hasActiveProvider = byokStatus ? Boolean(byokStatus.has_active_provider) : true;
+  const connectedProviders = useMemo(() => {
+    if (!byokStatus || !Array.isArray(byokStatus.providers)) {
+      return new Set(['gemini', 'groq', 'openai']);
     }
+    return new Set(byokStatus.providers.filter((p) => p.is_connected).map((p) => p.provider));
+  }, [byokStatus]);
 
-    // Explicit ordering: Auto -> Google -> Groq -> OpenAI -> Anthropic -> Local -> Other
-    const order = ['auto', 'google', 'groq', 'openai', 'anthropic', 'local', 'other'];
-    return order
-      .filter((k) => groups[k] && groups[k].models.length > 0)
-      .map((k) => groups[k]);
+  // Local models list
+  const localModelsList = useMemo(() => {
+    return allAvailableModels.filter((m) => m.isLocal || m.provider === 'local');
+  }, [allAvailableModels]);
+
+  // Cloud models list
+  const cloudModelsList = useMemo(() => {
+    return allAvailableModels.filter((m) => !m.isLocal && m.provider !== 'local');
   }, [allAvailableModels]);
 
   // Close dropdown on outside click or Escape key
@@ -341,7 +328,7 @@ export function ModelSelector({
 
   return (
     <div className="relative inline-block text-left" ref={dropdownRef}>
-      {/* Closed Trigger Button: Provider Logo + Shortened Model Name + Small Chevron */}
+      {/* Closed Trigger Button */}
       <button
         type="button"
         disabled={disabled}
@@ -353,15 +340,15 @@ export function ModelSelector({
           isOpen ? 'border-purple-500/70 ring-1 ring-purple-500/30' : 'border-[#282D38] hover:border-purple-500/40'
         }`}
       >
-        {/* Provider Brand Logo */}
         <ProviderLogo provider={selectedModel.providerGroup || selectedModel.provider} className="w-3.5 h-3.5" />
-
-        {/* Shortened Human-Readable Model Name */}
         <span className="font-semibold text-slate-100">
           {selectedModel.shortName || selectedModel.name}
         </span>
-
-        {/* Small Dropdown Indicator */}
+        {selectedModel.isLocal && (
+          <span className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.2 rounded font-medium">
+            Local
+          </span>
+        )}
         <svg
           className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
           viewBox="0 0 24 24"
@@ -375,21 +362,21 @@ export function ModelSelector({
         </svg>
       </button>
 
-      {/* Integrated Opened Dropdown Popover */}
+      {/* Dropdown Popover */}
       {isOpen && (
         <div
           role="listbox"
           tabIndex={-1}
           className="absolute bottom-full mb-2 left-0 w-88 max-w-[calc(100vw-2rem)] rounded-2xl bg-[#10131A] border border-[#282D38] shadow-2xl p-2 z-50 focus:outline-none animate-in fade-in duration-150 backdrop-blur-md"
         >
-          {/* Popover Header */}
+          {/* Header */}
           <div className="flex items-center justify-between px-3 py-2 border-b border-[#282D38]/60 mb-1">
             <div className="flex items-center gap-2">
               <span className="text-[11px] font-bold text-slate-200 uppercase tracking-wider">
                 Model Selection
               </span>
               <span className="text-[10px] text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded border border-purple-500/20 font-medium">
-                Multi-Provider
+                {isGuestUser ? 'Guest Mode' : 'Multi-Provider'}
               </span>
             </div>
             <button
@@ -402,140 +389,290 @@ export function ModelSelector({
             </button>
           </div>
 
-          {/* Grouped Models List (Scrollable) */}
-          <div className="max-h-60 overflow-y-auto space-y-2.5 px-1 py-1 scroll-smooth">
-            {groupedModels.map((group) => (
-              <div key={group.key} className="space-y-1">
-                {/* Provider Section Heading */}
-                <div className="flex items-center gap-1.5 px-2 pt-1 pb-0.5 text-[10px] font-bold text-slate-400 tracking-wider">
-                  <ProviderLogo provider={group.key} className="w-3.5 h-3.5" />
-                  <span>{group.label}</span>
+          <div className="max-h-64 overflow-y-auto space-y-3 px-1 py-1 scroll-smooth">
+            {/* ---------------- SECTION 1: LOCAL MODELS ---------------- */}
+            <div className="space-y-1">
+              <div className="flex items-center justify-between px-2 pt-1 pb-0.5 text-[10px] font-bold text-emerald-400 tracking-wider">
+                <div className="flex items-center gap-1.5">
+                  <ProviderLogo provider="local" className="w-3.5 h-3.5" />
+                  <span>LOCAL MODELS</span>
                 </div>
+                <span className="text-[9px] font-medium text-emerald-400/80 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                  On-Device WebGPU
+                </span>
+              </div>
 
-                {/* Model Items in Group */}
+              <div className="space-y-1">
+                {localModelsList.map((model) => {
+                  const isSelected = model.id === selectedModel.id;
+                  const modelStatus = getModelStatus(model.id);
+                  const ready = isModelReady(model.id) || (localModelReady && model.id === selectedModel.id);
+                  const isDownloading =
+                    modelStatus.status === 'downloading' ||
+                    modelStatus.status === 'preparing' ||
+                    modelStatus.status === 'initializing';
+
+                  return (
+                    <button
+                      key={model.id}
+                      type="button"
+                      role="option"
+                      aria-selected={isSelected}
+                      onClick={() => {
+                        if (ready) {
+                          onSelectModel(model.id);
+                          setIsOpen(false);
+                        } else if (isDownloading) {
+                          if (onOpenLocalModelModal) {
+                            onOpenLocalModelModal(model.id);
+                          }
+                          setIsOpen(false);
+                        } else {
+                          if (onOpenLocalModelModal) {
+                            onOpenLocalModelModal(model.id);
+                          } else {
+                            startDownload(model.id);
+                          }
+                          setIsOpen(false);
+                        }
+                      }}
+                      className={`w-full text-left px-2.5 py-2 rounded-xl text-xs transition-all flex items-center justify-between group cursor-pointer ${
+                        isSelected
+                          ? 'bg-purple-600/20 border border-purple-500/60 text-white shadow-xs'
+                          : 'hover:bg-[#151923] text-slate-300 border border-transparent'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <ProviderLogo provider="local" className="w-4 h-4 shrink-0" />
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-semibold text-slate-100 truncate text-xs">
+                              {model.shortName || model.name}
+                            </span>
+                            <span className="text-[9px] font-medium px-1.5 py-0.2 rounded border bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
+                              {model.tag || 'Local / On-device'}
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-slate-400 truncate">
+                            {model.description}
+                          </div>
+                          {/* Independent Per-Model Status line */}
+                          <div className="text-[10px] flex items-center gap-1 mt-0.5 font-mono">
+                            <span className="text-gray-500">Status:</span>
+                            {ready ? (
+                              <span className="text-emerald-400 flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                                Ready
+                              </span>
+                            ) : isDownloading ? (
+                              <span className="text-purple-300 flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
+                                Downloading — {modelStatus.percent}%
+                              </span>
+                            ) : modelStatus.status === 'error' ? (
+                              <span className="text-red-400">Download Failed</span>
+                            ) : (
+                              <span className="text-gray-400">Not Downloaded (~{model.approxSizeMB}MB)</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Status indicator badge */}
+                      <div className="shrink-0 pl-2">
+                        {ready ? (
+                          <span className="text-[9px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded">
+                            Ready
+                          </span>
+                        ) : isDownloading ? (
+                          <span className="text-[9px] font-semibold text-purple-300 bg-purple-500/10 border border-purple-500/20 px-1.5 py-0.5 rounded flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
+                            {modelStatus.percent}%
+                          </span>
+                        ) : (
+                          <span className="text-[9px] font-semibold text-gray-300 bg-white/5 border border-white/10 px-1.5 py-0.5 rounded group-hover:border-purple-500/40 group-hover:text-purple-300 transition-colors">
+                            Download
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* ---------------- SECTION 2: CLOUD MODELS ---------------- */}
+            <div className="space-y-1 pt-1 border-t border-[#1F2430]">
+              <div className="flex items-center justify-between px-2 pt-1 pb-0.5 text-[10px] font-bold text-slate-400 tracking-wider">
+                <div className="flex items-center gap-1.5">
+                  <ProviderLogo provider="gemini" className="w-3.5 h-3.5" />
+                  <span>CLOUD MODELS</span>
+                </div>
+                <span className="text-[9px] text-slate-500 font-medium">
+                  {isGuestUser ? 'Sign-in Required' : 'BYOK Keys'}
+                </span>
+              </div>
+
+              {/* Unauthenticated / Guest View: Show prompt, restrict cloud access */}
+              {isGuestUser ? (
+                <div className="p-3 bg-[#151923] border border-[#2D3748] rounded-xl text-center space-y-2">
+                  <p className="text-[11px] text-gray-300">
+                    Cloud models (Google Gemini, Groq, OpenAI) require an account with API keys.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsOpen(false);
+                      if (onOpenAuthModal) onOpenAuthModal('signin');
+                    }}
+                    className="w-full py-1.5 text-xs font-semibold text-purple-300 hover:text-white bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 rounded-lg transition-colors cursor-pointer"
+                  >
+                    Sign In or Register to Unlock Cloud Models →
+                  </button>
+                </div>
+              ) : !hasActiveProvider && byokStatus ? (
+                /* Authenticated User without API keys */
+                <div className="p-3 bg-[#151923] border border-purple-500/30 rounded-xl space-y-2 text-center">
+                  <p className="text-[11px] text-purple-200">
+                    No cloud AI providers connected. Connect your keys to unlock Gemini, Groq, and OpenAI.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsOpen(false);
+                      if (onOpenApiKeyModal) onOpenApiKeyModal();
+                    }}
+                    className="w-full py-1.5 text-xs font-semibold text-white bg-purple-600 hover:bg-purple-500 rounded-lg transition-colors cursor-pointer shadow-sm"
+                  >
+                    + Connect API Key in Settings
+                  </button>
+                </div>
+              ) : (
+                /* Authenticated User with API keys or standard mode */
                 <div className="space-y-0.5">
-                  {group.models.map((model) => {
+                  {cloudModelsList.map((model) => {
                     const isSelected = model.id === selectedModel.id;
-                    const isOperational = model.isOperational !== false;
+                    const provider = model.provider?.toLowerCase() || '';
+                    const isConnected =
+                      model.id === 'auto' ||
+                      connectedProviders.has(provider) ||
+                      connectedProviders.has(model.providerGroup);
 
                     return (
                       <button
                         key={model.id}
                         type="button"
                         role="option"
-                        disabled={!isOperational}
+                        disabled={!isConnected}
                         aria-selected={isSelected}
                         onClick={() => {
-                          if (isOperational) {
+                          if (isConnected) {
                             onSelectModel(model.id);
+                            setIsOpen(false);
+                          } else if (onOpenApiKeyModal) {
+                            onOpenApiKeyModal();
+                            setIsOpen(false);
                           }
                         }}
                         className={`w-full text-left px-2.5 py-2 rounded-xl text-xs transition-all flex items-center justify-between group cursor-pointer ${
-                          !isOperational
-                            ? 'opacity-40 cursor-not-allowed bg-transparent'
+                          !isConnected
+                            ? 'opacity-40 cursor-not-allowed hover:bg-white/5'
                             : isSelected
                             ? 'bg-purple-600/20 border border-purple-500/60 text-white shadow-xs'
                             : 'hover:bg-[#151923] text-slate-300 border border-transparent'
                         }`}
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
-                          <ProviderLogo provider={group.key} className="w-4 h-4 shrink-0 mt-0.5" />
+                          <ProviderLogo provider={model.providerGroup || model.provider} className="w-4 h-4 shrink-0" />
                           <div className="min-w-0">
                             <div className="flex items-center gap-1.5">
                               <span className="font-semibold text-slate-100 truncate text-xs">
                                 {model.shortName || model.name}
                               </span>
-                              {/* Full model name rendered so tests and accessibility find it */}
-                              <span className="text-[10px] text-slate-500 hidden sm:inline truncate max-w-[140px]">
+                              <span className="text-[10px] text-slate-500 hidden sm:inline truncate max-w-[130px]">
                                 {model.name}
                               </span>
                             </div>
-                            <p className="text-[10px] text-slate-400 truncate max-w-[210px] mt-0.5">
+                            <div className="text-[10px] text-slate-400 truncate">
                               {model.description}
-                            </p>
+                            </div>
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                          {model.contextWindow && (
-                            <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-black/40 text-slate-400 border border-white/5">
-                              {model.contextWindow}
+                        <div className="shrink-0 pl-2">
+                          {!isConnected ? (
+                            <span className="text-[9px] font-semibold text-slate-400 bg-white/5 border border-white/10 px-1.5 py-0.5 rounded">
+                              + Connect
+                            </span>
+                          ) : (
+                            <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium border ${model.badgeColor || 'bg-slate-800 text-slate-300'}`}>
+                              {model.tag || model.contextWindow}
                             </span>
                           )}
-                          {isSelected ? (
-                            <svg className="w-4 h-4 text-purple-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                              <polyline points="20 6 9 17 4 12" />
-                            </svg>
-                          ) : !isOperational ? (
-                            <span className="text-[9px] text-slate-500">Offline</span>
-                          ) : null}
                         </div>
                       </button>
                     );
                   })}
                 </div>
-              </div>
-            ))}
+              )}
+            </div>
           </div>
 
-          {/* Integrated Reasoning Effort Section */}
-          <div className="mt-2 pt-2.5 border-t border-[#282D38]/80 px-2 space-y-1.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-                <span>Reasoning Effort</span>
+          {/* Reasoning Effort Selector (Unified) */}
+          <div className="border-t border-[#282D38]/60 pt-2 px-1">
+            <div className="flex items-center justify-between mb-1.5 px-1">
+              <span className="text-[10px] font-semibold text-slate-400 tracking-wider">
+                Reasoning Effort
               </span>
-              <span className="text-[10px] text-purple-300 font-mono">
-                {currentEffort.desc}
+              <span className="text-[10px] text-slate-400 font-medium">
+                {currentEffort.name}
               </span>
             </div>
 
-            {/* 3-way Segmented Toggle */}
-            <div className="grid grid-cols-3 gap-1 p-0.5 rounded-xl bg-[#0B0D12] border border-[#282D38]">
-              {EFFORT_LEVELS.map((level) => {
-                const isActive = level.id === effort;
+            <div className="grid grid-cols-3 gap-1 bg-[#12151F] p-0.5 rounded-xl border border-[#282D38]">
+              {EFFORT_LEVELS.map((eff) => {
+                const isActive = eff.id === effort;
                 return (
                   <button
-                    key={level.id}
+                    key={eff.id}
                     type="button"
-                    onClick={() => onSelectEffort && onSelectEffort(level.id)}
-                    title={level.desc}
-                    className={`py-1.5 px-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                    onClick={() => {
+                      if (onSelectEffort) onSelectEffort(eff.id);
+                    }}
+                    title={eff.desc}
+                    className={`py-1 px-1 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1 cursor-pointer ${
                       isActive
-                        ? 'bg-purple-600/30 text-purple-200 border border-purple-500/40 shadow-xs'
-                        : 'text-slate-400 hover:text-slate-200 hover:bg-[#151923] border border-transparent'
+                        ? 'bg-purple-600 text-white shadow-xs'
+                        : 'text-slate-400 hover:text-slate-200 hover:bg-[#181C28]'
                     }`}
                   >
-                    <span>{level.icon}</span>
-                    <span>{level.shortName}</span>
+                    <span>{eff.icon}</span>
+                    <span>{eff.shortName}</span>
                   </button>
                 );
               })}
             </div>
           </div>
 
-          {/* Popover Footer Bar */}
-          <div className="mt-2.5 pt-2 border-t border-[#282D38]/60 px-1 flex items-center justify-between">
-            <button
-              type="button"
-              onClick={() => {
-                setIsOpen(false);
-                if (onOpenApiKeyModal) onOpenApiKeyModal();
-              }}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-purple-300 hover:text-white bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 transition-colors cursor-pointer"
-            >
-              <span className="text-sm font-bold leading-none">+</span>
-              <span>Add API Key</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsOpen(false)}
-              className="px-3 py-1 rounded-lg bg-[#151923] hover:bg-[#1E2330] text-slate-200 hover:text-white border border-[#282D38] text-[11px] font-semibold transition-colors cursor-pointer"
-            >
-              Done
-            </button>
-          </div>
+          {/* Footer Shortcut to Add API Key */}
+          {onOpenApiKeyModal && !isGuestUser && (
+            <div className="border-t border-[#282D38]/60 pt-2 px-1 mt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsOpen(false);
+                  onOpenApiKeyModal();
+                }}
+                className="w-full py-1.5 px-2 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 hover:text-white border border-purple-500/30 text-xs font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <span>+</span> <span>Manage AI Providers / API Keys</span>
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
   );
 }
+
+export default ModelSelector;

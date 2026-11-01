@@ -2,6 +2,11 @@ from typing import List, Optional
 from pydantic import BaseModel, Field, EmailStr
 
 
+class UpdateMemberRoleRequest(BaseModel):
+    """Schema to update a member's role (editor or viewer)."""
+    role: str = Field(..., description="Role: 'editor' or 'viewer'")
+
+
 class ShareSettingsUpdate(BaseModel):
     """Schema to update conversation public link sharing settings."""
     sharing_enabled: bool = Field(..., description="Enable or disable public link sharing")

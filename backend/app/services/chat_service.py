@@ -103,7 +103,7 @@ class ChatService:
                     if dev_key:
                         effective_key = dev_key
                 if not effective_key:
-                    prov_title = "Google Gemini" if model_info.provider == "gemini" else "Groq" if model_info.provider == "groq" else model_info.provider.capitalize()
+                    prov_title = "Google Gemini" if model_info.provider == "gemini" else "Groq" if model_info.provider == "groq" else "OpenAI" if model_info.provider == "openai" else model_info.provider.capitalize()
                     raise HTTPException(
                         status_code=400,
                         detail=f"You have not connected your {prov_title} API key yet. Please connect your {prov_title} key in Settings or Onboarding.",
@@ -370,7 +370,7 @@ class ChatService:
                 if not available_models:
                     error_event = {
                         "type": "error",
-                        "error": "You have not connected any AI providers yet. Please connect your Google Gemini or Groq API key in Settings or Onboarding.",
+                        "error": "You have not connected any AI providers yet. Please connect your AI provider API key (Google Gemini, Groq, or OpenAI) in Settings or Onboarding.",
                     }
                     yield f"data: {json.dumps(error_event)}\n\n"
                     return
@@ -628,7 +628,7 @@ class ChatService:
                 if not available_models:
                     raise HTTPException(
                         status_code=400,
-                        detail="You have not connected any AI providers yet. Please connect your Google Gemini or Groq API key in Settings or Onboarding.",
+                        detail="You have not connected any AI providers yet. Please connect your AI provider API key (Google Gemini, Groq, or OpenAI) in Settings or Onboarding.",
                     )
             else:
                 available_models = ModelRegistry.get_available_models()

@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { VoiceService } from '../services/voiceService';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { ProviderLogo } from './ModelSelector';
 
@@ -72,6 +73,32 @@ export const MessageBubble = React.memo(function MessageBubble({
   showTokenMetrics = true,
 }) {
   const [copiedFull, setCopiedFull] = useState(false);
+  const [isSpeakingThis, setIsSpeakingThis] = useState(false);
+
+  useEffect(() => {
+    // Check if this message is actively speaking
+    const checkActive = () => {
+      setIsSpeakingThis(VoiceService.getActiveSpeakerMessageId() === message.id);
+    };
+    const interval = setInterval(checkActive, 250);
+    return () => clearInterval(interval);
+  }, [message.id]);
+
+  const handleToggleSpeech = () => {
+    if (isSpeakingThis) {
+      VoiceService.stopSpeaking();
+      setIsSpeakingThis(false);
+    } else {
+      VoiceService.speak({
+        messageId: message.id,
+        text: message.content,
+        onStart: () => setIsSpeakingThis(true),
+        onEnd: () => setIsSpeakingThis(false),
+        onError: () => setIsSpeakingThis(false),
+      });
+      setIsSpeakingThis(true);
+    }
+  };
   const isUser = message.sender === 'user';
   const isError = Boolean(message.isError);
   const isStreaming = Boolean(message.isStreaming);
@@ -171,6 +198,25 @@ export const MessageBubble = React.memo(function MessageBubble({
               : 'bg-[#151923] text-[#F3F4F6] border border-[#282D38] rounded-tl-sm shadow-md'
           }`}
         >
+          {/* Attached Image Preview if present */}
+          {(message.image?.url || message.imageUrl) && (
+            <div className="mb-2.5 max-w-sm rounded-xl overflow-hidden border border-[#282D38] bg-[#10131A]">
+              <img
+                src={message.image?.url || message.imageUrl}
+                alt={message.image?.name || 'Attached image'}
+                className="max-h-60 w-auto object-cover rounded-xl"
+              />
+              {message.image?.name && (
+                <div className="p-1.5 px-2 text-[10px] text-slate-400 font-mono truncate flex items-center justify-between">
+                  <span>🖼️ {message.image.name}</span>
+                  {message.image.size && (
+                    <span className="text-slate-500">{Math.round(message.image.size / 1024)} KB</span>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Secure Markdown Rendering */}
           <MarkdownRenderer
             content={message.content}
@@ -197,9 +243,41 @@ export const MessageBubble = React.memo(function MessageBubble({
           )}
         </div>
 
-        {/* Assistant Action Bar (Copy & Regenerate) */}
+        {/* Assistant Action Bar (Copy, Speak & Regenerate) */}
         {!isUser && !isError && !isStreaming && message.content && (
           <div className="flex items-center gap-2 pt-0.5 px-1 opacity-75 group-hover:opacity-100 transition-opacity">
+            {/* Text-to-Speech Speaker Button */}
+            <button
+              type="button"
+              onClick={handleToggleSpeech}
+              title={isSpeakingThis ? 'Stop listening to response' : 'Listen to response'}
+              aria-label={isSpeakingThis ? 'Stop listening to response' : 'Listen to response'}
+              className={`flex items-center gap-1.5 text-[11px] px-2 py-1 rounded-md border transition-colors cursor-pointer ${
+                isSpeakingThis
+                  ? 'bg-purple-600/25 text-purple-300 border-purple-500/50 shadow-xs'
+                  : 'text-slate-400 hover:text-white bg-[#10131A] hover:bg-[#151923] border-[#282D38]'
+              }`}
+            >
+              {isSpeakingThis ? (
+                <>
+                  <span className="flex items-center gap-0.5 py-0.5">
+                    <span className="w-1 h-3 bg-purple-400 animate-pulse rounded-full"></span>
+                    <span className="w-1 h-2 bg-purple-400 animate-pulse delay-75 rounded-full"></span>
+                    <span className="w-1 h-3 bg-purple-400 animate-pulse delay-150 rounded-full"></span>
+                  </span>
+                  <span className="font-medium text-purple-300">Stop</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" />
+                  </svg>
+                  <span>Listen</span>
+                </>
+              )}
+            </button>
+
             <button
               type="button"
               onClick={handleCopyFull}

@@ -26,6 +26,7 @@ describe('BYOK Onboarding Modal Component', () => {
       providers: [
         { provider: 'gemini', name: 'Google Gemini', is_connected: false, key_fingerprint: null },
         { provider: 'groq', name: 'Groq Cloud', is_connected: false, key_fingerprint: null },
+        { provider: 'openai', name: 'OpenAI', is_connected: false, key_fingerprint: null },
       ],
     });
   });
@@ -53,6 +54,7 @@ describe('BYOK Onboarding Modal Component', () => {
         isOpen={true}
         onClose={vi.fn()}
         onComplete={vi.fn()}
+        isExistingUser={true}
       />
     );
 
@@ -66,7 +68,7 @@ describe('BYOK Onboarding Modal Component', () => {
     expect(screen.getByRole('button', { name: /save api key/i })).toBeInTheDocument();
   });
 
-  it('tests connection and saves key successfully', async () => {
+  it('tests connection and saves key successfully, navigating to completion', async () => {
     api.validateBYOKKey.mockResolvedValueOnce({
       success: true,
       status: 'Connected Successfully',
@@ -78,12 +80,27 @@ describe('BYOK Onboarding Modal Component', () => {
       key_fingerprint: '••••••••••••1234',
       message: 'Gemini connected successfully.',
     });
+    // After save, loadStatus will fetch updated status
+    api.saveBYOKKey.mockImplementationOnce(async () => {
+      api.getBYOKStatus.mockResolvedValue({
+        byok_setup_completed: true,
+        has_active_provider: true,
+        total_connected: 1,
+        providers: [
+          { provider: 'gemini', name: 'Google Gemini', is_connected: true, key_fingerprint: '••••••••••••1234' },
+          { provider: 'groq', name: 'Groq Cloud', is_connected: false, key_fingerprint: null },
+          { provider: 'openai', name: 'OpenAI', is_connected: false, key_fingerprint: null },
+        ],
+      });
+      return { success: true, provider: 'gemini', key_fingerprint: '••••••••••••1234' };
+    });
 
     render(
       <BYOKOnboardingModal
         isOpen={true}
         onClose={vi.fn()}
         onComplete={vi.fn()}
+        isExistingUser={true}
       />
     );
 
@@ -106,6 +123,57 @@ describe('BYOK Onboarding Modal Component', () => {
 
     await waitFor(() => {
       expect(api.saveBYOKKey).toHaveBeenCalledWith('gemini', 'AIzaSySampleKey1234');
+      // Should automatically advance to completion screen with Add Another Provider button
+      expect(screen.getByText("You're all set!")).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /(?:\+\s*)?Add Another Provider/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Start Chatting/i })).toBeInTheDocument();
+    });
+  });
+
+  it('Setup Complete screen displays connected providers with Manage button and "+ Add Another Provider"', async () => {
+    api.getBYOKStatus.mockResolvedValue({
+      byok_setup_completed: true,
+      has_active_provider: true,
+      total_connected: 2,
+      providers: [
+        { provider: 'gemini', name: 'Google Gemini', is_connected: true, key_fingerprint: '••••••••••••1111' },
+        { provider: 'groq', name: 'Groq Cloud', is_connected: true, key_fingerprint: '••••••••••••2222' },
+        { provider: 'openai', name: 'OpenAI', is_connected: false, key_fingerprint: null },
+      ],
+    });
+
+    render(
+      <BYOKOnboardingModal
+        isOpen={true}
+        onClose={vi.fn()}
+        onComplete={vi.fn()}
+        isExistingUser={true}
+      />
+    );
+
+    // Initial load automatically navigates to complete screen when providers are already connected
+    await waitFor(() => {
+      expect(screen.getByText("You're all set!")).toBeInTheDocument();
+      expect(screen.getByText('Google Gemini')).toBeInTheDocument();
+      expect(screen.getByText('Groq Cloud')).toBeInTheDocument();
+      expect(screen.getByText('••••••••••••1111')).toBeInTheDocument();
+      expect(screen.getByText('••••••••••••2222')).toBeInTheDocument();
+    });
+
+    // Check Manage buttons exist
+    const manageButtons = screen.getAllByRole('button', { name: /manage/i });
+    expect(manageButtons.length).toBe(2);
+
+    // Check Add Another Provider button exists
+    const addAnotherBtn = screen.getByRole('button', { name: /(?:\+\s*)?Add Another Provider/i });
+    expect(addAnotherBtn).toBeInTheDocument();
+
+    // Clicking Add Another Provider transitions to provider setup selecting the disconnected provider (OpenAI)
+    fireEvent.click(addAnotherBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText('GPT-4o & Advanced Reasoning')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('sk-...')).toBeInTheDocument();
     });
   });
 });
@@ -132,16 +200,26 @@ describe('Settings View AI Providers Tab', () => {
           key_fingerprint: null,
           last_validated_at: null,
         },
+        {
+          provider: 'openai',
+          name: 'OpenAI',
+          is_connected: false,
+          key_fingerprint: null,
+          last_validated_at: null,
+        },
       ],
     });
   });
 
-  it('displays AI Providers tab and loads connected credentials', async () => {
+  it('displays AI Providers tab with "+ Add API Key" button and loads connected credentials', async () => {
+    const onOpenBYOKModalMock = vi.fn();
+
     render(
       <SettingsView
         settings={{}}
         onUpdateSettings={vi.fn()}
         user={{ id: 'user-test', email: 'test@example.com', username: 'TestUser' }}
+        onOpenBYOKModal={onOpenBYOKModalMock}
       />
     );
 
@@ -155,5 +233,11 @@ describe('Settings View AI Providers Tab', () => {
       expect(screen.getByText(/••••••••••••9999/i)).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /disconnect key/i })).toBeInTheDocument();
     });
+
+    // Check header has "+ Add API Key" button
+    const addKeyBtn = screen.getByRole('button', { name: /add api key/i });
+    expect(addKeyBtn).toBeInTheDocument();
+    fireEvent.click(addKeyBtn);
+    expect(onOpenBYOKModalMock).toHaveBeenCalled();
   });
 });

@@ -12,6 +12,7 @@ from app.schemas.collaboration import (
     ConversationInviteRequest,
     ConversationInvitationResponse,
     JoinConversationResponse,
+    UpdateMemberRoleRequest,
 )
 
 router = APIRouter()
@@ -89,7 +90,7 @@ async def conversation_websocket(
 )
 async def get_share_settings(
     conversation_id: str,
-    user: Optional[dict] = Depends(get_current_user_optional),
+    user: dict = Depends(get_current_user_required),
 ) -> ShareDetailsResponse:
     return CollaborationService.get_share_details(conversation_id, user)
 
@@ -163,6 +164,25 @@ async def remove_member(
         conv_id=conversation_id,
         current_user=user,
         target_user_id=target_user_id,
+    )
+
+
+@router.patch(
+    "/{conversation_id}/members/{target_user_id}",
+    summary="Update Conversation Participant Role",
+    description="Update a participant's role to 'editor' or 'viewer' (Owner only).",
+)
+async def update_member_role(
+    conversation_id: str,
+    target_user_id: str,
+    payload: UpdateMemberRoleRequest,
+    user: dict = Depends(get_current_user_required),
+):
+    return CollaborationService.update_member_role(
+        conv_id=conversation_id,
+        current_user=user,
+        target_user_id=target_user_id,
+        new_role=payload.role,
     )
 
 

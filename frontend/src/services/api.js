@@ -33,6 +33,7 @@ export async function authFetch(url, options = {}) {
     ...(options.headers || {}),
   };
   return fetch(url, {
+    credentials: 'include',
     ...options,
     headers,
   });
@@ -950,12 +951,22 @@ export async function requestPasswordReset(email) {
   return await response.json();
 }
 
-export async function migrateGuestConversations(conversationIds = null) {
+export async function migrateGuestConversations(data = null) {
   const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/auth/migrate-guest-conversations`;
+  let bodyPayload = {};
+  if (Array.isArray(data)) {
+    if (data.length > 0 && typeof data[0] === 'string') {
+      bodyPayload = { conversation_ids: data };
+    } else {
+      bodyPayload = { conversations: data };
+    }
+  } else if (data && typeof data === 'object') {
+    bodyPayload = data;
+  }
   const response = await authFetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-    body: JSON.stringify(conversationIds ? { conversation_ids: conversationIds } : {}),
+    body: JSON.stringify(bodyPayload),
   });
   if (!response.ok) {
     const err = await response.json().catch(() => ({ detail: 'Failed to migrate guest conversations' }));
@@ -973,7 +984,9 @@ export async function getConversationShareSettings(conversationId) {
   const response = await authFetch(url, { method: 'GET', headers: { 'Accept': 'application/json' } });
   if (!response.ok) {
     const err = await response.json().catch(() => ({ detail: 'Failed to load share settings' }));
-    throw new Error(err.detail || 'Failed to load share settings');
+    const error = new Error(err.detail || 'Failed to load share settings');
+    error.status = response.status;
+    throw error;
   }
   return await response.json();
 }
@@ -987,7 +1000,9 @@ export async function updateConversationShareSettings(conversationId, { sharing_
   });
   if (!response.ok) {
     const err = await response.json().catch(() => ({ detail: 'Failed to update share settings' }));
-    throw new Error(err.detail || 'Failed to update share settings');
+    const error = new Error(err.detail || 'Failed to update share settings');
+    error.status = response.status;
+    throw error;
   }
   return await response.json();
 }
@@ -1001,7 +1016,9 @@ export async function createConversationInvitation(conversationId, { email, role
   });
   if (!response.ok) {
     const err = await response.json().catch(() => ({ detail: 'Failed to send invitation' }));
-    throw new Error(err.detail || 'Failed to send invitation');
+    const error = new Error(err.detail || 'Failed to send invitation');
+    error.status = response.status;
+    throw error;
   }
   return await response.json();
 }
@@ -1011,7 +1028,9 @@ export async function revokeConversationInvitation(conversationId, invitationId)
   const response = await authFetch(url, { method: 'DELETE' });
   if (!response.ok) {
     const err = await response.json().catch(() => ({ detail: 'Failed to revoke invitation' }));
-    throw new Error(err.detail || 'Failed to revoke invitation');
+    const error = new Error(err.detail || 'Failed to revoke invitation');
+    error.status = response.status;
+    throw error;
   }
   return await response.json();
 }
@@ -1021,7 +1040,25 @@ export async function removeConversationMember(conversationId, targetUserId) {
   const response = await authFetch(url, { method: 'DELETE' });
   if (!response.ok) {
     const err = await response.json().catch(() => ({ detail: 'Failed to remove member' }));
-    throw new Error(err.detail || 'Failed to remove member');
+    const error = new Error(err.detail || 'Failed to remove member');
+    error.status = response.status;
+    throw error;
+  }
+  return await response.json();
+}
+
+export async function updateConversationMemberRole(conversationId, targetUserId, role) {
+  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/conversations/${encodeURIComponent(conversationId)}/members/${encodeURIComponent(targetUserId)}`;
+  const response = await authFetch(url, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    body: JSON.stringify({ role }),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ detail: 'Failed to update member role' }));
+    const error = new Error(err.detail || 'Failed to update member role');
+    error.status = response.status;
+    throw error;
   }
   return await response.json();
 }
@@ -1031,7 +1068,9 @@ export async function joinConversationByToken(token) {
   const response = await authFetch(url, { method: 'POST', headers: { 'Accept': 'application/json' } });
   if (!response.ok) {
     const err = await response.json().catch(() => ({ detail: 'Failed to join conversation' }));
-    throw new Error(err.detail || 'Failed to join conversation');
+    const error = new Error(err.detail || 'Failed to join conversation');
+    error.status = response.status;
+    throw error;
   }
   return await response.json();
 }

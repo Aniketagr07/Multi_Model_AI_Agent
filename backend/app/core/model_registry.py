@@ -8,7 +8,7 @@ class ModelInfo(BaseModel):
     """Server-side registered model metadata with capability categorization."""
     id: str = Field(..., description="Stable internal model identifier")
     name: str = Field(..., description="Human-readable display name")
-    provider: str = Field(..., description="Provider identifier ('gemini' or 'groq')")
+    provider: str = Field(..., description="Provider identifier ('gemini', 'groq', or 'openai')")
     provider_model_id: str = Field(..., description="Actual model string sent to upstream API")
     description: str = Field(..., description="Short summary of model capabilities")
     tag: str = Field(..., description="UI badge tag (e.g. 'Google AI Studio', 'Groq Cloud')")
@@ -152,6 +152,30 @@ REGISTERED_MODELS: Dict[str, Dict] = {
         "strengths": ["Complex multi-step reasoning", "Mathematical analysis", "Extensive document context"],
         "context_window": 1048576,
         "cost_tier": "Free tier (2 RPM / 32k TPM)",
+    },
+    "gpt-4o": {
+        "id": "gpt-4o",
+        "name": "GPT-4o (OpenAI)",
+        "provider": "openai",
+        "provider_model_id": "gpt-4o",
+        "description": "OpenAI flagship high-intelligence multimodal model",
+        "tag": "OpenAI Platform",
+        "supported_categories": ["reasoning", "coding", "writing", "general"],
+        "strengths": ["Advanced complex reasoning", "Multimodal inputs", "World-class coding synthesis"],
+        "context_window": 128000,
+        "cost_tier": "User API Key",
+    },
+    "gpt-4o-mini": {
+        "id": "gpt-4o-mini",
+        "name": "GPT-4o mini (OpenAI)",
+        "provider": "openai",
+        "provider_model_id": "gpt-4o-mini",
+        "description": "Fast and cost-efficient intelligent model from OpenAI",
+        "tag": "OpenAI Platform",
+        "supported_categories": ["coding", "writing", "general"],
+        "strengths": ["Fast execution", "Cost-effective", "Accurate instruction following"],
+        "context_window": 128000,
+        "cost_tier": "User API Key",
     },
 }
 

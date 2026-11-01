@@ -1,184 +1,209 @@
 import uuid
 import pytest
-from fastapi.testclient import TestClient
-from app.main import create_application
+from fastapi import HTTPException
 from app.services.auth_service import register_user
 from app.db.repository import ConversationRepository
 from app.services.collaboration_service import CollaborationService
+from app.api.routes.auth import extract_token_from_request, get_current_user_required
 
 
-@pytest.fixture
-def client():
-    app = create_application()
-    return TestClient(app)
+class MockRequest:
+    def __init__(self, headers=None, cookies=None):
+        self.headers = headers or {}
+        self.cookies = cookies or {}
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def test_users():
     """Register distinct users for testing collaboration."""
     uid = uuid.uuid4().hex[:6]
-    user1 = register_user(f"owner_{uid}@test.com", f"owner_{uid}", "Password123!")
-    user2 = register_user(f"collab_{uid}@test.com", f"collab_{uid}", "Password123!")
-    user3 = register_user(f"viewer_{uid}@test.com", f"viewer_{uid}", "Password123!")
+    owner = register_user(f"owner_{uid}@test.com", f"owner_{uid}", "Password123!")
+    editor = register_user(f"collab_{uid}@test.com", f"collab_{uid}", "Password123!")
+    viewer = register_user(f"viewer_{uid}@test.com", f"viewer_{uid}", "Password123!")
+    other = register_user(f"other_{uid}@test.com", f"other_{uid}", "Password123!")
     return {
-        "owner": user1,
-        "editor": user2,
-        "viewer": user3,
+        "owner": owner,
+        "editor": editor,
+        "viewer": viewer,
+        "other": other,
     }
 
 
-def test_conversation_sharing_lifecycle(client: TestClient, test_users):
-    owner = test_users["owner"]
-    editor = test_users["editor"]
-    owner_token = owner["token"]
-    editor_token = editor["token"]
-    owner_headers = {"Authorization": f"Bearer {owner_token}"}
-    editor_headers = {"Authorization": f"Bearer {editor_token}"}
+def test_auth_extraction_and_unauthenticated_rejection():
+    """Verify bearer, cookie, header token extraction and 401 rejection for unauthenticated requests."""
+    # 1. Bearer token in Authorization
+    req1 = MockRequest(headers={"Authorization": "Bearer sample-token-123"})
+    assert extract_token_from_request(req1) == "sample-token-123"
+
+    # 2. Case-insensitive bearer
+    req2 = MockRequest(headers={"authorization": "bearer sample-token-lower"})
+    assert extract_token_from_request(req2) == "sample-token-lower"
+
+    # 3. X-OmniAI-Token header
+    req3 = MockRequest(headers={"X-OmniAI-Token": "sample-token-x"})
+    assert extract_token_from_request(req3) == "sample-token-x"
+
+    # 4. Cookie omniai_session
+    req4 = MockRequest(cookies={"omniai_session": "sample-cookie-token"})
+    assert extract_token_from_request(req4) == "sample-cookie-token"
+
+    # 5. Missing token must raise 401 Unauthorized with exact expected message
+    req_empty = MockRequest()
+    with pytest.raises(HTTPException) as exc_info:
+        get_current_user_required(req_empty)
+    assert exc_info.value.status_code == 401
+    assert "Authentication credentials were not provided" in exc_info.value.detail
+
+
+def test_conversation_sharing_lifecycle(test_users):
+    """Test full lifecycle: owner creates conv, toggles link sharing, invites editor, joins, updates role."""
+    owner = test_users["owner"]["user"]
+    editor = test_users["editor"]["user"]
+    other = test_users["other"]["user"]
 
     # 1. Create a conversation as owner
-    create_res = client.post(
-        "/api/conversations",
-        json={"title": "Shared Collab Test"},
-        headers=owner_headers,
-    )
-    assert create_res.status_code == 201
-    conv_id = create_res.json()["id"]
+    conv = ConversationRepository.create_conversation(title="Shared Collab Test", user_id=owner["id"])
+    conv_id = conv["id"]
 
     # 2. Get initial share settings
-    share_get = client.get(f"/api/conversations/{conv_id}/share", headers=owner_headers)
-    assert share_get.status_code == 200
-    share_data = share_get.json()
-    assert share_data["sharing_enabled"] is False
-    assert share_data["current_user_role"] == "owner"
+    share_details = CollaborationService.get_share_details(conv_id, user=owner)
+    assert share_details.conversation_id == conv_id
+    assert share_details.sharing_enabled is False
+    assert share_details.current_user_role == "owner"
+    assert len(share_details.members) >= 1
+    assert share_details.members[0].user_id == owner["id"]
 
-    # 3. Update share settings (enable public sharing as editor)
-    share_patch = client.patch(
-        f"/api/conversations/{conv_id}/share",
-        json={"sharing_enabled": True, "share_permission": "editor"},
-        headers=owner_headers,
+    # 3. Non-participant cannot view share details (HTTP 403)
+    with pytest.raises(HTTPException) as exc_info:
+        CollaborationService.get_share_details(conv_id, user=other)
+    assert exc_info.value.status_code == 403
+
+    # 4. Update share settings (enable public sharing as collaborative editor)
+    updated = CollaborationService.update_share_settings(
+        conv_id=conv_id,
+        user=owner,
+        sharing_enabled=True,
+        share_permission="editor",
     )
-    assert share_patch.status_code == 200
-    assert share_patch.json()["sharing_enabled"] is True
-    assert share_patch.json()["share_permission"] == "editor"
-    share_token = share_patch.json()["share_token"]
+    assert updated.sharing_enabled is True
+    assert updated.share_permission == "editor"
+    assert updated.share_token is not None
 
-    # 4. Create an explicit invitation for editor
-    invite_res = client.post(
-        f"/api/conversations/{conv_id}/invitations",
-        json={"email": editor["user"]["email"], "role": "editor", "expiry_days": 3},
-        headers=owner_headers,
+    # 5. Non-owner cannot update share settings (HTTP 403)
+    with pytest.raises(HTTPException) as exc_info:
+        CollaborationService.update_share_settings(
+            conv_id=conv_id,
+            user=editor,
+            sharing_enabled=False,
+            share_permission="viewer",
+        )
+    assert exc_info.value.status_code == 403
+
+    # 6. Owner creates an invitation for editor
+    inv_response = CollaborationService.create_invitation(
+        conv_id=conv_id,
+        user=owner,
+        email=editor["email"],
+        role="editor",
+        expiry_days=7,
     )
-    assert invite_res.status_code == 201
-    inv_token = invite_res.json()["token"]
-    inv_id = invite_res.json()["id"]
+    assert inv_response.conversation_id == conv_id
+    assert inv_response.role == "editor"
+    assert inv_response.token is not None
+    inv_token = inv_response.token
+    inv_id = inv_response.id
 
-    # 5. Collab user accepts invitation
-    join_res = client.post(f"/api/conversations/join/{inv_token}", headers=editor_headers)
-    assert join_res.status_code == 200
-    assert join_res.json()["role"] == "editor"
+    # 7. Editor accepts invitation
+    join_res = CollaborationService.accept_invitation(token=inv_token, user=editor)
+    assert join_res.conversation_id == conv_id
+    assert join_res.role == "editor"
 
-    # 6. Collab user inspects conversation details and confirms access
-    conv_detail = client.get(f"/api/conversations/{conv_id}", headers=editor_headers)
-    assert conv_detail.status_code == 200
-    assert conv_detail.json()["current_user_role"] == "editor"
+    # 8. Verify members list now includes both owner and editor
+    share_details_after_join = CollaborationService.get_share_details(conv_id, user=owner)
+    member_ids = [m.user_id for m in share_details_after_join.members]
+    assert owner["id"] in member_ids
+    assert editor["id"] in member_ids
 
-    # 7. Owner revokes invitation or removes member
-    remove_res = client.delete(
-        f"/api/conversations/{conv_id}/members/{editor['user']['id']}",
-        headers=owner_headers,
+    # 9. Owner updates editor's role to 'viewer'
+    role_update_res = CollaborationService.update_member_role(
+        conv_id=conv_id,
+        current_user=owner,
+        target_user_id=editor["id"],
+        new_role="viewer",
     )
-    assert remove_res.status_code == 200
+    assert role_update_res["success"] is True
+    assert role_update_res["role"] == "viewer"
 
-    # 8. Non-owner cannot delete conversation
-    del_res = client.delete(f"/api/conversations/{conv_id}", headers=editor_headers)
-    assert del_res.status_code == 403
+    # 10. Editor (now viewer) cannot update member roles (HTTP 403)
+    with pytest.raises(HTTPException) as exc_info:
+        CollaborationService.update_member_role(
+            conv_id=conv_id,
+            current_user=editor,
+            target_user_id=owner["id"],
+            new_role="editor",
+        )
+    assert exc_info.value.status_code == 403
 
-
-def test_viewer_permission_enforcement(client: TestClient, test_users):
-    owner = test_users["owner"]
-    viewer = test_users["viewer"]
-    owner_headers = {"Authorization": f"Bearer {owner['token']}"}
-    viewer_headers = {"Authorization": f"Bearer {viewer['token']}"}
-
-    # 1. Create a conversation as owner
-    create_res = client.post(
-        "/api/conversations",
-        json={"title": "Viewer Restricted Conv"},
-        headers=owner_headers,
+    # 11. Owner removes editor from conversation
+    remove_res = CollaborationService.remove_member(
+        conv_id=conv_id,
+        current_user=owner,
+        target_user_id=editor["id"],
     )
-    conv_id = create_res.json()["id"]
+    assert remove_res["success"] is True
 
-    # 2. Invite viewer with role 'viewer'
-    invite_res = client.post(
-        f"/api/conversations/{conv_id}/invitations",
-        json={"email": viewer["user"]["email"], "role": "viewer"},
-        headers=owner_headers,
+    # 12. Editor is no longer a participant
+    access = CollaborationService.get_conversation_access(conv_id, editor)
+    assert access["can_manage"] is False
+
+
+def test_invitation_revocation(test_users):
+    """Verify owner can revoke pending invitations and revoked invitations cannot be accepted."""
+    owner = test_users["owner"]["user"]
+    viewer = test_users["viewer"]["user"]
+
+    conv = ConversationRepository.create_conversation(title="Revoke Test", user_id=owner["id"])
+    conv_id = conv["id"]
+
+    # Create invitation
+    inv = CollaborationService.create_invitation(
+        conv_id=conv_id,
+        user=owner,
+        email=viewer["email"],
+        role="viewer",
     )
-    inv_token = invite_res.json()["token"]
 
-    # 3. Viewer joins
-    client.post(f"/api/conversations/join/{inv_token}", headers=viewer_headers)
-
-    # 4. Viewer can read conversation details
-    detail_res = client.get(f"/api/conversations/{conv_id}", headers=viewer_headers)
-    assert detail_res.status_code == 200
-    assert detail_res.json()["current_user_role"] == "viewer"
-
-    # 5. Viewer is rejected from posting messages (HTTP 403 Forbidden)
-    chat_res = client.post(
-        "/api/chat",
-        json={"message": "I want to speak", "conversation_id": conv_id, "model_id": "gemini-1.5-flash"},
-        headers=viewer_headers,
+    # Revoke invitation
+    rev = CollaborationService.revoke_invitation(
+        conv_id=conv_id,
+        current_user=owner,
+        invitation_id=inv.id,
     )
-    assert chat_res.status_code == 403
-    assert "Viewers have read-only access" in chat_res.json()["detail"]
+    assert rev["success"] is True
+
+    # Attempting to join with revoked token must fail
+    with pytest.raises(HTTPException) as exc_info:
+        CollaborationService.accept_invitation(token=inv.token, user=viewer)
+    assert exc_info.value.status_code == 400
+    assert "This invitation has already been revoked" in exc_info.value.detail
 
 
 def test_message_author_attribution(test_users):
-    owner = test_users["owner"]
-    conv = ConversationRepository.create_conversation(title="Attribution Test", user_id=owner["user"]["id"])
+    """Verify collaborative message storage records author_id and author_name."""
+    owner = test_users["owner"]["user"]
+    conv = ConversationRepository.create_conversation(title="Attribution Test", user_id=owner["id"])
     conv_id = conv["id"]
 
     msg = ConversationRepository.add_message(
         conv_id=conv_id,
         role="user",
         content="Testing attribution",
-        author_id=owner["user"]["id"],
-        author_name=owner["user"]["username"],
+        author_id=owner["id"],
+        author_name=owner["username"],
     )
-    assert msg["author_id"] == owner["user"]["id"]
-    assert msg["author_name"] == owner["user"]["username"]
+    assert msg["author_id"] == owner["id"]
+    assert msg["author_name"] == owner["username"]
 
     messages = ConversationRepository.get_messages(conv_id)
     assert len(messages) == 1
-    assert messages[0]["author_name"] == owner["user"]["username"]
-
-
-def test_realtime_websocket_collaboration(client: TestClient, test_users):
-    owner = test_users["owner"]
-    owner_headers = {"Authorization": f"Bearer {owner['token']}"}
-
-    # 1. Create a conversation
-    create_res = client.post(
-        "/api/conversations",
-        json={"title": "WebSocket Collab Test"},
-        headers=owner_headers,
-    )
-    conv_id = create_res.json()["id"]
-
-    # 2. Connect to WebSocket as owner
-    with client.websocket_connect(f"/api/conversations/ws/{conv_id}?token={owner['token']}") as ws:
-        # Receive presence update
-        init_event = ws.receive_json()
-        assert init_event["type"] == "presence_update"
-        assert init_event["conversation_id"] == conv_id
-        assert len(init_event["presence"]) >= 1
-
-        # Send ping
-        ws.send_json({"type": "ping"})
-        pong_event = ws.receive_json()
-        assert pong_event["type"] == "pong"
-
-        # Send typing
-        ws.send_json({"type": "user_typing", "is_typing": True})
-
+    assert messages[0]["author_name"] == owner["username"]

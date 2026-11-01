@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { AVAILABLE_MODELS } from './ModelSelector';
 import { fetchModelRegistry, fetchLinkedProviders, unlinkProvider, fetchOAuthUrl, getBYOKStatus, validateBYOKKey, saveBYOKKey, deleteBYOKKey } from '../services/api';
 import { GoogleLogo, GitHubLogo } from './AuthModal';
+import { VoiceService, SUPPORTED_LANGUAGES } from '../services/voiceService';
 
 export function SettingsView({
   settings,
@@ -14,6 +15,7 @@ export function SettingsView({
   onOpenAuth = () => {},
   onLogout = () => {},
   onDeleteAccount = () => {},
+  onOpenBYOKModal,
 }) {
   const [activeTab, setActiveTab] = useState('general');
   const [registryModels, setRegistryModels] = useState([]);
@@ -24,12 +26,76 @@ export function SettingsView({
   const [accountActionError, setAccountActionError] = useState(null);
   const [byokStatus, setByokStatus] = useState(null);
   const [isLoadingBYOK, setIsLoadingBYOK] = useState(false);
-  const [byokKeysInput, setByokKeysInput] = useState({ gemini: '', groq: '' });
-  const [showByokKey, setShowByokKey] = useState({ gemini: false, groq: false });
+  const [byokKeysInput, setByokKeysInput] = useState({ gemini: '', groq: '', openai: '' });
+  const [showByokKey, setShowByokKey] = useState({ gemini: false, groq: false, openai: false });
   const [byokTestStatus, setByokTestStatus] = useState({});
   const [byokSaveLoading, setByokSaveLoading] = useState({});
   const [byokActionMsg, setByokActionMsg] = useState(null);
   const [byokActionErr, setByokActionErr] = useState(null);
+  const [voiceSettings, setVoiceSettings] = useState(() => VoiceService.getSettings());
+  const [availableVoices, setAvailableVoices] = useState([]);
+  const [isTestingVoice, setIsTestingVoice] = useState(false);
+  const [isTestingMic, setIsTestingMic] = useState(false);
+  const [micTestText, setMicTestText] = useState('');
+
+  useEffect(() => {
+    const loadVoices = () => {
+      const v = VoiceService.getVoices();
+      setAvailableVoices(v);
+    };
+    loadVoices();
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+    }
+  }, []);
+
+  const handleUpdateVoiceSetting = (key, value) => {
+    const updated = { ...voiceSettings, [key]: value };
+    setVoiceSettings(updated);
+    VoiceService.updateSettings(updated);
+  };
+
+  const handleTestVoice = () => {
+    if (isTestingVoice) {
+      VoiceService.stopSpeaking();
+      setIsTestingVoice(false);
+      return;
+    }
+    setIsTestingVoice(true);
+    VoiceService.speak({
+      messageId: 'test-voice',
+      text: 'Hello! This is OmniAI voice output preview running locally on your device.',
+      rate: voiceSettings.rate,
+      pitch: voiceSettings.pitch,
+      voiceURI: voiceSettings.voiceURI,
+      onEnd: () => setIsTestingVoice(false),
+      onError: () => setIsTestingVoice(false),
+    });
+  };
+
+  const handleTestMic = () => {
+    if (isTestingMic) {
+      VoiceService.stopListening();
+      setIsTestingMic(false);
+      return;
+    }
+    setMicTestText('Listening... Say something!');
+    setIsTestingMic(true);
+    VoiceService.startSpeechToText({
+      onTranscript: (t) => {
+        setMicTestText(`Heard: "${t}"`);
+      },
+      onStateChange: (state) => {
+        if (state === 'complete' || state === 'idle') {
+          setIsTestingMic(false);
+        }
+      },
+      onError: (err) => {
+        setMicTestText(`Error: ${err}`);
+        setIsTestingMic(false);
+      },
+    });
+  };
 
   const loadBYOK = async () => {
     setIsLoadingBYOK(true);
@@ -252,6 +318,7 @@ export function SettingsView({
         <nav className="w-60 border-r border-[#282D38] bg-[#10131A] p-3 space-y-1 shrink-0 overflow-y-auto">
           {[
             { id: 'general', label: 'General', icon: '⚙️' },
+            { id: 'voice', label: 'Voice & Audio', icon: '🎙️' },
             { id: 'account', label: 'Account & Security', icon: '👤' },
             { id: 'providers', label: 'AI Providers / API Keys', icon: '🔑' },
             { id: 'appearance', label: 'Appearance', icon: '🎨' },
@@ -278,6 +345,201 @@ export function SettingsView({
 
         {/* Content Pane */}
         <main className="flex-1 overflow-y-auto p-6 lg:p-8 space-y-8 max-w-4xl">
+                    {/* TAB: VOICE & AUDIO */}
+          {activeTab === 'voice' && (
+            <div className="space-y-6 animate-in fade-in duration-150">
+              <div>
+                <h3 className="text-base font-semibold text-white flex items-center gap-2">
+                  <span>🎙️</span>
+                  <span>Voice & Audio Settings</span>
+                </h3>
+                <p className="text-xs text-slate-400 mt-1">
+                  Configure browser-based speech-to-text voice input and natural text-to-speech voice playback.
+                </p>
+              </div>
+
+              {/* Privacy Notice Banner */}
+              <div className="p-4 rounded-2xl bg-purple-950/30 border border-purple-500/30 text-xs text-purple-200 flex items-start gap-3">
+                <span className="text-base shrink-0">🔒</span>
+                <div>
+                  <h4 className="font-semibold text-white">100% Client-Side Voice Processing</h4>
+                  <p className="text-slate-300 mt-0.5 leading-relaxed">
+                    Voice input and speech synthesis run directly inside your browser using standard Web Speech APIs. No raw voice audio or speech recordings are ever sent to our servers or external services.
+                  </p>
+                </div>
+              </div>
+
+              {/* SECTION 1: VOICE INPUT (SPEECH-TO-TEXT) */}
+              <div className="bg-[#10131A] border border-[#282D38] rounded-2xl p-5 space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-[#282D38]">
+                  <div>
+                    <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                      <span>🎤</span>
+                      <span>Voice Input (Speech-to-Text)</span>
+                    </h4>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Dictate your prompts hands-free using your device microphone.
+                    </p>
+                  </div>
+                  <span className={`text-[11px] font-medium px-2.5 py-1 rounded-full border ${
+                    VoiceService.isSpeechRecognitionSupported()
+                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                      : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                  }`}>
+                    {VoiceService.isSpeechRecognitionSupported() ? 'Browser Supported' : 'Unsupported Browser'}
+                  </span>
+                </div>
+
+                <div className="space-y-4 pt-1">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                      Speech Recognition Language
+                    </label>
+                    <select
+                      value={voiceSettings.inputLanguage || 'en-US'}
+                      onChange={(e) => handleUpdateVoiceSetting('inputLanguage', e.target.value)}
+                      className="w-full bg-[#151923] border border-[#282D38] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500"
+                    >
+                      {SUPPORTED_LANGUAGES.map((lang) => (
+                        <option key={lang.code} value={lang.code}>
+                          {lang.label} ({lang.code})
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-[11px] text-slate-500 mt-1">
+                      Choose the primary spoken language for the microphone in the chat composer.
+                    </p>
+                  </div>
+
+                  {/* Microphone Diagnostic Test */}
+                  <div className="p-3.5 rounded-xl bg-[#151923] border border-[#282D38] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-white">Microphone Diagnostic</p>
+                      <p className="text-[11px] text-slate-400">
+                        {micTestText || 'Test microphone detection and browser permission.'}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleTestMic}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-medium cursor-pointer transition-colors shrink-0 flex items-center gap-1.5 ${
+                        isTestingMic
+                          ? 'bg-red-500 text-white animate-pulse'
+                          : 'bg-[#1E2330] hover:bg-[#282D38] text-purple-300 border border-[#282D38]'
+                      }`}
+                    >
+                      <span>{isTestingMic ? '⏹️ Stop Test' : '🎙️ Test Microphone'}</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION 2: VOICE OUTPUT (TEXT-TO-SPEECH) */}
+              <div className="bg-[#10131A] border border-[#282D38] rounded-2xl p-5 space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-[#282D38]">
+                  <div>
+                    <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                      <span>🔊</span>
+                      <span>Voice Output (Text-to-Speech)</span>
+                    </h4>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Listen to completed assistant responses via the speaker button.
+                    </p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(voiceSettings.ttsEnabled)}
+                      onChange={(e) => handleUpdateVoiceSetting('ttsEnabled', e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-10 h-5 bg-[#282D38] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600"></div>
+                  </label>
+                </div>
+
+                <div className="space-y-4 pt-1">
+                  {/* Voice Selection */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                      Synthesizer Voice
+                    </label>
+                    <select
+                      value={voiceSettings.voiceURI || ''}
+                      onChange={(e) => handleUpdateVoiceSetting('voiceURI', e.target.value)}
+                      className="w-full bg-[#151923] border border-[#282D38] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500"
+                    >
+                      <option value="">Default System Voice</option>
+                      {availableVoices.map((v) => (
+                        <option key={v.voiceURI} value={v.voiceURI}>
+                          {v.name} ({v.lang})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Speech Rate Slider */}
+                  <div>
+                    <div className="flex items-center justify-between text-xs mb-1.5">
+                      <span className="font-semibold text-slate-300">Speaking Rate</span>
+                      <span className="font-mono text-purple-400">{voiceSettings.rate || 1.0}x</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0.8"
+                      max="1.5"
+                      step="0.05"
+                      value={voiceSettings.rate || 1.0}
+                      onChange={(e) => handleUpdateVoiceSetting('rate', parseFloat(e.target.value))}
+                      className="w-full h-1.5 bg-[#282D38] rounded-lg appearance-none cursor-pointer accent-purple-500"
+                    />
+                    <div className="flex justify-between text-[10px] text-slate-500 mt-1">
+                      <span>0.8x (Slow)</span>
+                      <span>1.0x (Normal)</span>
+                      <span>1.5x (Fast)</span>
+                    </div>
+                  </div>
+
+                  {/* Speech Pitch Slider */}
+                  <div>
+                    <div className="flex items-center justify-between text-xs mb-1.5">
+                      <span className="font-semibold text-slate-300">Speech Pitch</span>
+                      <span className="font-mono text-purple-400">{voiceSettings.pitch || 1.0}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0.8"
+                      max="1.2"
+                      step="0.05"
+                      value={voiceSettings.pitch || 1.0}
+                      onChange={(e) => handleUpdateVoiceSetting('pitch', parseFloat(e.target.value))}
+                      className="w-full h-1.5 bg-[#282D38] rounded-lg appearance-none cursor-pointer accent-purple-500"
+                    />
+                    <div className="flex justify-between text-[10px] text-slate-500 mt-1">
+                      <span>0.8 (Deeper)</span>
+                      <span>1.0 (Natural)</span>
+                      <span>1.2 (Higher)</span>
+                    </div>
+                  </div>
+
+                  {/* Preview Button */}
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      onClick={handleTestVoice}
+                      className={`px-4 py-2 rounded-xl text-xs font-semibold cursor-pointer transition-all flex items-center gap-2 ${
+                        isTestingVoice
+                          ? 'bg-purple-600 text-white'
+                          : 'bg-[#151923] hover:bg-[#1E2330] text-purple-300 border border-purple-500/30'
+                      }`}
+                    >
+                      <span>{isTestingVoice ? '⏹️ Stop Preview' : '▶️ Test Voice Sample'}</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* TAB: ACCOUNT & SECURITY */}
           {activeTab === 'account' && (
             <div className="space-y-6 animate-in fade-in duration-150">
@@ -515,11 +777,23 @@ export function SettingsView({
           {/* TAB: AI PROVIDERS / API KEYS (BYOK) */}
           {activeTab === 'providers' && (
             <div className="space-y-6 animate-in fade-in duration-150">
-              <div>
-                <h3 className="text-base font-semibold text-white">AI Providers & API Keys (BYOK)</h3>
-                <p className="text-xs text-slate-400 mt-1">
-                  Connect your personal AI provider API keys. Keys are authenticated with AES-256 encryption at rest and used strictly for your requests.
-                </p>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-base font-semibold text-white">AI Providers & API Keys (BYOK)</h3>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Connect your personal AI provider API keys. Keys are authenticated with AES-256 encryption at rest and used strictly for your requests.
+                  </p>
+                </div>
+                {onOpenBYOKModal && (
+                  <button
+                    type="button"
+                    onClick={onOpenBYOKModal}
+                    className="px-3.5 py-2 text-xs font-semibold text-white bg-purple-600 hover:bg-purple-500 rounded-xl transition-all shadow-md shadow-purple-600/20 flex items-center gap-1.5 cursor-pointer shrink-0"
+                  >
+                    <span className="text-sm font-bold leading-none">+</span>
+                    <span> Add API Key</span>
+                  </button>
+                )}
               </div>
 
               {byokActionErr && (
@@ -554,6 +828,14 @@ export function SettingsView({
                       url: 'https://console.groq.com/keys',
                       portalName: 'Groq Console',
                       placeholder: 'gsk_...',
+                    },
+                    {
+                      id: 'openai',
+                      name: 'OpenAI',
+                      tagline: 'GPT-4o, GPT-4o-mini & Advanced Reasoning',
+                      url: 'https://platform.openai.com/api-keys',
+                      portalName: 'OpenAI Platform',
+                      placeholder: 'sk-...',
                     },
                   ].map((prov) => {
                     const statusItem = byokStatus?.providers?.find((p) => p.provider === prov.id);

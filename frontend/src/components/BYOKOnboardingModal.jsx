@@ -3,6 +3,7 @@ import { getBYOKStatus, validateBYOKKey, saveBYOKKey, deleteBYOKKey } from '../s
 
 const PROVIDER_INSTRUCTIONS = {
   gemini: {
+    id: 'gemini',
     name: 'Google Gemini',
     badge: 'Multimodal & Complex Reasoning',
     url: 'https://aistudio.google.com/app/apikey',
@@ -20,6 +21,7 @@ const PROVIDER_INSTRUCTIONS = {
     ],
   },
   groq: {
+    id: 'groq',
     name: 'Groq Cloud',
     badge: 'Ultra-Fast Inference (500+ T/s)',
     url: 'https://console.groq.com/keys',
@@ -36,13 +38,31 @@ const PROVIDER_INSTRUCTIONS = {
       'Click "Save API Key" to securely encrypt and activate',
     ],
   },
+  openai: {
+    id: 'openai',
+    name: 'OpenAI',
+    badge: 'GPT-4o & Advanced Reasoning',
+    url: 'https://platform.openai.com/api-keys',
+    linkText: 'OpenAI Platform (platform.openai.com/api-keys)',
+    placeholder: 'sk-...',
+    steps: [
+      'Visit the OpenAI Platform at platform.openai.com/api-keys',
+      'Sign in to your OpenAI account',
+      'Navigate to the API Keys section under your organization',
+      'Click "Create new secret key"',
+      'Provide a name (e.g. "OmniAI") and copy the secret key',
+      'Paste your key into the secure field below',
+      'Click "Test Connection" to verify access to OpenAI models',
+      'Click "Save API Key" to securely encrypt and activate',
+    ],
+  },
 };
 
 export default function BYOKOnboardingModal({ isOpen, onClose, onComplete, isExistingUser = false }) {
   const [step, setStep] = useState('welcome'); // 'welcome' | 'providers' | 'complete'
-  const [activeTab, setActiveTab] = useState('gemini'); // 'gemini' | 'groq'
-  const [keysInput, setKeysInput] = useState({ gemini: '', groq: '' });
-  const [showKey, setShowKey] = useState({ gemini: false, groq: false });
+  const [activeTab, setActiveTab] = useState('gemini'); // 'gemini' | 'groq' | 'openai'
+  const [keysInput, setKeysInput] = useState({ gemini: '', groq: '', openai: '' });
+  const [showKey, setShowKey] = useState({ gemini: false, groq: false, openai: false });
   const [testStatus, setTestStatus] = useState({}); // { [prov]: { loading, success, message } }
   const [saveLoading, setSaveLoading] = useState({});
   const [byokStatus, setByokStatus] = useState(null);
@@ -59,9 +79,8 @@ export default function BYOKOnboardingModal({ isOpen, onClose, onComplete, isExi
     try {
       const data = await getBYOKStatus();
       setByokStatus(data);
-      if (data.has_active_provider && step === 'welcome') {
-        // If already has active keys, jump to providers tab
-        setStep('providers');
+      if (isExistingUser && data?.has_active_provider && step === 'welcome') {
+        setStep(data.total_connected >= 1 ? 'complete' : 'providers');
       }
     } catch (err) {
       console.error('Failed to load BYOK status:', err);
@@ -122,6 +141,8 @@ export default function BYOKOnboardingModal({ isOpen, onClose, onComplete, isExi
         [provider]: { loading: false, success: true, message: 'Saved and verified successfully!' },
       }));
       await loadStatus();
+      // Automatically advance to updated Setup Complete screen
+      setStep('complete');
     } catch (err) {
       setErrorMsg(err.message || 'Failed to save API key');
     } finally {
@@ -139,11 +160,31 @@ export default function BYOKOnboardingModal({ isOpen, onClose, onComplete, isExi
     }
   };
 
+  const handleAddAnotherProvider = () => {
+    setErrorMsg('');
+    // Find the first disconnected provider among implemented providers
+    const allProviders = Object.keys(PROVIDER_INSTRUCTIONS);
+    const connectedSet = new Set(
+      byokStatus?.providers?.filter((p) => p.is_connected).map((p) => p.provider) || []
+    );
+    const firstDisconnected = allProviders.find((p) => !connectedSet.has(p));
+    setActiveTab(firstDisconnected || allProviders[0]);
+    setStep('providers');
+  };
+
+  const handleManageProvider = (provId) => {
+    setErrorMsg('');
+    setActiveTab(provId);
+    setStep('providers');
+  };
+
   const activeProviderStatus = byokStatus?.providers?.find((p) => p.provider === activeTab);
-  const hasAnyConnected = byokStatus?.providers?.some((p) => p.is_connected);
+  const connectedProviders = byokStatus?.providers?.filter((p) => p.is_connected) || [];
+  const hasAnyConnected = connectedProviders.length > 0;
+  const currentProviderInfo = PROVIDER_INSTRUCTIONS[activeTab] || PROVIDER_INSTRUCTIONS.gemini;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
       <div className="relative w-full max-w-2xl bg-[#10131A] border border-[#2D3748] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header Bar */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-[#1F2430] bg-[#151923]">
@@ -168,6 +209,7 @@ export default function BYOKOnboardingModal({ isOpen, onClose, onComplete, isExi
           </div>
           <button
             onClick={onClose}
+            aria-label="Close"
             className="p-1.5 text-gray-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
             title="Close"
           >
@@ -200,8 +242,9 @@ export default function BYOKOnboardingModal({ isOpen, onClose, onComplete, isExi
                 </h3>
                 <p className="text-sm text-gray-300 max-w-lg mx-auto leading-relaxed">
                   Connect your personal AI provider API keys to start using OmniAI. Bring your own keys to access{' '}
-                  <span className="text-purple-400 font-medium">Google Gemini</span> and{' '}
-                  <span className="text-purple-400 font-medium">Groq</span> with complete privacy and zero shared
+                  <span className="text-purple-400 font-medium">Google Gemini</span>,{' '}
+                  <span className="text-purple-400 font-medium">Groq</span>, and{' '}
+                  <span className="text-purple-400 font-medium">OpenAI</span> with complete privacy and zero shared
                   rate limits.
                 </p>
               </div>
@@ -254,7 +297,7 @@ export default function BYOKOnboardingModal({ isOpen, onClose, onComplete, isExi
           {step === 'providers' && (
             <div className="space-y-6">
               {/* Provider Selector Tabs */}
-              <div className="flex items-center gap-2 p-1 bg-[#151923] border border-[#1F2430] rounded-xl">
+              <div className="flex items-center gap-2 p-1 bg-[#151923] border border-[#1F2430] rounded-xl overflow-x-auto">
                 {Object.keys(PROVIDER_INSTRUCTIONS).map((prov) => {
                   const info = PROVIDER_INSTRUCTIONS[prov];
                   const isConn = byokStatus?.providers?.find((p) => p.provider === prov)?.is_connected;
@@ -262,8 +305,11 @@ export default function BYOKOnboardingModal({ isOpen, onClose, onComplete, isExi
                   return (
                     <button
                       key={prov}
-                      onClick={() => setActiveTab(prov)}
-                      className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-medium transition-all cursor-pointer ${
+                      onClick={() => {
+                        setActiveTab(prov);
+                        setErrorMsg('');
+                      }}
+                      className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-medium transition-all cursor-pointer whitespace-nowrap ${
                         isActive
                           ? 'bg-purple-600 text-white shadow-md shadow-purple-600/20'
                           : 'text-gray-400 hover:text-white hover:bg-white/5'
@@ -271,7 +317,7 @@ export default function BYOKOnboardingModal({ isOpen, onClose, onComplete, isExi
                     >
                       <span>{info.name}</span>
                       {isConn && (
-                        <span className={`text-xs ${isActive ? 'text-white' : 'text-emerald-400'}`}>✓</span>
+                        <span className={`text-xs ${isActive ? 'text-white' : 'text-emerald-400 font-bold'}`}>✓</span>
                       )}
                     </button>
                   );
@@ -283,15 +329,15 @@ export default function BYOKOnboardingModal({ isOpen, onClose, onComplete, isExi
                 <div className="flex items-center justify-between">
                   <div>
                     <h4 className="text-base font-semibold text-white">
-                      {PROVIDER_INSTRUCTIONS[activeTab].name}
+                      {currentProviderInfo.name}
                     </h4>
                     <span className="text-xs text-purple-400 font-medium">
-                      {PROVIDER_INSTRUCTIONS[activeTab].badge}
+                      {currentProviderInfo.badge}
                     </span>
                   </div>
 
                   <a
-                    href={PROVIDER_INSTRUCTIONS[activeTab].url}
+                    href={currentProviderInfo.url}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1.5 text-xs text-purple-400 hover:text-purple-300 font-medium px-3 py-1.5 rounded-lg bg-purple-500/10 border border-purple-500/20 transition-colors"
@@ -306,7 +352,7 @@ export default function BYOKOnboardingModal({ isOpen, onClose, onComplete, isExi
                     How to get your API key:
                   </p>
                   <ol className="space-y-1.5 text-xs text-gray-400 list-decimal list-inside leading-relaxed">
-                    {PROVIDER_INSTRUCTIONS[activeTab].steps.map((st, idx) => (
+                    {currentProviderInfo.steps.map((st, idx) => (
                       <li key={idx} className="hover:text-gray-200 transition-colors">
                         <span className="ml-1">{st}</span>
                       </li>
@@ -318,7 +364,7 @@ export default function BYOKOnboardingModal({ isOpen, onClose, onComplete, isExi
                 {activeProviderStatus?.is_connected ? (
                   <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <span className="text-emerald-400 text-lg">✓</span>
+                      <span className="text-emerald-400 text-lg font-bold">✓</span>
                       <div>
                         <div className="text-sm font-semibold text-white">Connected</div>
                         <div className="text-xs text-gray-400 font-mono">
@@ -348,7 +394,7 @@ export default function BYOKOnboardingModal({ isOpen, onClose, onComplete, isExi
                       onChange={(e) =>
                         setKeysInput((prev) => ({ ...prev, [activeTab]: e.target.value }))
                       }
-                      placeholder={PROVIDER_INSTRUCTIONS[activeTab].placeholder}
+                      placeholder={currentProviderInfo.placeholder}
                       className="w-full bg-[#151923] border border-[#2D3748] rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-colors pr-12 font-mono"
                     />
                     <button
@@ -394,7 +440,7 @@ export default function BYOKOnboardingModal({ isOpen, onClose, onComplete, isExi
                       testStatus[activeTab]?.loading || !(keysInput[activeTab] || '').trim()
                     }
                     onClick={() => handleTestKey(activeTab)}
-                    className="flex-1 px-4 py-2 text-xs font-semibold text-gray-200 bg-[#1A1F2C] hover:bg-[#252B3B] border border-[#2D3748] rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                    className="flex-1 px-4 py-2.5 text-xs font-semibold text-gray-200 bg-[#1A1F2C] hover:bg-[#252B3B] border border-[#2D3748] rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                   >
                     {testStatus[activeTab]?.loading ? 'Testing...' : 'Test Connection'}
                   </button>
@@ -405,22 +451,37 @@ export default function BYOKOnboardingModal({ isOpen, onClose, onComplete, isExi
                       saveLoading[activeTab] || !(keysInput[activeTab] || '').trim()
                     }
                     onClick={() => handleSaveKey(activeTab)}
-                    className="flex-1 px-4 py-2 text-xs font-semibold text-white bg-purple-600 hover:bg-purple-500 rounded-xl transition-all shadow-md shadow-purple-600/20 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                    className="flex-1 px-4 py-2.5 text-xs font-semibold text-white bg-purple-600 hover:bg-purple-500 rounded-xl transition-all shadow-md shadow-purple-600/20 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2"
                   >
-                    {saveLoading[activeTab] ? 'Saving...' : 'Save API Key'}
+                    {saveLoading[activeTab] && (
+                      <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    )}
+                    <span>{saveLoading[activeTab] ? 'Saving...' : 'Save API Key'}</span>
                   </button>
                 </div>
               </div>
 
               {/* Footer navigation */}
               <div className="flex items-center justify-between pt-4 border-t border-[#1F2430]">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="px-4 py-2 text-xs font-medium text-gray-400 hover:text-white transition-colors cursor-pointer"
-                >
-                  I'll Do This Later
-                </button>
+                {hasAnyConnected ? (
+                  <button
+                    type="button"
+                    onClick={() => setStep('complete')}
+                    className="px-4 py-2 text-xs font-medium text-gray-400 hover:text-white transition-colors cursor-pointer flex items-center gap-1.5"
+                  >
+                    <span>←</span>
+                    <span>View Connected Providers</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="px-4 py-2 text-xs font-medium text-gray-400 hover:text-white transition-colors cursor-pointer"
+                  >
+                    I'll Do This Later
+                  </button>
+                )}
+
                 <button
                   type="button"
                   disabled={!hasAnyConnected}
@@ -436,8 +497,8 @@ export default function BYOKOnboardingModal({ isOpen, onClose, onComplete, isExi
 
           {/* STEP 3: COMPLETION SCREEN */}
           {step === 'complete' && (
-            <div className="space-y-6 py-2 text-center">
-              <div className="inline-flex p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 mb-2 text-3xl">
+            <div className="space-y-6 py-2 text-center animate-in fade-in duration-200">
+              <div className="inline-flex p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 mb-2 text-3xl font-bold">
                 ✓
               </div>
               <div className="space-y-2">
@@ -450,24 +511,53 @@ export default function BYOKOnboardingModal({ isOpen, onClose, onComplete, isExi
               </div>
 
               {/* Connected Providers List */}
-              <div className="space-y-2 max-w-md mx-auto text-left">
-                {byokStatus?.providers
-                  ?.filter((p) => p.is_connected)
-                  .map((p) => (
-                    <div
-                      key={p.provider}
-                      className="p-3 bg-[#151923] border border-[#1F2430] rounded-xl flex items-center justify-between text-xs"
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <span className="text-emerald-400 font-bold">✓</span>
-                        <span className="font-semibold text-white">{p.name}</span>
+              <div className="space-y-2.5 max-w-md mx-auto text-left">
+                <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-1">
+                  Connected Providers ({connectedProviders.length})
+                </div>
+                {connectedProviders.map((p) => (
+                  <div
+                    key={p.provider}
+                    className="p-3.5 bg-[#151923] border border-[#1F2430] hover:border-[#2D3748] rounded-xl flex items-center justify-between text-xs transition-colors"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className="text-emerald-400 font-bold shrink-0">✓</span>
+                      <div className="truncate">
+                        <div className="font-semibold text-white truncate">{p.name}</div>
+                        <div className="font-mono text-[11px] text-gray-400 truncate">
+                          {p.key_fingerprint}
+                        </div>
                       </div>
-                      <span className="font-mono text-gray-400">{p.key_fingerprint}</span>
                     </div>
-                  ))}
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                        Connected
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleManageProvider(p.provider)}
+                        className="px-2.5 py-1 text-[11px] font-medium text-slate-300 hover:text-white bg-[#1A1F2C] hover:bg-[#252B3B] border border-[#2D3748] rounded-lg transition-colors cursor-pointer"
+                        title={`Manage or replace ${p.name} key`}
+                      >
+                        Manage
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
 
-              <div className="pt-4 border-t border-[#1F2430]">
+              {/* Action Buttons: Add Another Provider + Start Chatting */}
+              <div className="pt-4 border-t border-[#1F2430] max-w-md mx-auto space-y-3">
+                <button
+                  type="button"
+                  onClick={handleAddAnotherProvider}
+                  className="w-full py-2.5 px-4 text-xs font-semibold text-purple-300 hover:text-white bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 hover:border-purple-500/50 rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+                >
+                  <span className="text-sm font-bold leading-none">+</span>{' '}
+                  <span>Add Another Provider</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={() => {

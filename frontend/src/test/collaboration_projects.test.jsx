@@ -5,6 +5,8 @@ import { ChatHeader } from '../components/ChatHeader';
 import { MessageBubble } from '../components/MessageBubble';
 import { Sidebar } from '../components/Sidebar';
 import { CreateProjectModal } from '../components/CreateProjectModal';
+import { ShareConversationModal } from '../components/ShareConversationModal';
+import * as api from '../services/api';
 
 describe('Collaboration & Projects Frontend Tests', () => {
   beforeEach(() => {
@@ -91,5 +93,61 @@ describe('Collaboration & Projects Frontend Tests', () => {
 
     expect(screen.getByText('New Collaborative Project')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('e.g. Q4 Research & Synthesis')).toBeInTheDocument();
+  });
+
+  it('renders unauthenticated state in ShareConversationModal without triggering failing API call', () => {
+    const getShareSpy = vi.spyOn(api, 'getConversationShareSettings');
+    const onOpenAuthMock = vi.fn();
+
+    render(
+      <ShareConversationModal
+        isOpen={true}
+        onClose={vi.fn()}
+        conversationId="conv-test-1"
+        conversationTitle="Quantum Computing"
+        currentUser={null}
+        onOpenAuth={onOpenAuthMock}
+      />
+    );
+
+    expect(screen.getByText('Sign in to Share Conversations')).toBeInTheDocument();
+    expect(screen.getByText('Sign In')).toBeInTheDocument();
+    expect(getShareSpy).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByText('Sign In'));
+    expect(onOpenAuthMock).toHaveBeenCalledWith('signin');
+  });
+
+  it('renders authenticated ShareConversationModal with participants and share link', async () => {
+    const mockShareData = {
+      conversation_id: 'conv-test-1',
+      title: 'Quantum Computing',
+      sharing_enabled: true,
+      share_permission: 'editor',
+      share_token: 'token-abc',
+      current_user_role: 'owner',
+      members: [
+        { id: 'm-1', user_id: 'u-1', display_name: 'Owner Alice', role: 'owner' },
+        { id: 'm-2', user_id: 'u-2', display_name: 'Bob Dev', role: 'editor' },
+      ],
+      pending_invitations: [],
+    };
+
+    vi.spyOn(api, 'getConversationShareSettings').mockResolvedValue(mockShareData);
+
+    render(
+      <ShareConversationModal
+        isOpen={true}
+        onClose={vi.fn()}
+        conversationId="conv-test-1"
+        conversationTitle="Quantum Computing"
+        currentUser={{ id: 'u-1', username: 'Owner Alice', is_guest: false }}
+      />
+    );
+
+    expect(await screen.findByText('Owner Alice')).toBeInTheDocument();
+    expect(screen.getByText('Bob Dev')).toBeInTheDocument();
+    expect(screen.getByText('Shareable Link')).toBeInTheDocument();
+    expect(screen.getByText('Invite Collaborators')).toBeInTheDocument();
   });
 });

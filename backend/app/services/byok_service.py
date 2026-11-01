@@ -35,6 +35,12 @@ SUPPORTED_PROVIDERS = [
         "description": "Ultra-fast inference LPUs hosting Llama 3.1 & Mixtral models (Free tier available).",
         "docs_url": "https://console.groq.com/keys",
     },
+    {
+        "id": "openai",
+        "name": "OpenAI",
+        "description": "GPT-4o, GPT-4o-mini, and advanced reasoning models from OpenAI.",
+        "docs_url": "https://platform.openai.com/api-keys",
+    },
 ]
 
 
@@ -96,7 +102,28 @@ class BYOKService:
                 except Exception as e:
                     return False, "Connection Failed", f"Could not connect to Groq Cloud: {str(e)}"
 
-        elif norm_prov in ("openai", "anthropic"):
+        elif norm_prov == "openai":
+            # Test against OpenAI API
+            url = "https://api.openai.com/v1/models"
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                try:
+                    resp = await client.get(url, headers={"Authorization": f"Bearer {clean_key}"})
+                    if resp.status_code == 200:
+                        return True, "Connected Successfully", "OpenAI API key authenticated successfully."
+                    elif resp.status_code in (401, 403):
+                        data = resp.json() if "application/json" in resp.headers.get("content-type", "") else {}
+                        err_msg = data.get("error", {}).get("message", "Invalid API Key.")
+                        return False, "Invalid API Key", f"OpenAI rejected the API key: {err_msg}"
+                    elif resp.status_code == 429:
+                        return False, "Provider Rate Limit Reached", "OpenAI quota exceeded or rate limit reached. Key is valid but currently restricted."
+                    else:
+                        return False, "Provider Service Unavailable", f"OpenAI returned HTTP {resp.status_code}."
+                except httpx.TimeoutException:
+                    return False, "Connection Failed", "Connection timed out contacting OpenAI."
+                except Exception as e:
+                    return False, "Connection Failed", f"Could not connect to OpenAI: {str(e)}"
+
+        elif norm_prov in ("anthropic",):
             return False, "Integration Pending", f"{norm_prov.capitalize()} integration is scheduled for future updates."
 
         else:
@@ -174,13 +201,25 @@ class BYOKService:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="API key cannot be empty.")
 
         norm_prov = provider.lower().strip()
-        if norm_prov not in ("gemini", "groq"):
+        supported_ids = [p["id"] for p in SUPPORTED_PROVIDERS]
+        if norm_prov not in supported_ids:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Provider '{provider}' is not supported.")
 
         # 1. Live Validation
         is_valid, status_label, message = await cls.validate_provider_key(norm_prov, clean_key)
         if not is_valid:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"{status_label}: {message}")
+
+        return cls.save_user_credential_direct(user_id=user_id, provider=norm_prov, api_key=clean_key)
+
+    @classmethod
+    def save_user_credential_direct(cls, user_id: str, provider: str, api_key: str) -> BYOKSaveResponse:
+        """
+        Encrypts and stores a provider credential directly without upstream network validation.
+        Useful for internal setup, migrations, and automated unit testing.
+        """
+        clean_key = (api_key or "").strip()
+        norm_prov = provider.lower().strip()
 
         # 2. Authenticated Encryption
         encrypted_token = encrypt_api_key(clean_key)
