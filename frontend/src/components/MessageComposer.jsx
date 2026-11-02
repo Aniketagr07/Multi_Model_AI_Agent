@@ -1,7 +1,6 @@
 import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react';
-import { ModelSelector } from './ModelSelector';
+import { ModelSelector, AVAILABLE_MODELS } from './ModelSelector';
 import { DocumentAttachmentCard } from './DocumentAttachmentCard';
-import { UsagePopover } from './UsagePopover';
 import { fetchSkillsCatalog } from '../services/api';
 import { VoiceService } from '../services/voiceService';
 
@@ -50,6 +49,15 @@ export function MessageComposer({
   const [sttStatus, setSttStatus] = useState('idle'); // 'idle' | 'listening' | 'error'
   const [sttError, setSttError] = useState(null);
   const imageInputRef = useRef(null);
+
+  const selectedModel = useMemo(() => {
+    return [...customModels, ...AVAILABLE_MODELS].find((m) => m.id === selectedModelId) || AVAILABLE_MODELS[0];
+  }, [customModels, selectedModelId]);
+
+  const isVisionSupported = Boolean(
+    selectedModel?.isVision ||
+    (selectedModel?.capabilities && selectedModel.capabilities.includes('vision'))
+  );
 
   // Load installed skills for the user
   const loadInstalledSkills = useCallback(async () => {
@@ -421,7 +429,7 @@ export function MessageComposer({
               <div className="min-w-0">
                 <p className="text-xs font-medium text-slate-200 truncate">{attachedImage.name}</p>
                 <p className="text-[10px] text-purple-400 font-mono">
-                  {Math.round(attachedImage.size / 1024)} KB &bull; On-Device Vision (Qwen2.5-VL 3B)
+                  {Math.round(attachedImage.size / 1024)} KB &bull; {isVisionSupported ? "Image Attachment" : "Local Qwen2.5 1.5B is text-only"}
                 </p>
               </div>
             </div>
@@ -493,15 +501,18 @@ export function MessageComposer({
                     Attach File
                   </div>
                   <div className="space-y-0.5">
-                    <button
-                      type="button"
-                      onClick={triggerImageUpload}
-                      className="w-full text-left px-2.5 py-1.5 rounded-xl text-xs text-slate-300 hover:text-white hover:bg-[#151923] flex items-center gap-2 cursor-pointer transition-colors"
-                    >
-                      <span>🖼️</span>
-                      <span className="font-medium">Upload Image (Vision)</span>
-                      <span className="ml-auto text-[10px] font-mono text-purple-400">.png,.jpg</span>
-                    </button>
+                    {/* Only expose image-analysis options for models that actually support them */}
+                    {isVisionSupported && (
+                      <button
+                        type="button"
+                        onClick={triggerImageUpload}
+                        className="w-full text-left px-2.5 py-1.5 rounded-xl text-xs text-slate-300 hover:text-white hover:bg-[#151923] flex items-center gap-2 cursor-pointer transition-colors"
+                      >
+                        <span>🖼️</span>
+                        <span className="font-medium">Upload Image (Vision)</span>
+                        <span className="ml-auto text-[10px] font-mono text-purple-400">.png,.jpg</span>
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => triggerUpload('.pdf')}
@@ -690,10 +701,9 @@ export function MessageComposer({
         </div>
       </div>
 
-      {/* Footer Disclaimer & Compact "View Usage" Popover */}
-      <div className="flex items-center justify-between text-[11px] text-slate-500 px-2 pt-1.5 select-none">
+      {/* Footer Disclaimer */}
+      <div className="flex items-center justify-center text-[11px] text-slate-500 px-2 pt-1.5 select-none">
         <span className="truncate">OmniAI can make mistakes. Verify critical information.</span>
-        <UsagePopover />
       </div>
     </div>
   );

@@ -4,7 +4,6 @@ import {
   LOCAL_MODELS,
   getLocalModelById,
   DEFAULT_LOCAL_TEXT_MODEL_ID,
-  DEFAULT_LOCAL_VISION_MODEL_ID,
 } from '../core/localModelRegistry';
 
 /**
@@ -208,37 +207,39 @@ export default function LocalModelModal({
         </div>
 
         {/* Model Tabs Selector */}
-        <div className="px-6 pt-4 pb-0 flex gap-2 border-b border-[#1F2430]">
-          {LOCAL_MODELS.map((m) => {
-            const isTabActive = m.id === modelId;
-            return (
-              <button
-                key={m.id}
-                type="button"
-                disabled={isLoading}
-                onClick={() => {
-                  if (isLoading) return;
-                  setModelId(m.id);
-                  setErrorText('');
-                  setStatusText('');
-                  setPercent(0);
-                  setProgress(0);
-                }}
-                className={`pb-3 px-3 text-xs font-semibold border-b-2 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
-                  isTabActive
-                    ? 'border-purple-500 text-white'
-                    : 'border-transparent text-gray-400 hover:text-gray-200'
-                }`}
-              >
-                <span>{m.isVision ? '👁️' : '💬'}</span>
-                <span>{m.name}</span>
-                <span className="text-[10px] text-gray-400 bg-white/5 px-1.5 py-0.2 rounded">
-                  ~{m.approxSizeMB}MB
-                </span>
-              </button>
-            );
-          })}
-        </div>
+        {LOCAL_MODELS.length > 1 && (
+          <div className="px-6 pt-4 pb-0 flex gap-2 border-b border-[#1F2430]">
+            {LOCAL_MODELS.map((m) => {
+              const isTabActive = m.id === modelId;
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  disabled={isLoading}
+                  onClick={() => {
+                    if (isLoading) return;
+                    setModelId(m.id);
+                    setErrorText('');
+                    setStatusText('');
+                    setPercent(0);
+                    setProgress(0);
+                  }}
+                  className={`pb-3 px-3 text-xs font-semibold border-b-2 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+                    isTabActive
+                      ? 'border-purple-500 text-white'
+                      : 'border-transparent text-gray-400 hover:text-gray-200'
+                  }`}
+                >
+                  <span>💬</span>
+                  <span>{m.name}</span>
+                  <span className="text-[10px] text-gray-400 bg-white/5 px-1.5 py-0.2 rounded">
+                    ~{m.approxSizeMB}MB
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {/* Content Body */}
         <div className="p-6 overflow-y-auto space-y-5">

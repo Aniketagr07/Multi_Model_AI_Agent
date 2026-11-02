@@ -464,15 +464,20 @@ export function ModelSelector({
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                                 Ready
                               </span>
+                            ) : modelStatus.status === 'initializing' ? (
+                              <span className="text-teal-300 flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse" />
+                                Initializing
+                              </span>
                             ) : isDownloading ? (
                               <span className="text-purple-300 flex items-center gap-1">
                                 <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
-                                Downloading — {modelStatus.percent}%
+                                Downloading ({modelStatus.percent}%)
                               </span>
                             ) : modelStatus.status === 'error' ? (
-                              <span className="text-red-400">Download Failed</span>
+                              <span className="text-red-400">Error</span>
                             ) : (
-                              <span className="text-gray-400">Not Downloaded (~{model.approxSizeMB}MB)</span>
+                              <span className="text-gray-400">Download Required</span>
                             )}
                           </div>
                         </div>
@@ -484,14 +489,22 @@ export function ModelSelector({
                           <span className="text-[9px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded">
                             Ready
                           </span>
+                        ) : modelStatus.status === 'initializing' ? (
+                          <span className="text-[9px] font-semibold text-teal-300 bg-teal-500/10 border border-teal-500/20 px-1.5 py-0.5 rounded flex items-center gap-1">
+                            Initializing
+                          </span>
                         ) : isDownloading ? (
                           <span className="text-[9px] font-semibold text-purple-300 bg-purple-500/10 border border-purple-500/20 px-1.5 py-0.5 rounded flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
-                            {modelStatus.percent}%
+                            Downloading
+                          </span>
+                        ) : modelStatus.status === 'error' ? (
+                          <span className="text-[9px] font-semibold text-red-400 bg-red-500/10 border border-red-500/20 px-1.5 py-0.5 rounded">
+                            Error
                           </span>
                         ) : (
                           <span className="text-[9px] font-semibold text-gray-300 bg-white/5 border border-white/10 px-1.5 py-0.5 rounded group-hover:border-purple-500/40 group-hover:text-purple-300 transition-colors">
-                            Download
+                            Download Required
                           </span>
                         )}
                       </div>

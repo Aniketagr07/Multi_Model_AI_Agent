@@ -24,8 +24,8 @@ export const LOADING_STATES = {
 export class DownloadProgressTracker {
   /**
    * @param {Object} options
-   * @param {string} options.modelName - Display name of the model (e.g. 'Qwen2.5-VL 3B')
-   * @param {number|null} options.expectedTotalBytes - Estimated total bytes if known (~2.2GB for Qwen2.5-VL 3B)
+   * @param {string} options.modelName - Display name of the model (e.g. 'Qwen2.5 1.5B')
+   * @param {number|null} options.expectedTotalBytes - Estimated total bytes if known (~850MB for Qwen2.5 1.5B)
    * @param {Function} options.onUpdate - Progress listener called with standardized progress payload
    */
   constructor({

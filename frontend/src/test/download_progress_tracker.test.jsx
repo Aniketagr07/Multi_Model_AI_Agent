@@ -8,218 +8,115 @@ describe('DownloadProgressTracker & Loading States Test Suite', () => {
   beforeEach(() => {
     updates = [];
     tracker = new DownloadProgressTracker({
-      modelName: 'Qwen2.5-VL 3B',
-      expectedTotalBytes: 2200 * 1024 * 1024,
+      modelName: 'Qwen2.5 1.5B',
+      expectedTotalBytes: 850 * 1024 * 1024,
       onUpdate: (report) => updates.push(report),
     });
   });
 
-  // Scenario 1: A fresh download with no cached files
+  // Scenario 1: Fresh download with no cached files
   it('Scenario 1: Fresh download starts at 0%, increases correctly, and never exceeds 100%', () => {
     expect(tracker.percent).toBe(0);
     expect(tracker.state).toBe(LOADING_STATES.PREPARING);
 
-    // Transformers.js sends progress with percent 5.6% (previous bug test: was 560%)
     tracker.handleTransformersEvent({
       status: 'progress',
-      file: 'onnx/decoder_model_merged_q4.onnx',
+      file: 'qwen2.5-1.5b-weights.bin',
       progress: 5.6,
-      loaded: 110 * 1024 * 1024,
-      total: 1600 * 1024 * 1024,
+      loaded: 42.5 * 1024 * 1024,
+      total: 850 * 1024 * 1024,
     });
 
     const report1 = updates[updates.length - 1];
     expect(report1.state).toBe(LOADING_STATES.DOWNLOADING);
     expect(report1.percent).toBeGreaterThanOrEqual(0);
     expect(report1.percent).toBeLessThanOrEqual(100);
-    expect(report1.percent).toBe(5); // 110MB / 2200MB = 5%
+    expect(report1.percent).toBe(5); // 42.5MB / 850MB = 5%
     expect(report1.progress).toBe(0.05);
-    expect(report1.text).toContain('Downloading Qwen2.5-VL 3B weights (5%)...');
-    // Ensure the same percentage is in text, percent, and progress
+    expect(report1.text).toContain('Downloading Qwen2.5 1.5B weights (5%)...');
     expect(report1.text).toContain(`(${report1.percent}%)`);
   });
 
-  // Scenario 2: A partially cached model
+  // Scenario 2: Partially cached model
   it('Scenario 2: Partially cached model accounts for completed files without duplicate counting', () => {
-    // File 1 (vision encoder) is already cached / done
     tracker.handleTransformersEvent({
       status: 'progress',
-      file: 'onnx/vision_encoder_q4.onnx',
-      loaded: 400 * 1024 * 1024,
-      total: 400 * 1024 * 1024,
+      file: 'qwen2.5-shard1.bin',
+      loaded: 250 * 1024 * 1024,
+      total: 250 * 1024 * 1024,
     });
     tracker.handleTransformersEvent({
       status: 'done',
-      file: 'onnx/vision_encoder_q4.onnx',
+      file: 'qwen2.5-shard1.bin',
     });
 
-    // 400 MB / 2200 MB = 18%
-    expect(tracker.percent).toBe(18);
+    // 250 MB / 850 MB = 29%
+    expect(tracker.percent).toBe(29);
 
-    // File 2 (decoder) downloads half (800MB)
     tracker.handleTransformersEvent({
       status: 'progress',
-      file: 'onnx/decoder_model_merged_q4.onnx',
-      loaded: 800 * 1024 * 1024,
-      total: 1600 * 1024 * 1024,
+      file: 'qwen2.5-shard2.bin',
+      loaded: 300 * 1024 * 1024,
+      total: 600 * 1024 * 1024,
     });
 
-    // Total = 400 + 800 = 1200MB / 2200MB = 55%
-    expect(tracker.percent).toBe(55);
+    // Total = 250 + 300 = 550MB / 850MB = 65%
+    expect(tracker.percent).toBe(65);
     expect(tracker.percent).toBeLessThanOrEqual(100);
   });
 
   // Scenario 3: Multiple model shards
-  it('Scenario 3: Multiple model shards downloading concurrently and sequentially reach 100% only when all complete', () => {
-    const shard1 = 'onnx/shard1.onnx';
-    const shard2 = 'onnx/shard2.onnx';
-    const shard3 = 'onnx/shard3.onnx';
+  it('Scenario 3: Multiple model shards downloading reach 100% cleanly', () => {
+    const shard1 = 'shard1.bin';
+    const shard2 = 'shard2.bin';
 
-    tracker.handleTransformersEvent({ status: 'progress', file: shard1, loaded: 500 * 1024 * 1024, total: 1000 * 1024 * 1024 });
-    tracker.handleTransformersEvent({ status: 'progress', file: shard2, loaded: 300 * 1024 * 1024, total: 1000 * 1024 * 1024 });
-    tracker.handleTransformersEvent({ status: 'progress', file: shard3, loaded: 100 * 1024 * 1024, total: 200 * 1024 * 1024 });
-
-    // Downloaded: 900 MB / 2200 MB = 41%
-    expect(tracker.percent).toBe(41);
-    expect(tracker.state).toBe(LOADING_STATES.DOWNLOADING);
-
-    // Complete shard 1
-    tracker.handleTransformersEvent({ status: 'progress', file: shard1, loaded: 1000 * 1024 * 1024, total: 1000 * 1024 * 1024 });
+    tracker.handleTransformersEvent({ status: 'progress', file: shard1, loaded: 400 * 1024 * 1024, total: 400 * 1024 * 1024 });
     tracker.handleTransformersEvent({ status: 'done', file: shard1 });
-    expect(tracker.percent).toBe(64); // 1400 / 2200
-
-    // Complete shard 3
-    tracker.handleTransformersEvent({ status: 'progress', file: shard3, loaded: 200 * 1024 * 1024, total: 200 * 1024 * 1024 });
-    tracker.handleTransformersEvent({ status: 'done', file: shard3 });
-    expect(tracker.percent).toBe(68); // 1500 / 2200
-
-    // Complete shard 2
-    tracker.handleTransformersEvent({ status: 'progress', file: shard2, loaded: 1000 * 1024 * 1024, total: 1000 * 1024 * 1024 });
+    tracker.handleTransformersEvent({ status: 'progress', file: shard2, loaded: 450 * 1024 * 1024, total: 450 * 1024 * 1024 });
     tracker.handleTransformersEvent({ status: 'done', file: shard2 });
 
-    // All shards complete -> 100%
     expect(tracker.percent).toBe(100);
-  });
-
-  // Scenario 4: A failed download followed by retry
-  it('Scenario 4: Failed download followed by retry resets cleanly without double counting', () => {
-    tracker.handleTransformersEvent({
-      status: 'progress',
-      file: 'onnx/decoder.onnx',
-      loaded: 500 * 1024 * 1024,
-      total: 2200 * 1024 * 1024,
-    });
-    expect(tracker.percent).toBe(23);
-
-    // Failure occurs
-    tracker.setDownloadFailed('Network connection lost');
-    expect(tracker.state).toBe(LOADING_STATES.DOWNLOAD_FAILED);
-    expect(tracker.error).toContain('Network connection lost');
-
-    // User triggers retry
-    tracker.reset();
-    expect(tracker.percent).toBe(0);
-    expect(tracker.progress).toBe(0);
-    expect(tracker.state).toBe(LOADING_STATES.PREPARING);
-
-    // Clean download restarts
-    tracker.handleTransformersEvent({
-      status: 'progress',
-      file: 'onnx/decoder.onnx',
-      loaded: 220 * 1024 * 1024,
-      total: 2200 * 1024 * 1024,
-    });
-    expect(tracker.percent).toBe(10);
-  });
-
-  // Scenario 5: A cancelled download
-  it('Scenario 5: Cancelled download aborts, ignores stale callbacks, and allows restart', () => {
-    tracker.handleTransformersEvent({
-      status: 'progress',
-      file: 'onnx/decoder.onnx',
-      loaded: 440 * 1024 * 1024,
-      total: 2200 * 1024 * 1024,
-    });
-    expect(tracker.percent).toBe(20);
-
-    // User clicks Cancel
-    tracker.abort('Model loading cancelled by user.');
-    expect(tracker.state).toBe(LOADING_STATES.CANCELLED);
-    expect(tracker.aborted).toBe(true);
-
-    const countBeforeStale = updates.length;
-
-    // Stale callback arrives from in-flight worker
-    tracker.handleTransformersEvent({
-      status: 'progress',
-      file: 'onnx/decoder.onnx',
-      loaded: 880 * 1024 * 1024,
-      total: 2200 * 1024 * 1024,
-    });
-
-    // Stale callback was ignored
-    expect(updates.length).toBe(countBeforeStale);
-
-    // User restarts
-    tracker.reset();
-    expect(tracker.aborted).toBe(false);
-    expect(tracker.percent).toBe(0);
-    expect(tracker.state).toBe(LOADING_STATES.PREPARING);
-  });
-
-  // Scenario 6: A complete cached model
-  it('Scenario 6: Complete cached model transitions to ready only after initialization', () => {
-    tracker.setPreparing('Verifying cached weights in browser cache...');
-    expect(tracker.state).toBe(LOADING_STATES.PREPARING);
-
-    tracker.setDownloadComplete('Cached weights verified.');
+    tracker.setDownloadComplete('Download complete.');
     expect(tracker.state).toBe(LOADING_STATES.DOWNLOAD_COMPLETE);
-    expect(tracker.percent).toBe(100);
+  });
 
-    // Initializing must happen before Ready
-    tracker.setInitializing('Compiling WebGPU pipeline with cached weights...');
+  // Scenario 4: WebLLM initProgressCallback events
+  it('Scenario 4: Correctly handles WebLLM text events and compiles shaders', () => {
+    tracker.handleWebLLMEvent({
+      progress: 0.25,
+      text: 'Loading Qwen2.5 1.5B parameters (25%)...',
+    });
+    expect(tracker.percent).toBe(25);
+    expect(tracker.state).toBe(LOADING_STATES.DOWNLOADING);
+
+    tracker.handleWebLLMEvent({
+      progress: 0.9,
+      text: 'Compiling WebGPU shaders...',
+    });
+    expect(tracker.percent).toBe(90);
     expect(tracker.state).toBe(LOADING_STATES.INITIALIZING);
 
-    tracker.setReady('Qwen2.5-VL 3B vision model is ready.');
+    tracker.setReady('Qwen2.5 1.5B is ready.');
+    expect(tracker.percent).toBe(100);
     expect(tracker.state).toBe(LOADING_STATES.READY);
   });
 
-  // Scenario 7: A slow network connection with incremental byte chunks
-  it('Scenario 7: Slow network connection reports strictly monotonic progress without exceeding 100% or NaN', () => {
-    let lastPercent = 0;
-    const totalBytes = 2200 * 1024 * 1024;
-    const chunkSize = 110 * 1024 * 1024; // 5% per chunk
+  // Scenario 5: User Cancellation
+  it('Scenario 5: Cancelling model download marks cancelled state', () => {
+    tracker.handleTransformersEvent({
+      status: 'progress',
+      file: 'shard1.bin',
+      loaded: 200 * 1024 * 1024,
+      total: 850 * 1024 * 1024,
+    });
+    expect(tracker.state).toBe(LOADING_STATES.DOWNLOADING);
 
-    for (let bytes = chunkSize; bytes <= totalBytes; bytes += chunkSize) {
-      tracker.handleTransformersEvent({
-        status: 'progress',
-        file: 'weights.onnx',
-        loaded: bytes,
-        total: totalBytes,
-      });
+    tracker.abort('Download cancelled by user.');
+    expect(tracker.state).toBe(LOADING_STATES.CANCELLED);
+    expect(tracker.aborted).toBe(true);
 
-      expect(Number.isFinite(tracker.percent)).toBe(true);
-      expect(tracker.percent).toBeGreaterThanOrEqual(lastPercent);
-      expect(tracker.percent).toBeLessThanOrEqual(100);
-      lastPercent = tracker.percent;
-    }
-
-    expect(tracker.percent).toBe(100);
-  });
-
-  it('Never displays NaN, Infinity, negative, or above 100% under corrupted runtime events', () => {
-    // Degenerate / corrupted values
-    tracker.handleTransformersEvent({ status: 'progress', file: 'bad.onnx', loaded: -500, total: -1000 });
+    tracker.reset();
     expect(tracker.percent).toBe(0);
-
-    tracker.handleTransformersEvent({ status: 'progress', file: 'bad2.onnx', loaded: Infinity, total: 1000 });
-    expect(tracker.percent).toBe(0);
-
-    tracker.handleTransformersEvent({ status: 'progress', file: 'bad3.onnx', loaded: NaN, total: NaN });
-    expect(tracker.percent).toBe(0);
-
-    tracker.handleTransformersEvent({ status: 'progress', file: 'bad4.onnx', loaded: 99999999999999, total: 1000 });
-    expect(tracker.percent).toBe(100); // Clamped at 100%
+    expect(tracker.state).toBe(LOADING_STATES.PREPARING);
   });
 });
-

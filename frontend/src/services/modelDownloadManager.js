@@ -3,12 +3,10 @@
  *
  * Responsibilities:
  * - Manages downloads independently of chat interactions (no UI lock).
- * - Tracks individual model download states independently (Qwen2.5 1.5B vs Qwen2.5-VL 3B).
+ * - Tracks Qwen2.5 1.5B download state.
  * - Preserves download progress across conversation navigations.
  * - Prevents duplicate concurrent downloads for the same model.
- * - Supports targeted per-model cancellation without interrupting other models.
- * - Supports retry after failure.
- * - Limits concurrent large downloads to prevent memory pressure.
+ * - Supports cancellation and retry after failure.
  * - Provides reactive event subscriptions for UI components.
  */
 
@@ -17,7 +15,6 @@ import {
   LOCAL_MODELS,
   getLocalModelById,
   DEFAULT_LOCAL_TEXT_MODEL_ID,
-  DEFAULT_LOCAL_VISION_MODEL_ID,
 } from '../core/localModelRegistry';
 import { useState, useEffect } from 'react';
 

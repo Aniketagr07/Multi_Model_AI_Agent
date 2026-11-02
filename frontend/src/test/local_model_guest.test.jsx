@@ -53,38 +53,25 @@ describe('Local Model and Guest Storage Suite', () => {
     expect(result.provider).toBe('local');
   });
 
-  it('LocalVisionModel processes image context, extracts visible sections, and answers follow-up prompts', async () => {
+  it('LocalModelProvider rejects image attachment with clear honest explanation', async () => {
     const chunks = [];
     const dummyImage = {
-      name: 'candidate_cv.png',
+      name: 'sample_doc.png',
       size: 15400,
       dataUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
     };
 
-    // First request: Process image
     const result = await LocalModelProvider.streamResponse({
-      messages: [{ role: 'user', content: 'Extract candidate name, education, and skills visible in this CV' }],
-      modelId: 'qwen2.5-vl-3b',
+      messages: [{ role: 'user', content: 'What is inside this image?' }],
+      modelId: 'qwen2.5-1.5b',
       image: dummyImage,
       onChunk: (delta) => chunks.push(delta),
     });
 
     expect(result.provider).toBe('local');
-    expect(result.modelId).toBe('qwen2.5-vl-3b');
-    expect(result.content).toContain('[Qwen2.5-VL 3B]');
-    expect(result.content).toContain('Identified Section Breakdown');
-
-    // Follow-up request: Uses cached image context without re-uploading
-    const followUpChunks = [];
-    const followUpResult = await LocalModelProvider.streamResponse({
-      messages: [{ role: 'user', content: 'Which programming languages were listed in the skills section?' }],
-      modelId: 'qwen2.5-vl-3b',
-      hasPriorImageContext: true,
-      onChunk: (delta) => followUpChunks.push(delta),
-    });
-
-    expect(followUpResult.provider).toBe('local');
-    expect(followUpResult.hasImageContext).toBe(true);
+    expect(result.content).toContain('Local Image Understanding Unavailable');
+    expect(result.content).toContain('Qwen2.5 1.5B');
+    expect(result.content).toContain('text-only');
   });
 
   it('Guest Storage operates 100% locally with message persistence and ordering', () => {
@@ -143,7 +130,7 @@ describe('Local Model and Guest Storage Suite', () => {
 
     expect(screen.getByText('LOCAL MODELS')).toBeInTheDocument();
     expect(screen.getAllByText(/Qwen2\.5 1\.5B/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Qwen2\.5-VL 3B/i).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/Qwen2\.5-VL 3B/i)).not.toBeInTheDocument();
 
     // In guest mode, cloud models are locked and prompt to sign in
     expect(screen.getByText(/require an account/i)).toBeInTheDocument();

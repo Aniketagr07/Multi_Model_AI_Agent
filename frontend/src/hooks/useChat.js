@@ -30,9 +30,7 @@ import {
   LOCAL_MODELS,
   DEFAULT_LOCAL_MODEL_ID,
   DEFAULT_LOCAL_TEXT_MODEL_ID,
-  DEFAULT_LOCAL_VISION_MODEL_ID,
   isLocalModelId,
-  isLocalVisionModelId,
 } from '../core/localModelRegistry';
 
 export function useChat({ customModels = [], customKeys = {}, userSettings = {}, userToken = null } = {}) {
@@ -532,26 +530,7 @@ export function useChat({ customModels = [], customKeys = {}, userSettings = {},
 
       if (!messageContent || isLoading || isUploadingDocument) return;
 
-      const hasPriorImageContext = activeMessages.some((m) => Boolean(m.image || m.imageUrl));
       let targetModelId = overrideModelId || selectedModelId;
-
-      // Rule 4: Strict Model Routing
-      if (attachedImage) {
-        // Any message with an attached image MUST route to verified vision model
-        targetModelId = DEFAULT_LOCAL_VISION_MODEL_ID;
-      } else if (hasPriorImageContext && isLocalModelId(targetModelId)) {
-        // Follow-up question in an image conversation stays with vision model
-        targetModelId = DEFAULT_LOCAL_VISION_MODEL_ID;
-      } else if (isLocalVisionModelId(targetModelId) && !attachedImage && !hasPriorImageContext) {
-        // User selected vision model without image or image context -> route to text model
-        targetModelId = DEFAULT_LOCAL_TEXT_MODEL_ID;
-      }
-
-      // Safety Guard: Text-only model (Qwen2.5 1.5B) can NEVER process images
-      if (targetModelId === DEFAULT_LOCAL_TEXT_MODEL_ID && (attachedImage || hasPriorImageContext)) {
-        targetModelId = DEFAULT_LOCAL_VISION_MODEL_ID;
-      }
-
       const isLocal = isLocalModelId(targetModelId);
 
       // Access Control: Block unauthenticated visitors from cloud models
