@@ -22,7 +22,11 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     APP_ENV=production \
-    DEBUG=false
+    DEBUG=false \
+    PORT=8000 \
+    HOST=0.0.0.0 \
+    VIRTUAL_ENV=/opt/venv \
+    PATH="/opt/venv/bin:/usr/local/bin:$PATH"
 
 # Install curl for health checks
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -33,9 +37,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN groupadd -g 10001 omniai && \
     useradd -u 10001 -g omniai -m -s /bin/bash omniai
 
+# Setup isolated virtual environment
+RUN python -m venv /opt/venv && \
+    /opt/venv/bin/pip install --no-cache-dir --upgrade pip setuptools wheel
+
 # Install Python backend dependencies
 COPY backend/requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+RUN /opt/venv/bin/pip install --no-cache-dir -r requirements.txt
 
 # Copy backend application code
 COPY --chown=omniai:omniai backend/ ./backend
@@ -45,7 +53,7 @@ COPY --from=frontend-builder --chown=omniai:omniai /app/frontend/dist ./frontend
 
 # Ensure data directories exist with proper permissions
 RUN mkdir -p /app/backend/data /app/backend/data/uploads /app/backend/data/backups && \
-    chown -R omniai:omniai /app/backend/data
+    chown -R omniai:omniai /app/backend/data /opt/venv
 
 USER omniai
 WORKDIR /app/backend
@@ -53,6 +61,6 @@ WORKDIR /app/backend
 EXPOSE 8000
 
 HEALTHCHECK --interval=20s --timeout=5s --start-period=10s --retries=3 \
-    CMD curl -f http://localhost:8000/api/health || exit 1
+    CMD curl -f http://localhost:${PORT:-8000}/api/health || exit 1
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+CMD ["sh", "-c", "exec python -m uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1"]
