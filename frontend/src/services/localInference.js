@@ -47,9 +47,18 @@ export function installCacheAddPolyfill() {
         throw new Error(`HTTP ${response.status} ${response.statusText} while downloading ${reqUrl}`);
       }
 
+      // If the response underwent an HTTP redirect, response.redirected === true.
+      // The WHATWG Cache API specification requires browsers to reject put() with a TypeError
+      // when storing redirected responses. Wrapping in new Response(response.body) clears response.redirected.
+      const cleanResponse = new Response(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: response.headers,
+      });
+
       // cache.put accepts (Request | URL string, Response)
       // Passing reqUrl guarantees exact match with cache.match(new Request(url))
-      return await this.put(reqUrl, response);
+      return await this.put(reqUrl, cleanResponse);
     }
   };
 }
@@ -59,7 +68,9 @@ export function installCacheAddPolyfill() {
  */
 export function categorizeDownloadError(err, url = null) {
   const msg = err?.message || String(err);
-  const name = err?.name || '';
+  const name = err?.name || 'Error';
+  const statusMatch = msg.match(/HTTP\s+(\d{3})/i) || msg.match(/status\s*[:=]\s*(\d{3})/i);
+  const httpStatus = statusMatch ? statusMatch[1] : null;
 
   if (
     msg.includes('QuotaExceeded') ||
@@ -68,9 +79,10 @@ export function categorizeDownloadError(err, url = null) {
   ) {
     return {
       category: 'Insufficient Browser Storage',
-      userMessage:
-        'Insufficient disk space in browser cache. Qwen2.5 1.5B requires ~850MB free storage. Please free up browser space or clear site data and retry.',
-      technicalDetails: msg,
+      userMessage: `Disk storage quota exceeded while caching model files. Free up at least ~850MB and retry. (${msg})`,
+      technicalDetails: `Exception: [${name}] ${msg}${url ? ` | Target: ${url}` : ''}`,
+      httpStatus,
+      url,
     };
   }
 
@@ -83,9 +95,10 @@ export function categorizeDownloadError(err, url = null) {
   ) {
     return {
       category: 'WebGPU Hardware Constraint',
-      userMessage:
-        'WebGPU hardware acceleration failed or device ran out of memory. Please close other GPU-intensive tabs/software and retry.',
-      technicalDetails: msg,
+      userMessage: `WebGPU acceleration constraint: ${msg}. Close other GPU-heavy tabs/apps and retry.`,
+      technicalDetails: `Exception: [${name}] ${msg}${url ? ` | Target: ${url}` : ''}`,
+      httpStatus,
+      url,
     };
   }
 
@@ -93,16 +106,19 @@ export function categorizeDownloadError(err, url = null) {
     return {
       category: 'Download Cancelled',
       userMessage: 'Model download was cancelled by the user.',
-      technicalDetails: msg,
+      technicalDetails: `Exception: [${name}] ${msg}`,
+      httpStatus,
+      url,
     };
   }
 
-  if (msg.includes('404') || msg.includes('Not Found') || msg.includes('Cannot locate')) {
+  if (msg.includes('404') || msg.includes('Not Found') || msg.includes('Cannot locate') || httpStatus === '404') {
     return {
       category: 'Model File Not Found (HTTP 404)',
-      userMessage:
-        'A required model weight shard or config file could not be found on the model repository. Please notify support or report this issue.',
-      technicalDetails: url ? `${msg} (URL: ${url})` : msg,
+      userMessage: `File not found on repository: ${msg}.${url ? ` Failed URL: ${url}.` : ''}`,
+      technicalDetails: `Exception: [${name}] ${msg} | HTTP 404${url ? ` | Target: ${url}` : ''}`,
+      httpStatus: '404',
+      url,
     };
   }
 
@@ -114,9 +130,10 @@ export function categorizeDownloadError(err, url = null) {
   ) {
     return {
       category: 'Download Blocked by Browser Security',
-      userMessage:
-        'The model download was blocked by browser security or an ad-blocker extension. Please disable shields/ad-blockers for this site and retry.',
-      technicalDetails: url ? `${msg} (URL: ${url})` : msg,
+      userMessage: `Cross-origin request blocked: ${msg}.${url ? ` Failed URL: ${url}.` : ''} Check browser ad-blockers or security extensions.`,
+      technicalDetails: `Exception: [${name}] ${msg}${url ? ` | Target: ${url}` : ''}`,
+      httpStatus,
+      url,
     };
   }
 
@@ -128,16 +145,19 @@ export function categorizeDownloadError(err, url = null) {
   ) {
     return {
       category: 'Model Host Unreachable / Network Interrupted',
-      userMessage:
-        'Unable to download model shards from Hugging Face or CDN. This can occur due to connection drops, ISP throttling, or cross-origin redirect failures. Click "Reset Cache & Retry" to clean any partial cache and reconnect.',
-      technicalDetails: url ? `${msg} (URL: ${url})` : msg,
+      userMessage: `Unable to download model files: ${msg}.${url ? ` Failed URL: ${url}.` : ''} Click "Reset Cache & Retry" to clear partial downloads and reconnect.`,
+      technicalDetails: `Exception: [${name}] ${msg}${httpStatus ? ` | HTTP ${httpStatus}` : ''}${url ? ` | Target: ${url}` : ''}`,
+      httpStatus,
+      url,
     };
   }
 
   return {
     category: 'Initialization Failed',
-    userMessage: `Failed to initialize Qwen2.5-1.5B: ${msg}`,
-    technicalDetails: msg,
+    userMessage: `Failed to initialize Qwen2.5-1.5B: ${msg}.${url ? ` Target URL: ${url}.` : ''}`,
+    technicalDetails: `Exception: [${name}] ${msg}${url ? ` | Target: ${url}` : ''}`,
+    httpStatus,
+    url,
   };
 }
 
@@ -147,7 +167,7 @@ export function categorizeDownloadError(err, url = null) {
  * avoiding the frequent connection timeouts associated with raw.githubusercontent.com.
  */
 export function buildWebLLMAppConfig(webllm, options = {}) {
-  const { wasmIndex = 0, modelIndex = 0 } = options;
+  const { wasmIndex = 0, modelIndex = 0, cacheBackend = 'indexeddb' } = options;
   const wasmList = QWEN_CDN_MIRRORS?.wasm || [];
   const modelList = QWEN_CDN_MIRRORS?.model || [];
 
@@ -184,6 +204,7 @@ export function buildWebLLMAppConfig(webllm, options = {}) {
 
   return {
     ...baseConfig,
+    cacheBackend,
     model_list: customModelList,
   };
 }
@@ -329,14 +350,18 @@ export class LocalTextModel {
             });
           }
 
-          // Cycle mirrors: attempt 1 uses jsDelivr (index 0), attempt 2 uses Fastly jsDelivr, attempt 3 uses GCore jsDelivr
+          // Attempt 1 & 2 use IndexedDB (zero Cache API redirect issues), cycling jsDelivr mirrors
+          // Attempt 3 uses Cache Storage with clean-response redirect polyfill
           const appConfig = buildWebLLMAppConfig(webllm, {
             wasmIndex: attempt - 1,
             modelIndex: 0,
+            cacheBackend: attempt <= 2 ? 'indexeddb' : 'cache',
           });
 
           const currentModelRecord = appConfig.model_list.find((m) => m.model_id === targetWebLLMId);
-          console.info(`[WebLLM Diagnostics] (Attempt ${attempt}/${maxAttempts}) Loading ${targetWebLLMId}`);
+          console.info(
+            `[WebLLM Diagnostics] (Attempt ${attempt}/${maxAttempts}) Loading ${targetWebLLMId} using backend: ${appConfig.cacheBackend}`
+          );
           console.info(`[WebLLM Diagnostics] WASM URL: ${currentModelRecord?.model_lib}`);
           console.info(`[WebLLM Diagnostics] Model URL: ${currentModelRecord?.model}`);
 
@@ -370,7 +395,13 @@ export class LocalTextModel {
               lastFailingUrl = currentModelRecord?.model_lib;
             }
 
-            console.warn(`[WebLLM Diagnostics] Attempt ${attempt}/${maxAttempts} failed:`, err.message, 'URL:', lastFailingUrl);
+            console.error(`[WebLLM Diagnostics] Attempt ${attempt}/${maxAttempts} failed:`, {
+              message: err?.message,
+              name: err?.name,
+              stack: err?.stack,
+              url: lastFailingUrl,
+              backend: appConfig.cacheBackend,
+            });
 
             // Clean up potentially corrupted cached shards before the final attempt
             if (attempt === 2) {
@@ -381,16 +412,21 @@ export class LocalTextModel {
           }
         }
 
-        // All attempts failed: produce categorized, actionable message
+        // All attempts failed: produce detailed, actionable message
         const classified = categorizeDownloadError(lastError, lastFailingUrl);
-        const friendlyMsg = `${classified.category}: ${classified.userMessage}`;
+        const detailedMsg = `${classified.category}: ${classified.userMessage}`;
+        console.error('[WebLLM Final Failure Diagnostic Info]', {
+          lastError,
+          lastFailingUrl,
+          classified,
+        });
 
         if (tracker.state === LOADING_STATES.DOWNLOADING || tracker.state === LOADING_STATES.PREPARING) {
-          tracker.setDownloadFailed(new Error(friendlyMsg));
+          tracker.setDownloadFailed(new Error(detailedMsg));
         } else {
-          tracker.setInitFailed(new Error(friendlyMsg));
+          tracker.setInitFailed(new Error(detailedMsg));
         }
-        throw new Error(`Failed to initialize Qwen2.5-1.5B: ${friendlyMsg}`);
+        throw new Error(`Failed to initialize Qwen2.5-1.5B: ${detailedMsg}`);
       } catch (err) {
         this.engine = null;
         if (err.name === 'AbortError' || signal?.aborted || err.message?.includes('cancelled')) {
@@ -643,7 +679,17 @@ class LocalModelProviderService {
         console.warn('[LocalModelProvider] WebLLM deleteModelAllInfoInCache warning:', e);
       }
 
-      // Purge only WebLLM and TVM cache namespaces in Cache Storage
+      // 1. Purge WebLLM and TVM IndexedDB databases
+      if (typeof window !== 'undefined' && 'indexedDB' in window) {
+        const dbNames = ['webllm/model', 'webllm/config', 'webllm/wasm', 'tvmjs'];
+        for (const name of dbNames) {
+          try {
+            window.indexedDB.deleteDatabase(name);
+          } catch (_) {}
+        }
+      }
+
+      // 2. Purge only WebLLM and TVM cache namespaces in Cache Storage
       if (typeof window !== 'undefined' && 'caches' in window) {
         const webllmCacheNames = ['webllm/model', 'webllm/config', 'webllm/wasm', 'tvmjs'];
         await Promise.all(

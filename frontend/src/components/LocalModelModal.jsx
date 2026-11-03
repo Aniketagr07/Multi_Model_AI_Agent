@@ -385,7 +385,7 @@ export default function LocalModelModal({
                 <span className="text-base shrink-0">⚠️</span>
                 <div className="space-y-1">
                   <div className="font-semibold">{loadingState || 'Operation Failed'}</div>
-                  <div className="text-red-300/90 leading-relaxed">{errorText}</div>
+                  <div className="text-red-300/90 leading-relaxed font-mono break-all text-[11px] bg-black/40 p-2 rounded border border-red-500/20 max-h-36 overflow-y-auto select-text">{errorText}</div>
                 </div>
               </div>
               <div className="flex items-center justify-end gap-2 pt-1 border-t border-red-500/20">
