@@ -32,15 +32,24 @@ export function installCacheAddPolyfill() {
     } catch (err) {
       const reqUrl = typeof request === 'string' ? request : request?.url;
       console.info(
-        `[WebLLM Cache Recovery] Cache.add failed for ${reqUrl} (${err?.message}). Falling back to fetch(cors) + cache.put...`
+        `[WebLLM Cache Recovery] Cache.add redirected/failed for ${reqUrl} (${err?.message}). Fetching via CORS and caching...`
       );
 
-      const req = request instanceof Request ? request : new Request(request, { mode: 'cors' });
-      const response = await fetch(req);
+      const signal = request instanceof Request ? request.signal : undefined;
+      const fetchReq = new Request(reqUrl, {
+        mode: 'cors',
+        credentials: 'omit',
+        signal,
+      });
+
+      const response = await fetch(fetchReq);
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status} ${response.statusText} while fetching ${req.url}`);
+        throw new Error(`HTTP ${response.status} ${response.statusText} while downloading ${reqUrl}`);
       }
-      return await this.put(request, response);
+
+      // cache.put accepts (Request | URL string, Response)
+      // Passing reqUrl guarantees exact match with cache.match(new Request(url))
+      return await this.put(reqUrl, response);
     }
   };
 }
@@ -147,8 +156,10 @@ export function buildWebLLMAppConfig(webllm, options = {}) {
 
   const targetId = 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC';
   const baseConfig = webllm.prebuiltAppConfig || { model_list: [] };
+  let found = false;
   const customModelList = (baseConfig.model_list || []).map((m) => {
     if (m.model_id === targetId) {
+      found = true;
       return {
         ...m,
         model: modelUrl,
@@ -157,6 +168,19 @@ export function buildWebLLMAppConfig(webllm, options = {}) {
     }
     return m;
   });
+
+  if (!found) {
+    customModelList.push({
+      model_id: targetId,
+      model: modelUrl,
+      model_lib: wasmUrl,
+      low_resource_required: true,
+      vram_required_MB: 1629.75,
+      overrides: {
+        context_window_size: 4096,
+      },
+    });
+  }
 
   return {
     ...baseConfig,
@@ -308,7 +332,7 @@ export class LocalTextModel {
           // Cycle mirrors: attempt 1 uses jsDelivr (index 0), attempt 2 uses Fastly jsDelivr, attempt 3 uses GCore jsDelivr
           const appConfig = buildWebLLMAppConfig(webllm, {
             wasmIndex: attempt - 1,
-            modelIndex: attempt > 1 ? 1 : 0,
+            modelIndex: 0,
           });
 
           const currentModelRecord = appConfig.model_list.find((m) => m.model_id === targetWebLLMId);
@@ -619,9 +643,9 @@ class LocalModelProviderService {
         console.warn('[LocalModelProvider] WebLLM deleteModelAllInfoInCache warning:', e);
       }
 
-      // Purge only WebLLM cache namespaces in Cache Storage
+      // Purge only WebLLM and TVM cache namespaces in Cache Storage
       if (typeof window !== 'undefined' && 'caches' in window) {
-        const webllmCacheNames = ['webllm/model', 'webllm/config', 'webllm/wasm'];
+        const webllmCacheNames = ['webllm/model', 'webllm/config', 'webllm/wasm', 'tvmjs'];
         await Promise.all(
           webllmCacheNames.map(async (name) => {
             try {
@@ -629,6 +653,14 @@ class LocalModelProviderService {
             } catch (_) {}
           })
         );
+        try {
+          const keys = await window.caches.keys();
+          for (const key of keys) {
+            if (key.startsWith('webllm/') || key.startsWith('tvmjs')) {
+              await window.caches.delete(key);
+            }
+          }
+        } catch (_) {}
       }
 
       await this.unload();

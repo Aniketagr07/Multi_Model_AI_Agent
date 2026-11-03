@@ -235,11 +235,12 @@ describe('Local Model and Guest Storage Suite', () => {
     const configDefault = buildWebLLMAppConfig(fakeWebllm, { wasmIndex: 0, modelIndex: 0 });
     const qwenEntry = configDefault.model_list.find((m) => m.model_id === 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC');
     expect(qwenEntry.model_lib).toContain('cdn.jsdelivr.net');
-    expect(qwenEntry.model).toContain('huggingface.co');
+    expect(qwenEntry.model).toContain('huggingface.co/mlc-ai/Qwen2.5-1.5B-Instruct-q4f16_1-MLC/resolve/main/');
 
-    const configMirror = buildWebLLMAppConfig(fakeWebllm, { wasmIndex: 1, modelIndex: 1 });
+    const configMirror = buildWebLLMAppConfig(fakeWebllm, { wasmIndex: 1, modelIndex: 0 });
     const mirrorEntry = configMirror.model_list.find((m) => m.model_id === 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC');
-    expect(mirrorEntry.model).toContain('hf-mirror.com');
+    expect(mirrorEntry.model_lib).toContain('fastly.jsdelivr.net');
+    expect(mirrorEntry.model).toContain('/resolve/main/');
   });
 
   it('verifies checkCapabilities diagnostics and storage check', async () => {
