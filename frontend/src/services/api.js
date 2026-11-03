@@ -25,7 +25,7 @@ export function resolveApiBaseUrl() {
       if (trimmedEnv && !trimmedEnv.includes('localhost') && !trimmedEnv.includes('127.0.0.1')) {
         return trimmedEnv;
       }
-      return 'https://omniai-backend-qg41.onrender.com';
+      return 'https://omniai-backend-qg4l.onrender.com';
     }
   }
 
