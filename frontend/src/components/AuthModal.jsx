@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { fetchOAuthUrl, requestPasswordReset } from '../services/api';
+import { fetchOAuthUrl, requestPasswordReset, getApiBaseUrl } from '../services/api';
 
 export function GoogleLogo({ className = 'w-4 h-4' }) {
   return (
@@ -83,9 +83,10 @@ export function AuthModal({
     } catch (err) {
       setOauthLoading(null);
       const isFetchErr = err?.message === 'Failed to fetch' || err?.name === 'TypeError';
+      const backendUrl = getApiBaseUrl();
       setError(
         isFetchErr
-          ? `Unable to connect to the authentication server. Please verify backend connectivity or use Guest mode.`
+          ? `Unable to connect to the authentication server (${backendUrl}). Please verify backend connectivity or use Guest mode.`
           : (err.message ||
              `${provider.toUpperCase()} authentication is currently awaiting configuration. Please use email & password or Guest mode.`)
       );
@@ -145,7 +146,13 @@ export function AuthModal({
       setPassword('');
       onClose();
     } catch (err) {
-      setError(err.message || 'Authentication failed. Please check your credentials.');
+      const isFetchErr = err?.message === 'Failed to fetch' || err?.name === 'TypeError';
+      const backendUrl = getApiBaseUrl();
+      setError(
+        isFetchErr
+          ? `Unable to connect to the authentication server (${backendUrl}). Please verify backend connectivity or use Guest mode.`
+          : (err.message || 'Authentication failed. Please check your credentials.')
+      );
     } finally {
       setIsLoading(false);
     }

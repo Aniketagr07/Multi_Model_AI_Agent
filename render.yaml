@@ -30,11 +30,11 @@ services:
       - key: DATABASE_URL
         sync: false
 
-      # Frontend Base URL & CORS (Set to your Vercel frontend domain)
+      # Frontend Base URL & CORS (Set to your Cloudflare Workers frontend domain)
       - key: FRONTEND_URL
-        value: "https://your-omniai-frontend.vercel.app"
+        value: "https://omniai.aniket-agr2007.workers.dev"
       - key: CORS_ORIGINS
-        value: "https://your-omniai-frontend.vercel.app"
+        value: "https://omniai.aniket-agr2007.workers.dev"
 
       # Server-Side Session Security & BYOK Encryption
       - key: APP_SESSION_SECRET
