@@ -54,7 +54,7 @@ services:
       - key: GOOGLE_CLIENT_SECRET
         sync: false
       - key: GOOGLE_REDIRECT_URI
-        value: "https://your-omniai-backend.onrender.com/api/auth/oauth/google/callback"
+        value: "https://omniai-backend-qg41.onrender.com/api/auth/oauth/google/callback"
 
       # GitHub OAuth Credentials
       - key: GITHUB_CLIENT_ID
@@ -62,7 +62,7 @@ services:
       - key: GITHUB_CLIENT_SECRET
         sync: false
       - key: GITHUB_REDIRECT_URI
-        value: "https://your-omniai-backend.onrender.com/api/auth/oauth/github/callback"
+        value: "https://omniai-backend-qg41.onrender.com/api/auth/oauth/github/callback"
 
       # Safeguards & Rate Limiting
       - key: RATE_LIMIT_ENABLED

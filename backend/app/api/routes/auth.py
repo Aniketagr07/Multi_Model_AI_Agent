@@ -54,7 +54,7 @@ def set_auth_cookie(response: Response, token: str) -> None:
         value=token,
         httponly=True,
         secure=settings.is_production,
-        samesite="lax",
+        samesite=("none" if settings.is_production else "lax"),
         max_age=30 * 86400,  # 30 days
         path="/",
     )
@@ -62,7 +62,8 @@ def set_auth_cookie(response: Response, token: str) -> None:
 
 def clear_auth_cookie(response: Response) -> None:
     """Clear HTTP-only session cookie upon logout."""
-    response.delete_cookie(key="omniai_session", path="/")
+    settings = get_settings()
+    response.delete_cookie(key="omniai_session", path="/", secure=settings.is_production, samesite=("none" if settings.is_production else "lax"))
 
 
 def extract_token_from_request(request: Request, authorization: Optional[str] = None) -> Optional[str]:

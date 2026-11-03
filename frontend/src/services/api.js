@@ -25,7 +25,7 @@ export function resolveApiBaseUrl() {
       if (trimmedEnv && !trimmedEnv.includes('localhost') && !trimmedEnv.includes('127.0.0.1')) {
         return trimmedEnv;
       }
-      return 'https://omniai-backend.onrender.com';
+      return 'https://omniai-backend-qg41.onrender.com';
     }
   }
 
@@ -770,6 +770,7 @@ export async function registerUser(email, username, password) {
   const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/auth/register`;
   const response = await fetch(url, {
     method: 'POST',
+    credentials: 'include',
     headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
     body: JSON.stringify({ email, username, password }),
   });
@@ -784,6 +785,7 @@ export async function loginUser(email, password) {
   const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/auth/login`;
   const response = await fetch(url, {
     method: 'POST',
+    credentials: 'include',
     headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
     body: JSON.stringify({ email, password }),
   });
@@ -1246,6 +1248,7 @@ export async function uploadProjectFile(projectId, file) {
   const authHeaders = getAuthHeaders();
   const response = await fetch(url, {
     method: 'POST',
+    credentials: 'include',
     headers: {
       ...authHeaders,
     },
