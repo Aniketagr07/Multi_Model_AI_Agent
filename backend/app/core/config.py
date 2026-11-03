@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     FRONTEND_URL: Optional[str] = None
 
     # Comma-separated or list of allowed origins for CORS
-    CORS_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173"
+    CORS_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173,https://omniai.aniket-agr2007.workers.dev"
 
     # AI Provider 1: Google Gemini API (Day 3)
     GEMINI_API_KEY: Optional[str] = None
@@ -109,9 +109,12 @@ class Settings(BaseSettings):
         if self.FRONTEND_URL and self.FRONTEND_URL.strip():
             return self.FRONTEND_URL.strip().rstrip("/")
         origins = self.cors_origins_list
+        for origin in origins:
+            if "workers.dev" in origin or "vercel.app" in origin:
+                return origin.rstrip("/")
         if origins:
             return origins[0].rstrip("/")
-        return "http://localhost:5173"
+        return "https://omniai.aniket-agr2007.workers.dev"
 
     @property
     def allowed_models_list(self) -> List[str]:

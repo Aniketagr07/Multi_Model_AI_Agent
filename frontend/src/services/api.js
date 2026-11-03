@@ -4,21 +4,43 @@
  * and the FastAPI backend, providing typed payload contracts and error normalization.
  */
 
-function resolveApiBaseUrl() {
-  const envUrl = import.meta.env.VITE_API_URL !== undefined ? import.meta.env.VITE_API_URL : import.meta.env.VITE_API_BASE_URL;
-  if (envUrl !== undefined && envUrl !== null && String(envUrl).trim() !== '') {
-    return String(envUrl).trim().replace(/\/+$/, '');
-  }
+export function resolveApiBaseUrl() {
   if (typeof window !== 'undefined') {
     const custom = window.__OMNIAI_API_URL__ || localStorage.getItem('omniai_api_base_url');
     if (custom && String(custom).trim() !== '') {
       return String(custom).trim().replace(/\/+$/, '');
     }
   }
+
+  const envUrl = import.meta.env.VITE_API_URL !== undefined ? import.meta.env.VITE_API_URL : import.meta.env.VITE_API_BASE_URL;
+  const isEnvSet = envUrl !== undefined && envUrl !== null && String(envUrl).trim() !== '';
+  const trimmedEnv = isEnvSet ? String(envUrl).trim().replace(/\/+$/, '') : '';
+
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '0.0.0.0';
+
+    if (!isLocalhost) {
+      // In production browser, never call localhost (prevents mixed content and unreachable 127.0.0.1 errors)
+      if (trimmedEnv && !trimmedEnv.includes('localhost') && !trimmedEnv.includes('127.0.0.1')) {
+        return trimmedEnv;
+      }
+      return 'https://omniai-backend.onrender.com';
+    }
+  }
+
+  if (trimmedEnv) {
+    return trimmedEnv;
+  }
+
   return 'http://127.0.0.1:8000';
 }
 
-const API_BASE_URL = resolveApiBaseUrl();
+export function getApiBaseUrl() {
+  return resolveApiBaseUrl();
+}
+
+export const API_BASE_URL = resolveApiBaseUrl();
 
 /**
  * Retrieves single-user access token from localStorage or Vite environment if configured.

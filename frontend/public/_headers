@@ -2,6 +2,6 @@
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff
   X-XSS-Protection: 1; mode=block
-  Referrer-Policy: strict-origin-when-cross-origin
+  Referrer-Policy: no-referrer
   Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; worker-src 'self' blob:; connect-src 'self' https://huggingface.co https://*.huggingface.co https://*.hf.co https://hf-mirror.com https://cdn.jsdelivr.net https://fastly.jsdelivr.net https://gcore.jsdelivr.net https://raw.githubusercontent.com https://*.onrender.com wss://*.onrender.com https://generativelanguage.googleapis.com https://api.groq.com;
 

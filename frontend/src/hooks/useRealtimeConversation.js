@@ -1,11 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { resolveApiBaseUrl } from '../services/api';
 
-const rawApiUrl = import.meta.env.VITE_API_URL !== undefined ? import.meta.env.VITE_API_URL : import.meta.env.VITE_API_BASE_URL;
-const API_BASE_URL = (rawApiUrl !== undefined && rawApiUrl !== null && String(rawApiUrl).trim() !== '')
-  ? String(rawApiUrl).trim().replace(/\/+$/, '')
-  : (typeof window !== 'undefined' && (window.__OMNIAI_API_URL__ || localStorage.getItem('omniai_api_base_url')))
-    ? String(window.__OMNIAI_API_URL__ || localStorage.getItem('omniai_api_base_url')).trim().replace(/\/+$/, '')
-    : 'http://127.0.0.1:8000';
+const API_BASE_URL = resolveApiBaseUrl();
 
 export function useRealtimeConversation({
   conversationId,

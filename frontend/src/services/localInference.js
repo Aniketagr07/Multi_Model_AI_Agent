@@ -17,12 +17,33 @@ import {
 } from '../core/localModelRegistry';
 
 /**
- * Polyfills Cache.prototype.add in browser environments to safely handle
- * cross-origin redirects (HTTP 302/308 from huggingface.co to S3/CloudFront storage on *.cdn.hf.co).
- * Standard Cache.prototype.add() rejects with TypeError: Failed to fetch on redirects in several browser engines.
+ * Polyfills Cache.prototype.add and window.fetch in browser environments:
+ * 1. Strips the Referer header on requests to Hugging Face (huggingface.co / hf.co) because
+ *    Hugging Face's edge gateway explicitly returns HTTP 404 to requests originating from *.workers.dev.
+ * 2. Safely handles cross-origin redirects (HTTP 302/307/308 from huggingface.co to CDN storage).
  */
 export function installCacheAddPolyfill() {
-  if (typeof window === 'undefined' || !window.Cache || window.__omni_cache_patched) return;
+  if (typeof window === 'undefined') return;
+
+  // Intercept fetch calls to Hugging Face and ensure no workers.dev Referer header is sent
+  if (window.fetch && !window.__omni_fetch_patched) {
+    window.__omni_fetch_patched = true;
+    const originalFetch = window.fetch;
+    window.fetch = function (input, init) {
+      const url = typeof input === 'string' ? input : (input instanceof Request ? input.url : String(input));
+      if (url.includes('huggingface.co') || url.includes('hf.co')) {
+        if (input instanceof Request) {
+          const clonedReq = new Request(input, { referrer: '', referrerPolicy: 'no-referrer' });
+          return originalFetch.call(this, clonedReq);
+        }
+        const updatedInit = { ...init, referrer: '', referrerPolicy: 'no-referrer' };
+        return originalFetch.call(this, input, updatedInit);
+      }
+      return originalFetch.call(this, input, init);
+    };
+  }
+
+  if (!window.Cache || window.__omni_cache_patched) return;
   window.__omni_cache_patched = true;
 
   const originalAdd = window.Cache.prototype.add;
@@ -39,6 +60,8 @@ export function installCacheAddPolyfill() {
       const fetchReq = new Request(reqUrl, {
         mode: 'cors',
         credentials: 'omit',
+        referrer: '',
+        referrerPolicy: 'no-referrer',
         signal,
       });
 

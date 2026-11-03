@@ -82,9 +82,12 @@ export function AuthModal({
       }
     } catch (err) {
       setOauthLoading(null);
+      const isFetchErr = err?.message === 'Failed to fetch' || err?.name === 'TypeError';
       setError(
-        err.message ||
-        `${provider.toUpperCase()} authentication is currently awaiting configuration. Please use email & password or Guest mode.`
+        isFetchErr
+          ? `Unable to connect to the authentication server. Please verify backend connectivity or use Guest mode.`
+          : (err.message ||
+             `${provider.toUpperCase()} authentication is currently awaiting configuration. Please use email & password or Guest mode.`)
       );
     }
   };
