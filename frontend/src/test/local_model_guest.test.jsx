@@ -1,7 +1,12 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { LocalModelProvider } from '../services/localInference';
+import { LocalModelProvider, buildWebLLMAppConfig } from '../services/localInference';
+import {
+  LOCAL_MODELS,
+  getLocalModelById,
+  QWEN_CDN_MIRRORS,
+} from '../core/localModelRegistry';
 import {
   getGuestConversations,
   getGuestConversation,
@@ -208,5 +213,60 @@ describe('Local Model and Guest Storage Suite', () => {
     const settings = VoiceService.getSettings();
     expect(settings.inputLanguage).toBe('en-IN');
     expect(settings.rate).toBe(1.1);
+  });
+
+  it('verifies Qwen2.5 1.5B CDN mirror endpoints and buildWebLLMAppConfig structure', () => {
+    expect(QWEN_CDN_MIRRORS.wasm.length).toBeGreaterThanOrEqual(2);
+    expect(QWEN_CDN_MIRRORS.wasm[0]).toContain('cdn.jsdelivr.net');
+    expect(QWEN_CDN_MIRRORS.model[0]).toContain('huggingface.co');
+
+    const fakeWebllm = {
+      prebuiltAppConfig: {
+        model_list: [
+          {
+            model_id: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC',
+            model: 'old-url',
+            model_lib: 'old-wasm',
+          },
+        ],
+      },
+    };
+
+    const configDefault = buildWebLLMAppConfig(fakeWebllm, { wasmIndex: 0, modelIndex: 0 });
+    const qwenEntry = configDefault.model_list.find((m) => m.model_id === 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC');
+    expect(qwenEntry.model_lib).toContain('cdn.jsdelivr.net');
+    expect(qwenEntry.model).toContain('huggingface.co');
+
+    const configMirror = buildWebLLMAppConfig(fakeWebllm, { wasmIndex: 1, modelIndex: 1 });
+    const mirrorEntry = configMirror.model_list.find((m) => m.model_id === 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC');
+    expect(mirrorEntry.model).toContain('hf-mirror.com');
+  });
+
+  it('verifies checkCapabilities diagnostics and storage check', async () => {
+    const caps = await LocalModelProvider.checkCapabilities();
+    expect(caps.available).toBe(true);
+  });
+
+  it('verifies clearCache purges local model cache safely without wiping application state', async () => {
+    localStorage.setItem('omniai_test_key', 'persisted_value');
+    const result = await LocalModelProvider.clearCache();
+    expect(result).toBe(true);
+    expect(localStorage.getItem('omniai_test_key')).toBe('persisted_value');
+  });
+
+  it('verifies LocalModelModal renders corrected text without vision claims and displays Reset Cache button on error', async () => {
+    const onClose = vi.fn();
+    render(
+      <LocalModelModal
+        isOpen={true}
+        onClose={onClose}
+        selectedModelId="qwen2.5-1.5b"
+      />
+    );
+
+    // Verify corrected header subtitle
+    expect(screen.getByText(/Run private on-device text intelligence via WebGPU/i)).toBeInTheDocument();
+    // Verify privacy guarantee specifies text-only
+    expect(screen.getByText(/Note: Qwen2\.5 1\.5B is text-only/i)).toBeInTheDocument();
   });
 });

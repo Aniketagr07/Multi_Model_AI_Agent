@@ -193,7 +193,7 @@ export default function LocalModelModal({
             </div>
             <div>
               <h2 className="text-base font-semibold text-white">Local On-Device AI Models</h2>
-              <p className="text-xs text-gray-400">Run private browser text & vision intelligence via WebGPU</p>
+              <p className="text-xs text-gray-400">Run private on-device text intelligence via WebGPU</p>
             </div>
           </div>
           <button
@@ -380,21 +380,40 @@ export default function LocalModelModal({
 
           {/* Error Banner */}
           {errorText && !isLoading && (
-            <div className="p-3.5 rounded-xl bg-red-950/50 border border-red-500/40 text-red-200 text-xs flex items-start justify-between gap-2 animate-in fade-in">
+            <div className="p-3.5 rounded-xl bg-red-950/50 border border-red-500/40 text-red-200 text-xs flex flex-col gap-2.5 animate-in fade-in">
               <div className="flex items-start gap-2">
                 <span className="text-base shrink-0">⚠️</span>
                 <div className="space-y-1">
                   <div className="font-semibold">{loadingState || 'Operation Failed'}</div>
-                  <div className="text-red-300/90">{errorText}</div>
+                  <div className="text-red-300/90 leading-relaxed">{errorText}</div>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={handleStartDownload}
-                className="px-3 py-1 bg-red-900/40 hover:bg-red-900/60 border border-red-500/40 text-red-200 rounded-lg shrink-0 cursor-pointer"
-              >
-                Retry
-              </button>
+              <div className="flex items-center justify-end gap-2 pt-1 border-t border-red-500/20">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await LocalModelProvider.clearCache(modelId);
+                      setIsCached(false);
+                      setIsReady(false);
+                      setErrorText('');
+                      handleStartDownload();
+                    } catch (_) {
+                      handleStartDownload();
+                    }
+                  }}
+                  className="px-2.5 py-1 bg-red-950/60 hover:bg-red-900/80 border border-red-500/30 text-red-300 rounded-lg text-[11px] font-medium cursor-pointer"
+                >
+                  Reset Cache & Retry
+                </button>
+                <button
+                  type="button"
+                  onClick={handleStartDownload}
+                  className="px-3 py-1 bg-red-600 hover:bg-red-500 text-white rounded-lg text-[11px] font-medium shrink-0 cursor-pointer shadow-sm shadow-red-600/30"
+                >
+                  Retry
+                </button>
+              </div>
             </div>
           )}
 
@@ -405,7 +424,7 @@ export default function LocalModelModal({
               <span>100% On-Device Privacy Guarantee</span>
             </div>
             <p className="text-gray-400 text-[11px] leading-relaxed">
-              Local model responses are generated on your device. Your prompts and images are not sent to an external AI provider for local inference.
+              Local text model responses are generated 100% on your device via WebGPU. Prompts and conversation data are never sent to external servers. (Note: Qwen2.5 1.5B is text-only; document or image analysis is routed to cloud vision providers).
             </p>
             <p className="text-gray-500 text-[10px] leading-relaxed">
               ⚡ Note: Local inference speed depends on your local hardware (GPU/RAM). First download will be stored in browser cache for instant repeat visits.

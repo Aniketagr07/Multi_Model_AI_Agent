@@ -32,6 +32,22 @@ export const LOCAL_MODELS = [
   },
 ];
 
+/**
+ * Resilient CDN Mirrors for Qwen2.5 1.5B WebLLM execution.
+ * Primary wasm library is hosted on jsDelivr (global CDN, full CORS support, immune to raw.githubusercontent.com timeouts).
+ */
+export const QWEN_CDN_MIRRORS = {
+  wasm: [
+    'https://cdn.jsdelivr.net/gh/mlc-ai/binary-mlc-llm-libs@main/web-llm-models/v0_2_87/base/Qwen2-1.5B-Instruct-q4f16_1_cs1k-webgpu.wasm',
+    'https://github.com/mlc-ai/binary-mlc-llm-libs/raw/main/web-llm-models/v0_2_87/base/Qwen2-1.5B-Instruct-q4f16_1_cs1k-webgpu.wasm',
+    'https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/web-llm-models/v0_2_87/base/Qwen2-1.5B-Instruct-q4f16_1_cs1k-webgpu.wasm',
+  ],
+  model: [
+    'https://huggingface.co/mlc-ai/Qwen2.5-1.5B-Instruct-q4f16_1-MLC',
+    'https://hf-mirror.com/mlc-ai/Qwen2.5-1.5B-Instruct-q4f16_1-MLC',
+  ],
+};
+
 export const DEFAULT_LOCAL_TEXT_MODEL_ID = 'qwen2.5-1.5b';
 export const DEFAULT_LOCAL_MODEL_ID = DEFAULT_LOCAL_TEXT_MODEL_ID;
 export const DEFAULT_LOCAL_VISION_MODEL_ID = null;

@@ -13,7 +13,40 @@ import {
   LOCAL_MODELS,
   getLocalModelById,
   DEFAULT_LOCAL_TEXT_MODEL_ID,
+  QWEN_CDN_MIRRORS,
 } from '../core/localModelRegistry';
+
+/**
+ * Builds a reliable WebLLM AppConfig with CDN mirrors and fallbacks for Qwen2.5 1.5B.
+ * Primary wasm library points to jsDelivr (global CDN with CORS wildcard *),
+ * avoiding the frequent connection timeouts associated with raw.githubusercontent.com.
+ */
+export function buildWebLLMAppConfig(webllm, options = {}) {
+  const { wasmIndex = 0, modelIndex = 0 } = options;
+  const wasmList = QWEN_CDN_MIRRORS?.wasm || [];
+  const modelList = QWEN_CDN_MIRRORS?.model || [];
+
+  const wasmUrl = wasmList[wasmIndex % wasmList.length] || wasmList[0];
+  const modelUrl = modelList[modelIndex % modelList.length] || modelList[0];
+
+  const targetId = 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC';
+  const baseConfig = webllm.prebuiltAppConfig || { model_list: [] };
+  const customModelList = (baseConfig.model_list || []).map((m) => {
+    if (m.model_id === targetId) {
+      return {
+        ...m,
+        model: modelUrl,
+        model_lib: wasmUrl,
+      };
+    }
+    return m;
+  });
+
+  return {
+    ...baseConfig,
+    model_list: customModelList,
+  };
+}
 
 /**
  * LocalTextModel: Qwen2.5-1.5B Text-Only Adapter
@@ -124,32 +157,108 @@ export class LocalTextModel {
           tracker.handleWebLLMEvent(report);
         };
 
-        const engine = await webllm.CreateMLCEngine(targetWebLLMId, {
-          initProgressCallback,
-          appConfig: webllm.prebuiltAppConfig,
-        });
+        const maxAttempts = 3;
+        let lastError = null;
 
-        if (signal?.aborted) {
-          await engine.unload();
-          tracker.abort();
-          throw new Error('Model loading cancelled by user.');
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+          if (signal?.aborted) {
+            tracker.abort('Model loading cancelled by user.');
+            throw new Error('Model loading cancelled by user.');
+          }
+
+          if (attempt > 1) {
+            const backoffMs = Math.min(1000 * Math.pow(2, attempt - 2), 3000);
+            tracker.handleWebLLMEvent({
+              progress: 0.05,
+              text: `Download retry (${attempt}/${maxAttempts}): switching to mirror in ${(backoffMs / 1000).toFixed(1)}s...`,
+            });
+            await new Promise((resolve, reject) => {
+              const timer = setTimeout(resolve, backoffMs);
+              signal?.addEventListener(
+                'abort',
+                () => {
+                  clearTimeout(timer);
+                  reject(new Error('Model loading cancelled by user.'));
+                },
+                { once: true }
+              );
+            });
+          }
+
+          // Cycle mirrors: attempt 1 uses jsDelivr (index 0), attempt 2 uses GitHub web, attempt 3 uses raw + hf-mirror
+          const appConfig = buildWebLLMAppConfig(webllm, {
+            wasmIndex: attempt - 1,
+            modelIndex: attempt > 1 ? 1 : 0,
+          });
+
+          try {
+            const engine = await webllm.CreateMLCEngine(targetWebLLMId, {
+              initProgressCallback,
+              appConfig,
+            });
+
+            if (signal?.aborted) {
+              await engine.unload();
+              tracker.abort('Model loading cancelled by user.');
+              throw new Error('Model loading cancelled by user.');
+            }
+
+            this.engine = engine;
+            tracker.setReady('Your local text model is ready.');
+            return this.engine;
+          } catch (err) {
+            lastError = err;
+            if (err.name === 'AbortError' || signal?.aborted || err.message?.includes('cancelled')) {
+              tracker.abort('Model loading cancelled by user.');
+              throw new Error('Model loading cancelled by user.');
+            }
+            console.warn(`[LocalTextModel] Download attempt ${attempt}/${maxAttempts} failed:`, err);
+
+            // If we're on attempt 2, clean up potentially corrupted cached shards before the final attempt
+            if (attempt === 2) {
+              try {
+                await webllm.deleteModelAllInfoInCache(targetWebLLMId, appConfig);
+              } catch (_) {}
+            }
+          }
         }
 
-        this.engine = engine;
-        tracker.setReady('Your local text model is ready.');
-        return this.engine;
+        // All attempts failed: produce clear, helpful message
+        const rawMsg = lastError?.message || 'Network error';
+        let friendlyMsg = rawMsg;
+        if (
+          rawMsg.includes('Failed to fetch') ||
+          rawMsg.includes('NetworkError') ||
+          rawMsg.includes('Cannot fetch')
+        ) {
+          friendlyMsg =
+            'Network connection failed while downloading model files. Hugging Face or the CDN mirror could not be reached. Please check your internet connection, click "Clear Model Cache", and retry.';
+        } else if (rawMsg.includes('Out of memory') || rawMsg.includes('device lost')) {
+          friendlyMsg =
+            'WebGPU ran out of memory or device was lost. Please close other GPU-heavy tabs/apps and try again.';
+        }
+
+        if (tracker.state === LOADING_STATES.DOWNLOADING || tracker.state === LOADING_STATES.PREPARING) {
+          tracker.setDownloadFailed(new Error(friendlyMsg));
+        } else {
+          tracker.setInitFailed(new Error(friendlyMsg));
+        }
+        throw new Error(`Failed to initialize Qwen2.5-1.5B: ${friendlyMsg}`);
       } catch (err) {
         this.engine = null;
         if (err.name === 'AbortError' || signal?.aborted || err.message?.includes('cancelled')) {
           tracker.abort('Model loading cancelled by user.');
           throw new Error('Model loading cancelled by user.');
         }
-        if (tracker.state === LOADING_STATES.DOWNLOADING || tracker.state === LOADING_STATES.PREPARING) {
-          tracker.setDownloadFailed(err);
-        } else {
-          tracker.setInitFailed(err);
+        if (!err.message?.includes('Failed to initialize Qwen2.5-1.5B')) {
+          if (tracker.state === LOADING_STATES.DOWNLOADING || tracker.state === LOADING_STATES.PREPARING) {
+            tracker.setDownloadFailed(err);
+          } else {
+            tracker.setInitFailed(err);
+          }
+          throw new Error(`Failed to initialize Qwen2.5-1.5B: ${err.message}`);
         }
-        throw new Error(`Failed to initialize Qwen2.5-1.5B: ${err.message}`);
+        throw err;
       } finally {
         this.isInitializing = false;
         this.initPromise = null;
@@ -274,6 +383,49 @@ class LocalModelProviderService {
     return { available: true };
   }
 
+  /**
+   * Deep diagnostics for WebGPU hardware adapter and available browser storage quota.
+   */
+  async checkCapabilities() {
+    if (this._isMockMode) {
+      return { available: true, adapter: true, storageEstimate: { freeMB: 10000 } };
+    }
+    const basic = this.isAvailable();
+    if (!basic.available) return basic;
+
+    try {
+      const adapter = await navigator.gpu.requestAdapter();
+      if (!adapter) {
+        return {
+          available: false,
+          reason:
+            'WebGPU adapter could not be initialized. Please check that hardware acceleration is enabled in your browser settings and GPU drivers are up to date.',
+        };
+      }
+
+      let storageEstimate = null;
+      if (typeof navigator !== 'undefined' && navigator.storage && navigator.storage.estimate) {
+        try {
+          const est = await navigator.storage.estimate();
+          const freeBytes = (est.quota || 0) - (est.usage || 0);
+          const freeMB = Math.round(freeBytes / (1024 * 1024));
+          storageEstimate = { freeMB, quotaMB: Math.round((est.quota || 0) / (1024 * 1024)) };
+          // Qwen2.5 1.5B requires ~850MB download + ~500MB headroom
+          if (freeMB < 1200) {
+            console.warn(`[LocalModelProvider] Low storage warning: only ${freeMB} MB free.`);
+          }
+        } catch (_) {}
+      }
+
+      return { available: true, adapter, storageEstimate };
+    } catch (err) {
+      return {
+        available: false,
+        reason: `WebGPU initialization check failed: ${err.message}`,
+      };
+    }
+  }
+
   hasActiveImageContext() {
     return false;
   }
@@ -287,7 +439,8 @@ class LocalModelProviderService {
     try {
       const webllm = await import('@mlc-ai/web-llm');
       const target = getLocalModelById(modelId);
-      return await webllm.hasModelInCache(target.webllmModelId, webllm.prebuiltAppConfig);
+      const appConfig = buildWebLLMAppConfig(webllm);
+      return await webllm.hasModelInCache(target.webllmModelId, appConfig);
     } catch (err) {
       console.warn('[LocalModelProvider] Cache check warning:', err);
       return false;
@@ -327,12 +480,34 @@ class LocalModelProviderService {
     this.textModel.cancelGeneration();
   }
 
+  /**
+   * Resets and purges only the local Qwen2.5 1.5B model cache without clearing other browser storage.
+   */
   async clearCache(modelId = null) {
     if (this._isMockMode) return true;
     try {
       const webllm = await import('@mlc-ai/web-llm');
       const textModel = getLocalModelById(DEFAULT_LOCAL_TEXT_MODEL_ID);
-      await webllm.deleteModelAllInfoInCache(textModel.webllmModelId, webllm.prebuiltAppConfig);
+      const appConfig = buildWebLLMAppConfig(webllm);
+
+      try {
+        await webllm.deleteModelAllInfoInCache(textModel.webllmModelId, appConfig);
+      } catch (e) {
+        console.warn('[LocalModelProvider] WebLLM deleteModelAllInfoInCache warning:', e);
+      }
+
+      // Purge only WebLLM cache namespaces in Cache Storage
+      if (typeof window !== 'undefined' && 'caches' in window) {
+        const webllmCacheNames = ['webllm/model', 'webllm/config', 'webllm/wasm'];
+        await Promise.all(
+          webllmCacheNames.map(async (name) => {
+            try {
+              await window.caches.delete(name);
+            } catch (_) {}
+          })
+        );
+      }
+
       await this.unload();
       return true;
     } catch (err) {
