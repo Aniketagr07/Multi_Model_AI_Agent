@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     HOST: str = "0.0.0.0"
     PORT: int = 8000
 
+    # Frontend base URL (for redirects and OAuth callbacks)
+    FRONTEND_URL: Optional[str] = None
+
     # Comma-separated or list of allowed origins for CORS
     CORS_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173"
 
@@ -49,12 +52,12 @@ class Settings(BaseSettings):
     # Google OAuth 2.0 Credentials
     GOOGLE_CLIENT_ID: Optional[str] = None
     GOOGLE_CLIENT_SECRET: Optional[str] = None
-    GOOGLE_REDIRECT_URI: str = "http://localhost:5173/auth/callback/google"
+    GOOGLE_REDIRECT_URI: str = "http://localhost:8000/api/auth/oauth/google/callback"
 
     # GitHub OAuth Credentials
     GITHUB_CLIENT_ID: Optional[str] = None
     GITHUB_CLIENT_SECRET: Optional[str] = None
-    GITHUB_REDIRECT_URI: str = "http://localhost:5173/auth/callback/github"
+    GITHUB_REDIRECT_URI: str = "http://localhost:8000/api/auth/oauth/github/callback"
 
     # Server-Side Session & Cookie Security
     APP_SESSION_SECRET: str = "omniai-secure-session-secret-key-32chars"
@@ -99,6 +102,16 @@ class Settings(BaseSettings):
     def cors_origins_list(self) -> List[str]:
         """Parse comma-separated CORS_ORIGINS string into a list of origins."""
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
+
+    @property
+    def frontend_origin(self) -> str:
+        """Return the primary frontend URL origin (no trailing slash)."""
+        if self.FRONTEND_URL and self.FRONTEND_URL.strip():
+            return self.FRONTEND_URL.strip().rstrip("/")
+        origins = self.cors_origins_list
+        if origins:
+            return origins[0].rstrip("/")
+        return "http://localhost:5173"
 
     @property
     def allowed_models_list(self) -> List[str]:

@@ -250,6 +250,25 @@ export default function App() {
       return;
     }
 
+    // Direct server-side redirect handoff via ?token=...
+    const tokenParam = params.get('token');
+    if (tokenParam) {
+      setAuthSession({ token: tokenParam });
+      refreshUser().then((userData) => {
+        if (userData) {
+          setNotification({
+            type: 'success',
+            text: `Signed in successfully as ${userData.username || userData.email}!`,
+          });
+          if (conversations && conversations.length > 0) {
+            setMigrationBanner(true);
+          }
+        }
+      });
+      window.history.replaceState({}, document.title, window.location.pathname);
+      return;
+    }
+
     if (code && state) {
       let provider = 'google';
       if (state.startsWith('github_') || sessionStorage.getItem('omniai_oauth_provider') === 'github') {

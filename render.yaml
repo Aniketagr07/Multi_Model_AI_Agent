@@ -11,7 +11,7 @@ services:
     plan: free # or starter ($7/month) for non-sleeping instances
     branch: main
     buildCommand: "pip install -r backend/requirements.txt"
-    startCommand: "cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1"
+    startCommand: "cd backend && python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1"
     healthCheckPath: /api/health
     envVars:
       - key: PYTHON_VERSION
@@ -30,12 +30,16 @@ services:
       - key: DATABASE_URL
         sync: false
 
-      # CORS Allowed Origins (Set to your Vercel frontend domain)
+      # Frontend Base URL & CORS (Set to your Vercel frontend domain)
+      - key: FRONTEND_URL
+        value: "https://your-omniai-frontend.vercel.app"
       - key: CORS_ORIGINS
         value: "https://your-omniai-frontend.vercel.app"
 
-      # Server-Side Session Security
+      # Server-Side Session Security & BYOK Encryption
       - key: APP_SESSION_SECRET
+        generateValue: true
+      - key: API_KEY_ENCRYPTION_SECRET
         generateValue: true
 
       # AI Provider API Keys
@@ -50,7 +54,7 @@ services:
       - key: GOOGLE_CLIENT_SECRET
         sync: false
       - key: GOOGLE_REDIRECT_URI
-        value: "https://your-omniai-frontend.vercel.app/auth/callback/google"
+        value: "https://your-omniai-backend.onrender.com/api/auth/oauth/google/callback"
 
       # GitHub OAuth Credentials
       - key: GITHUB_CLIENT_ID
@@ -58,7 +62,7 @@ services:
       - key: GITHUB_CLIENT_SECRET
         sync: false
       - key: GITHUB_REDIRECT_URI
-        value: "https://your-omniai-frontend.vercel.app/auth/callback/github"
+        value: "https://your-omniai-backend.onrender.com/api/auth/oauth/github/callback"
 
       # Safeguards & Rate Limiting
       - key: RATE_LIMIT_ENABLED

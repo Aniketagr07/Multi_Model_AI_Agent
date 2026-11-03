@@ -329,7 +329,7 @@ async def handle_oauth_get_callback(
     Completes code exchange, sets secure HTTP-only cookie, and redirects user to frontend chat.
     """
     settings = get_settings()
-    frontend_base = "http://localhost:5173"
+    frontend_base = settings.frontend_origin
 
     if error:
         err_msg = error_description or error
@@ -356,10 +356,19 @@ async def handle_oauth_get_callback(
                 status_code=status.HTTP_302_FOUND,
             )
 
-        redirect_resp = RedirectResponse(url=f"{frontend_base}/?auth_success=true", status_code=status.HTTP_302_FOUND)
         if "token" in result:
+            token_q = urllib.parse.quote(result["token"])
+            redirect_resp = RedirectResponse(
+                url=f"{frontend_base}/?token={token_q}&auth_success=true",
+                status_code=status.HTTP_302_FOUND,
+            )
             set_auth_cookie(redirect_resp, result["token"])
-        return redirect_resp
+            return redirect_resp
+
+        return RedirectResponse(
+            url=f"{frontend_base}/?auth_success=true&linked=true",
+            status_code=status.HTTP_302_FOUND,
+        )
     except AuthError as e:
         return RedirectResponse(
             url=f"{frontend_base}/?error=auth_error&error_description={urllib.parse.quote(e.message)}",

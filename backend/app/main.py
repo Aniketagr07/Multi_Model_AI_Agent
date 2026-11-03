@@ -61,6 +61,7 @@ def create_application() -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=allowed_origins,
+        allow_origin_regex=r"^https://.*\.vercel\.app$",
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -89,6 +90,16 @@ def create_application() -> FastAPI:
             "message": "Welcome to the OmniAI Backend Service",
             "docs": "/docs",
             "health": "/api/health",
+        }
+
+    # Root health check alias for cloud uptime monitors & Render
+    @app.get("/health", summary="Root Health Check", include_in_schema=False)
+    def root_health() -> Dict[str, Any]:
+        return {
+            "app_name": settings.APP_NAME,
+            "status": "healthy",
+            "version": settings.APP_VERSION,
+            "environment": settings.APP_ENV,
         }
 
     # Mount modular API routes under /api
