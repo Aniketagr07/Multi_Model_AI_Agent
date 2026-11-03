@@ -6,7 +6,7 @@ import hmac
 import hashlib
 import secrets
 from datetime import datetime, timezone, timedelta
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Tuple
 import urllib.parse
 import httpx
 
