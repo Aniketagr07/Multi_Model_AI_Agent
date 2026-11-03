@@ -1,7 +1,7 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { LocalModelProvider, buildWebLLMAppConfig } from '../services/localInference';
+import { LocalModelProvider, buildWebLLMAppConfig, categorizeDownloadError } from '../services/localInference';
 import {
   LOCAL_MODELS,
   getLocalModelById,
@@ -252,6 +252,21 @@ describe('Local Model and Guest Storage Suite', () => {
     const result = await LocalModelProvider.clearCache();
     expect(result).toBe(true);
     expect(localStorage.getItem('omniai_test_key')).toBe('persisted_value');
+  });
+
+  it('verifies categorizeDownloadError classifies network, 404, quota, and security errors', () => {
+    const netErr = categorizeDownloadError(new TypeError('Failed to fetch'), 'https://huggingface.co/shard.bin');
+    expect(netErr.category).toContain('Model Host Unreachable');
+    expect(netErr.userMessage).toContain('Reset Cache & Retry');
+
+    const notFound = categorizeDownloadError(new Error('HTTP 404 Not Found'), 'https://huggingface.co/config.json');
+    expect(notFound.category).toContain('HTTP 404');
+
+    const quota = categorizeDownloadError(new DOMException('QuotaExceededError'));
+    expect(quota.category).toContain('Insufficient Browser Storage');
+
+    const sec = categorizeDownloadError(new Error('Cross-Origin Request Blocked'));
+    expect(sec.category).toContain('Browser Security');
   });
 
   it('verifies LocalModelModal renders corrected text without vision claims and displays Reset Cache button on error', async () => {

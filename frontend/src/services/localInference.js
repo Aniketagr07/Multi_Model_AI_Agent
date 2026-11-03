@@ -17,6 +17,122 @@ import {
 } from '../core/localModelRegistry';
 
 /**
+ * Polyfills Cache.prototype.add in browser environments to safely handle
+ * cross-origin redirects (HTTP 302/308 from huggingface.co to S3/CloudFront storage on *.cdn.hf.co).
+ * Standard Cache.prototype.add() rejects with TypeError: Failed to fetch on redirects in several browser engines.
+ */
+export function installCacheAddPolyfill() {
+  if (typeof window === 'undefined' || !window.Cache || window.__omni_cache_patched) return;
+  window.__omni_cache_patched = true;
+
+  const originalAdd = window.Cache.prototype.add;
+  window.Cache.prototype.add = async function (request) {
+    try {
+      return await originalAdd.call(this, request);
+    } catch (err) {
+      const reqUrl = typeof request === 'string' ? request : request?.url;
+      console.info(
+        `[WebLLM Cache Recovery] Cache.add failed for ${reqUrl} (${err?.message}). Falling back to fetch(cors) + cache.put...`
+      );
+
+      const req = request instanceof Request ? request : new Request(request, { mode: 'cors' });
+      const response = await fetch(req);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status} ${response.statusText} while fetching ${req.url}`);
+      }
+      return await this.put(request, response);
+    }
+  };
+}
+
+/**
+ * Classifies model download failures into clear, actionable categories.
+ */
+export function categorizeDownloadError(err, url = null) {
+  const msg = err?.message || String(err);
+  const name = err?.name || '';
+
+  if (
+    msg.includes('QuotaExceeded') ||
+    msg.includes('quota') ||
+    name === 'QuotaExceededError'
+  ) {
+    return {
+      category: 'Insufficient Browser Storage',
+      userMessage:
+        'Insufficient disk space in browser cache. Qwen2.5 1.5B requires ~850MB free storage. Please free up browser space or clear site data and retry.',
+      technicalDetails: msg,
+    };
+  }
+
+  if (
+    msg.includes('WebGPU') ||
+    msg.includes('adapter') ||
+    msg.includes('device lost') ||
+    msg.includes('ShaderF16') ||
+    msg.includes('Out of memory')
+  ) {
+    return {
+      category: 'WebGPU Hardware Constraint',
+      userMessage:
+        'WebGPU hardware acceleration failed or device ran out of memory. Please close other GPU-intensive tabs/software and retry.',
+      technicalDetails: msg,
+    };
+  }
+
+  if (name === 'AbortError' || msg.includes('cancelled') || msg.includes('aborted')) {
+    return {
+      category: 'Download Cancelled',
+      userMessage: 'Model download was cancelled by the user.',
+      technicalDetails: msg,
+    };
+  }
+
+  if (msg.includes('404') || msg.includes('Not Found') || msg.includes('Cannot locate')) {
+    return {
+      category: 'Model File Not Found (HTTP 404)',
+      userMessage:
+        'A required model weight shard or config file could not be found on the model repository. Please notify support or report this issue.',
+      technicalDetails: url ? `${msg} (URL: ${url})` : msg,
+    };
+  }
+
+  if (
+    msg.includes('CORS') ||
+    msg.includes('blocked by client') ||
+    msg.includes('SecurityError') ||
+    msg.includes('Cross-Origin')
+  ) {
+    return {
+      category: 'Download Blocked by Browser Security',
+      userMessage:
+        'The model download was blocked by browser security or an ad-blocker extension. Please disable shields/ad-blockers for this site and retry.',
+      technicalDetails: url ? `${msg} (URL: ${url})` : msg,
+    };
+  }
+
+  if (
+    msg.includes('Failed to fetch') ||
+    msg.includes('NetworkError') ||
+    msg.includes('Cannot fetch') ||
+    msg.includes('timeout')
+  ) {
+    return {
+      category: 'Model Host Unreachable / Network Interrupted',
+      userMessage:
+        'Unable to download model shards from Hugging Face or CDN. This can occur due to connection drops, ISP throttling, or cross-origin redirect failures. Click "Reset Cache & Retry" to clean any partial cache and reconnect.',
+      technicalDetails: url ? `${msg} (URL: ${url})` : msg,
+    };
+  }
+
+  return {
+    category: 'Initialization Failed',
+    userMessage: `Failed to initialize Qwen2.5-1.5B: ${msg}`,
+    technicalDetails: msg,
+  };
+}
+
+/**
  * Builds a reliable WebLLM AppConfig with CDN mirrors and fallbacks for Qwen2.5 1.5B.
  * Primary wasm library points to jsDelivr (global CDN with CORS wildcard *),
  * avoiding the frequent connection timeouts associated with raw.githubusercontent.com.
@@ -149,6 +265,9 @@ export class LocalTextModel {
           return this.engine;
         }
 
+        // Install cache polyfill to handle 302/308 redirects from Hugging Face LFS to S3 CDN
+        installCacheAddPolyfill();
+
         const webllm = await import('@mlc-ai/web-llm');
         const targetWebLLMId = this.modelInfo.webllmModelId;
 
@@ -159,6 +278,7 @@ export class LocalTextModel {
 
         const maxAttempts = 3;
         let lastError = null;
+        let lastFailingUrl = null;
 
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
           if (signal?.aborted) {
@@ -185,11 +305,16 @@ export class LocalTextModel {
             });
           }
 
-          // Cycle mirrors: attempt 1 uses jsDelivr (index 0), attempt 2 uses GitHub web, attempt 3 uses raw + hf-mirror
+          // Cycle mirrors: attempt 1 uses jsDelivr (index 0), attempt 2 uses Fastly jsDelivr, attempt 3 uses GCore jsDelivr
           const appConfig = buildWebLLMAppConfig(webllm, {
             wasmIndex: attempt - 1,
             modelIndex: attempt > 1 ? 1 : 0,
           });
+
+          const currentModelRecord = appConfig.model_list.find((m) => m.model_id === targetWebLLMId);
+          console.info(`[WebLLM Diagnostics] (Attempt ${attempt}/${maxAttempts}) Loading ${targetWebLLMId}`);
+          console.info(`[WebLLM Diagnostics] WASM URL: ${currentModelRecord?.model_lib}`);
+          console.info(`[WebLLM Diagnostics] Model URL: ${currentModelRecord?.model}`);
 
           try {
             const engine = await webllm.CreateMLCEngine(targetWebLLMId, {
@@ -212,9 +337,18 @@ export class LocalTextModel {
               tracker.abort('Model loading cancelled by user.');
               throw new Error('Model loading cancelled by user.');
             }
-            console.warn(`[LocalTextModel] Download attempt ${attempt}/${maxAttempts} failed:`, err);
 
-            // If we're on attempt 2, clean up potentially corrupted cached shards before the final attempt
+            // Extract failing URL if present in error message
+            const urlMatch = err.message?.match(/https?:\/\/[^\s"',)]+/);
+            if (urlMatch) {
+              lastFailingUrl = urlMatch[0];
+            } else if (!lastFailingUrl) {
+              lastFailingUrl = currentModelRecord?.model_lib;
+            }
+
+            console.warn(`[WebLLM Diagnostics] Attempt ${attempt}/${maxAttempts} failed:`, err.message, 'URL:', lastFailingUrl);
+
+            // Clean up potentially corrupted cached shards before the final attempt
             if (attempt === 2) {
               try {
                 await webllm.deleteModelAllInfoInCache(targetWebLLMId, appConfig);
@@ -223,20 +357,9 @@ export class LocalTextModel {
           }
         }
 
-        // All attempts failed: produce clear, helpful message
-        const rawMsg = lastError?.message || 'Network error';
-        let friendlyMsg = rawMsg;
-        if (
-          rawMsg.includes('Failed to fetch') ||
-          rawMsg.includes('NetworkError') ||
-          rawMsg.includes('Cannot fetch')
-        ) {
-          friendlyMsg =
-            'Network connection failed while downloading model files. Hugging Face or the CDN mirror could not be reached. Please check your internet connection, click "Clear Model Cache", and retry.';
-        } else if (rawMsg.includes('Out of memory') || rawMsg.includes('device lost')) {
-          friendlyMsg =
-            'WebGPU ran out of memory or device was lost. Please close other GPU-heavy tabs/apps and try again.';
-        }
+        // All attempts failed: produce categorized, actionable message
+        const classified = categorizeDownloadError(lastError, lastFailingUrl);
+        const friendlyMsg = `${classified.category}: ${classified.userMessage}`;
 
         if (tracker.state === LOADING_STATES.DOWNLOADING || tracker.state === LOADING_STATES.PREPARING) {
           tracker.setDownloadFailed(new Error(friendlyMsg));
