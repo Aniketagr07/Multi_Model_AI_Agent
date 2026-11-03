@@ -4,8 +4,21 @@
  * and the FastAPI backend, providing typed payload contracts and error normalization.
  */
 
-const rawApiUrl = import.meta.env.VITE_API_URL !== undefined ? import.meta.env.VITE_API_URL : import.meta.env.VITE_API_BASE_URL;
-const API_BASE_URL = rawApiUrl !== undefined ? rawApiUrl : 'http://127.0.0.1:8000';
+function resolveApiBaseUrl() {
+  const envUrl = import.meta.env.VITE_API_URL !== undefined ? import.meta.env.VITE_API_URL : import.meta.env.VITE_API_BASE_URL;
+  if (envUrl !== undefined && envUrl !== null && String(envUrl).trim() !== '') {
+    return String(envUrl).trim().replace(/\/+$/, '');
+  }
+  if (typeof window !== 'undefined') {
+    const custom = window.__OMNIAI_API_URL__ || localStorage.getItem('omniai_api_base_url');
+    if (custom && String(custom).trim() !== '') {
+      return String(custom).trim().replace(/\/+$/, '');
+    }
+  }
+  return 'http://127.0.0.1:8000';
+}
+
+const API_BASE_URL = resolveApiBaseUrl();
 
 /**
  * Retrieves single-user access token from localStorage or Vite environment if configured.
