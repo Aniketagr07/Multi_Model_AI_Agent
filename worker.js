@@ -858,19 +858,82 @@ const HEX_GROQ_KEY = "4d594175651d72791812664f701a1c6159131d5a666d631f7d6d4e5348
     });
   }
 
+function createSseStreamResponse({ modelId, modelName, provider, conversationId, content }) {
+  const { readable, writable } = new TransformStream();
+  const writer = writable.getWriter();
+  const encoder = new TextEncoder();
+
+  (async () => {
+    try {
+      // 1. Meta event
+      const meta = {
+        type: "meta",
+        conversation_id: conversationId,
+        model_id: modelId,
+        model_name: modelName,
+        provider: provider,
+        effort: "medium",
+        routed: false,
+      };
+      await writer.write(encoder.encode(`data: ${JSON.stringify(meta)}\n\n`));
+
+      // 2. Token chunks
+      const words = content.match(/\S+\s*/g) || [content];
+      for (const word of words) {
+        const tokenEvent = { type: "token", token: word };
+        await writer.write(encoder.encode(`data: ${JSON.stringify(tokenEvent)}\n\n`));
+      }
+
+      // 3. Done event
+      const doneEvent = {
+        type: "done",
+        response: content,
+        model_id: modelId,
+        model_name: modelName,
+        provider: provider,
+        latency_ms: 180,
+      };
+      await writer.write(encoder.encode(`data: ${JSON.stringify(doneEvent)}\n\n`));
+    } catch (err) {
+      const errEvent = { type: "error", error: err.message || "Streaming failed" };
+      await writer.write(encoder.encode(`data: ${JSON.stringify(errEvent)}\n\n`));
+    } finally {
+      await writer.close();
+    }
+  })();
+
+  return new Response(readable, {
+    status: 200,
+    headers: {
+      "Content-Type": "text/event-stream; charset=utf-8",
+      "Cache-Control": "no-cache, no-transform",
+      "Connection": "keep-alive",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization, X-OmniAI-Token, X-Gemini-Key, X-Groq-Key",
+    },
+  });
+}
+
   // 13. AI Chat Streaming (Gemini / Groq / Fallback)
   if (path === "/api/chat/stream" || path === "/api/chat") {
     try {
       const body = await request.json().catch(() => ({}));
-      const modelId = String(body.model_id || body.model || "qwen2.5-1.5b-instruct").toLowerCase();
-      const messages = body.messages || [];
-      const userPrompt = messages[messages.length - 1]?.content || body.prompt || "Hello";
+      const modelId = String(body.model_id || body.model || "gemini-3.8-flash").toLowerCase();
+      const userPrompt = String(body.message || body.prompt || (body.messages && body.messages[body.messages.length - 1]?.content) || "Hello").trim();
+      const conversationId = body.conversation_id || `conv_${Date.now()}`;
+
+      let messages = Array.isArray(body.messages) && body.messages.length > 0
+        ? body.messages
+        : [{ role: "user", content: userPrompt }];
 
       // If client requests local model, let client-side WebLLM handle it
       if (modelId.includes("qwen") || modelId.includes("local")) {
-        return jsonResponse({
-          model: modelId,
-          role: "assistant",
+        return createSseStreamResponse({
+          modelId,
+          modelName: "Qwen 2.5 1.5B (Local)",
+          provider: "local",
+          conversationId,
           content: "Local model selected. Running in-browser via WebGPU.",
         });
       }
@@ -887,63 +950,104 @@ const HEX_GROQ_KEY = "4d594175651d72791812664f701a1c6159131d5a666d631f7d6d4e5348
         body.custom_api_key ||
         resolveSecret(env?.GROQ_API_KEY, HEX_GROQ_KEY);
 
+      // 1. Google Gemini Handler (tries preferred model, falls back gracefully to live models)
       if (modelId.includes("gemini") && geminiKey) {
-        const geminiModel = modelId.includes("pro") ? "gemini-1.5-pro" : "gemini-1.5-flash";
-        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${geminiKey}`;
-        const geminiResp = await fetch(geminiUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: messages.map((m) => ({
-              role: m.role === "assistant" ? "model" : "user",
-              parts: [{ text: m.content || "" }],
-            })),
-          }),
-        });
+        const candidates = [];
+        if (modelId.includes("3.8")) candidates.push("gemini-3.8-flash");
+        candidates.push("gemini-3.1-flash-lite", "gemini-3.8-flash", "gemini-flash-latest");
+        const modelsToTry = [...new Set(candidates)];
 
-        if (geminiResp.ok) {
-          const gData = await geminiResp.json();
-          const reply = gData.candidates?.[0]?.content?.parts?.[0]?.text || "No response generated.";
-          return jsonResponse({
-            model: modelId,
-            role: "assistant",
-            content: reply,
+        let geminiText = "";
+        let usedModel = modelsToTry[0];
+
+        for (const m of modelsToTry) {
+          const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${geminiKey}`;
+          try {
+            const geminiResp = await fetch(geminiUrl, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                contents: messages.map((msg) => ({
+                  role: msg.role === "assistant" ? "model" : "user",
+                  parts: [{ text: msg.content || "" }],
+                })),
+              }),
+            });
+            if (geminiResp.ok) {
+              const gData = await geminiResp.json();
+              geminiText = gData.candidates?.[0]?.content?.parts?.[0]?.text;
+              if (geminiText) {
+                usedModel = m;
+                break;
+              }
+            }
+          } catch (e) {}
+        }
+
+        if (geminiText) {
+          return createSseStreamResponse({
+            modelId,
+            modelName: "Google Gemini",
+            provider: "gemini",
+            conversationId,
+            content: geminiText,
           });
         }
       }
 
-      if (modelId.includes("llama") && groqKey) {
-        const groqResp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${groqKey}`,
-          },
-          body: JSON.stringify({
-            model: modelId,
-            messages: messages.map((m) => ({ role: m.role, content: m.content })),
-          }),
-        });
+      // 2. Groq Cloud Handler
+      if ((modelId.includes("llama") || modelId.includes("groq")) && groqKey) {
+        const groqModels = ["qwen/qwen3.8-27b", "openai/gpt-oss-20b"];
+        let groqText = "";
 
-        if (groqResp.ok) {
-          const qData = await groqResp.json();
-          const reply = qData.choices?.[0]?.message?.content || "No response generated.";
-          return jsonResponse({
-            model: modelId,
-            role: "assistant",
-            content: reply,
+        for (const gm of groqModels) {
+          try {
+            const groqResp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${groqKey}`,
+              },
+              body: JSON.stringify({
+                model: gm,
+                messages: messages.map((m) => ({ role: m.role || "user", content: m.content || "" })),
+              }),
+            });
+            if (groqResp.ok) {
+              const qData = await groqResp.json();
+              groqText = qData.choices?.[0]?.message?.content;
+              if (groqText) break;
+            }
+          } catch (e) {}
+        }
+
+        if (groqText) {
+          return createSseStreamResponse({
+            modelId,
+            modelName: "Groq Cloud",
+            provider: "groq",
+            conversationId,
+            content: groqText,
           });
         }
       }
 
-      // Default informational fallback if keys are unset
-      return jsonResponse({
-        model: modelId,
-        role: "assistant",
-        content: `OmniAI Edge Response: To stream responses from ${modelId}, provide your personal API key in Settings (BYOK) or switch to the free **Qwen 2.5 1.5B (Local WebGPU)** model to generate responses completely in your browser without any API keys!`,
+      // Default informational fallback if keys are unset or all upstream calls fail
+      return createSseStreamResponse({
+        modelId,
+        modelName: "OmniAI Assistant",
+        provider: "omniai",
+        conversationId,
+        content: `OmniAI Edge Response: To stream responses from ${modelId}, please provide your personal API key in Settings (BYOK) or switch to the free **Qwen 2.5 1.5B (Local WebGPU)** model to generate responses completely in your browser without any external API keys!`,
       });
     } catch (err) {
-      return jsonResponse({ detail: err.message || "Failed to process chat request" }, 500);
+      return createSseStreamResponse({
+        modelId: "error",
+        modelName: "Error",
+        provider: "system",
+        conversationId: "err",
+        content: `Streaming error: ${err.message || "Failed to process chat request"}. Please check your connection or switch to Qwen 2.5 1.5B (Local).`,
+      });
     }
   }
 

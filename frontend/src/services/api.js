@@ -241,6 +241,7 @@ export async function streamChatMessage({
   signal,
   onMeta,
   onToken,
+  onChunk,
   onDone,
   onError,
 }) {
@@ -316,7 +317,11 @@ export async function streamChatMessage({
         try {
           const event = JSON.parse(jsonStr);
           if (event.type === 'meta' && onMeta) onMeta(event);
-          else if (event.type === 'token' && onToken) onToken(event.token);
+          else if (event.type === 'token') {
+            const tok = event.token !== undefined ? event.token : (event.chunk || '');
+            if (onToken) onToken(tok);
+            if (onChunk) onChunk(tok);
+          }
           else if (event.type === 'done' && onDone) onDone(event);
           else if (event.type === 'error' && onError) onError(event.error);
         } catch (parseErr) {
