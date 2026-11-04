@@ -169,12 +169,13 @@ const AVAILABLE_MODELS = [
   },
 ];
 
-function jsonResponse(data, status = 200, headers = {}) {
+function jsonResponse(data, status = 200, headers = {}, requestOrigin = "*") {
   return new Response(JSON.stringify(data), {
     status,
     headers: {
       "Content-Type": "application/json; charset=utf-8",
-      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Origin": requestOrigin,
+      "Access-Control-Allow-Credentials": "true",
       "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type, Authorization, X-OmniAI-Token, X-Gemini-Key, X-Groq-Key",
       ...headers,
@@ -182,11 +183,13 @@ function jsonResponse(data, status = 200, headers = {}) {
   });
 }
 
-function handleCorsPreflight() {
+function handleCorsPreflight(request) {
+  const origin = request?.headers?.get("Origin") || "*";
   return new Response(null, {
     status: 204,
     headers: {
-      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Origin": origin,
+      "Access-Control-Allow-Credentials": "true",
       "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type, Authorization, X-OmniAI-Token, X-Gemini-Key, X-Groq-Key",
       "Access-Control-Max-Age": "86400",
@@ -197,9 +200,10 @@ function handleCorsPreflight() {
 async function handleApiRequest(request, url, env) {
   const method = request.method.toUpperCase();
   const path = url.pathname.replace(/\/+$/, "");
+  const requestOrigin = request.headers.get("Origin") || "*";
 
   if (method === "OPTIONS") {
-    return handleCorsPreflight();
+    return handleCorsPreflight(request);
   }
 
   // 1. Health check
@@ -849,9 +853,11 @@ const HEX_GROQ_KEY = "4d594175651d72791812664f701a1c6159131d5a666d631f7d6d4e5348
 
       const fingerprint = apiKey.length >= 8 ? "••••••••••••" + apiKey.slice(-4) : "••••••••••••key";
 
+      const origin = request.headers.get("Origin") || "*";
       const headers = new Headers({
         "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Origin": origin,
+        "Access-Control-Allow-Credentials": "true",
         "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type, Authorization, X-OmniAI-Token, X-Gemini-Key, X-Groq-Key",
       });
@@ -880,9 +886,11 @@ const HEX_GROQ_KEY = "4d594175651d72791812664f701a1c6159131d5a666d631f7d6d4e5348
   // 17. BYOK Delete API Key
   if (path.startsWith("/api/byok/") && method === "DELETE") {
     const provider = path.split("/").pop()?.toLowerCase().trim() || "gemini";
+    const origin = request.headers.get("Origin") || "*";
     const headers = new Headers({
       "Content-Type": "application/json",
-      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Origin": origin,
+      "Access-Control-Allow-Credentials": "true",
       "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type, Authorization, X-OmniAI-Token, X-Gemini-Key, X-Groq-Key",
     });
