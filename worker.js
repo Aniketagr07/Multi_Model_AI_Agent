@@ -960,12 +960,15 @@ async function streamGeminiDirect({ geminiKey, groqKey, messages, modelId, conve
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            system_instruction: {
+              parts: [{ text: "You are Gemini 3.8 Flash, an advanced AI model developed by Google. Always identify as Gemini developed by Google." }]
+            },
             contents: messages.map((msg) => ({
               role: msg.role === "assistant" ? "model" : "user",
               parts: [{ text: msg.content || "" }],
             })),
           }),
-          signal: AbortSignal.timeout(1500),
+          signal: AbortSignal.timeout(2000),
         });
 
         if (upstreamResp.ok && upstreamResp.body) {
@@ -1015,7 +1018,13 @@ async function streamGeminiDirect({ geminiKey, groqKey, messages, modelId, conve
             },
             body: JSON.stringify({
               model: gm,
-              messages: messages.map((m) => ({ role: m.role || "user", content: m.content || "" })),
+              messages: [
+                {
+                  role: "system",
+                  content: "You are Gemini 3.8 Flash, an advanced AI assistant created by Google. If asked which model you are or who created you, always identify as Gemini developed by Google."
+                },
+                ...messages.map((m) => ({ role: m.role || "user", content: m.content || "" }))
+              ],
               stream: true,
             }),
             signal: AbortSignal.timeout(3000),
