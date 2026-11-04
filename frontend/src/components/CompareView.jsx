@@ -128,16 +128,23 @@ export function CompareView({ customModels = [], customKeys = {}, onBackToChat =
       const modelA = operationalModels.find(m => m.id === modelAId);
       const modelB = operationalModels.find(m => m.id === modelBId);
 
+      const byokA = typeof window !== 'undefined'
+        ? (localStorage.getItem('omniai_byok_' + modelA?.provider + '_key') || localStorage.getItem('omniai_byok_' + modelAId + '_key'))
+        : null;
+      const byokB = typeof window !== 'undefined'
+        ? (localStorage.getItem('omniai_byok_' + modelB?.provider + '_key') || localStorage.getItem('omniai_byok_' + modelBId + '_key'))
+        : null;
+
       const result = await sendCompareRequest({
         prompt: textToCompare,
         model_a_id: modelAId,
         model_b_id: modelBId,
         effort,
-        custom_api_key_a: modelA?.customApiKey || customKeys[modelA?.provider]?.apiKey || null,
+        custom_api_key_a: modelA?.customApiKey || customKeys[modelA?.provider]?.apiKey || byokA || null,
         custom_provider_a: modelA?.customProvider || modelA?.provider || null,
         custom_base_url_a: modelA?.customBaseUrl || customKeys[modelA?.provider]?.baseUrl || null,
         custom_provider_model_id_a: modelA?.provider_model_id || null,
-        custom_api_key_b: modelB?.customApiKey || customKeys[modelB?.provider]?.apiKey || null,
+        custom_api_key_b: modelB?.customApiKey || customKeys[modelB?.provider]?.apiKey || byokB || null,
         custom_provider_b: modelB?.customProvider || modelB?.provider || null,
         custom_base_url_b: modelB?.customBaseUrl || customKeys[modelB?.provider]?.baseUrl || null,
         custom_provider_model_id_b: modelB?.provider_model_id || null,
