@@ -27,3 +27,4 @@ Write-Host "OmniAI is now running on localhost!" -ForegroundColor Green
 Write-Host "- Frontend: http://localhost:5173"
 Write-Host "- Backend:  http://127.0.0.1:8000"
 Write-Host "- Swagger:  http://127.0.0.1:8000/docs"
+

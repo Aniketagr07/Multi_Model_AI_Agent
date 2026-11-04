@@ -246,7 +246,7 @@ export default function App() {
         type: 'error',
         text: errDesc || `Authentication was cancelled or failed (${err}).`,
       });
-      window.history.replaceState({}, document.title, window.location.pathname);
+      window.history.replaceState({}, document.title, '/');
       return;
     }
 
@@ -265,7 +265,7 @@ export default function App() {
           }
         }
       });
-      window.history.replaceState({}, document.title, window.location.pathname);
+      window.history.replaceState({}, document.title, '/');
       return;
     }
 
@@ -305,7 +305,7 @@ export default function App() {
         .finally(() => {
           sessionStorage.removeItem('omniai_oauth_provider');
           sessionStorage.removeItem('omniai_oauth_action');
-          window.history.replaceState({}, document.title, window.location.pathname);
+          window.history.replaceState({}, document.title, '/');
         });
     }
   }, []);
