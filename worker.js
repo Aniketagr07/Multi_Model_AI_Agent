@@ -864,11 +864,27 @@ async function streamGeminiDirect({ geminiKey, groqKey, messages, modelId, conve
   const encoder = new TextEncoder();
 
   // Active verified Google Gemini models on Generative Language API
-  const modelsToTry = ["gemini-3-flash-preview", "gemini-3.5-flash", "gemini-3.5-flash-lite"];
+  const modelsToTry = ["gemini-3.5-flash", "gemini-3-flash-preview"];
 
   (async () => {
     let fullResponse = "";
     let started = false;
+
+    // Send meta header immediately so Cloudflare flushes the stream response and UI connects instantly
+    await writer.write(
+      encoder.encode(
+        `data: ${JSON.stringify({
+          type: "meta",
+          conversation_id: conversationId,
+          model_id: modelId,
+          model_name: "Google Gemini",
+          provider: "gemini",
+          effort: "medium",
+          routed: false,
+        })}\n\n`
+      )
+    );
+    started = true;
 
     for (const m of modelsToTry) {
       const streamUrl = `https://generativelanguage.googleapis.com/v1beta/models/${m}:streamGenerateContent?alt=sse&key=${geminiKey}`;
@@ -882,25 +898,10 @@ async function streamGeminiDirect({ geminiKey, groqKey, messages, modelId, conve
               parts: [{ text: msg.content || "" }],
             })),
           }),
-          signal: AbortSignal.timeout(2800),
+          signal: AbortSignal.timeout(1500),
         });
 
         if (upstreamResp.ok && upstreamResp.body) {
-          await writer.write(
-            encoder.encode(
-              `data: ${JSON.stringify({
-                type: "meta",
-                conversation_id: conversationId,
-                model_id: modelId,
-                model_name: "Google Gemini",
-                provider: "gemini",
-                effort: "medium",
-                routed: false,
-              })}\n\n`
-            )
-          );
-          started = true;
-
           const reader = upstreamResp.body.getReader();
           const decoder = new TextDecoder("utf-8");
           let buffer = "";
@@ -950,27 +951,10 @@ async function streamGeminiDirect({ geminiKey, groqKey, messages, modelId, conve
               messages: messages.map((m) => ({ role: m.role || "user", content: m.content || "" })),
               stream: true,
             }),
-            signal: AbortSignal.timeout(4000),
+            signal: AbortSignal.timeout(3000),
           });
 
           if (groqResp.ok && groqResp.body) {
-            if (!started) {
-              await writer.write(
-                encoder.encode(
-                  `data: ${JSON.stringify({
-                    type: "meta",
-                    conversation_id: conversationId,
-                    model_id: modelId,
-                    model_name: "Google Gemini",
-                    provider: "gemini",
-                    effort: "medium",
-                    routed: true,
-                  })}\n\n`
-                )
-              );
-              started = true;
-            }
-
             const reader = groqResp.body.getReader();
             const decoder = new TextDecoder("utf-8");
             let buffer = "";
@@ -1006,22 +990,7 @@ async function streamGeminiDirect({ geminiKey, groqKey, messages, modelId, conve
       }
     }
 
-    if (!started || !fullResponse) {
-      if (!started) {
-        await writer.write(
-          encoder.encode(
-            `data: ${JSON.stringify({
-              type: "meta",
-              conversation_id: conversationId,
-              model_id: modelId,
-              model_name: "Google Gemini",
-              provider: "gemini",
-              effort: "medium",
-              routed: false,
-            })}\n\n`
-          )
-        );
-      }
+    if (!fullResponse) {
       const fallbackMsg = "Hello! I am ready to assist you. Please ask your question.";
       await writer.write(
         encoder.encode(`data: ${JSON.stringify({ type: "token", token: fallbackMsg })}\n\n`)
