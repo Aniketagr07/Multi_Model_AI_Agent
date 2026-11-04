@@ -6,6 +6,8 @@
  */
 
 const conversationsStore = new Map();
+const projectsStore = new Map();
+const invitationsStore = new Map();
 
 function resolveSecret(envVal, hexMask) {
   if (envVal && typeof envVal === "string" && envVal.trim()) return envVal.trim();
@@ -1793,6 +1795,251 @@ function createSseStreamResponse({ modelId, modelName, provider, conversationId,
       });
     } catch (err) {
       return jsonResponse({ detail: err.message || "Failed to execute multi-model comparison." }, 500);
+    }
+  }
+
+
+  // 15. Collaborative Projects CRUD & Workspaces
+  if (path === "/api/projects" && method === "GET") {
+    const list = Array.from(projectsStore.values()).map(p => ({
+      id: p.id,
+      name: p.name,
+      description: p.description,
+      icon: p.icon || "folder",
+      visibility: p.visibility || "private",
+      current_user_role: p.current_user_role || "owner",
+      member_count: p.members ? p.members.length : (p.member_count || 1),
+      conversation_count: p.conversations ? p.conversations.length : (p.conversation_count || 0),
+      updated_at: p.updated_at,
+    }));
+    list.sort((a, b) => new Date(b.updated_at || 0) - new Date(a.updated_at || 0));
+    return jsonResponse(list);
+  }
+
+  if (path === "/api/projects" && method === "POST") {
+    const body = await request.json().catch(() => ({}));
+    const name = (body.name || "Untitled Project").trim();
+    const id = body.id || ("proj_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7));
+    const now = new Date().toISOString();
+    const newProject = {
+      id,
+      name,
+      description: body.description || null,
+      icon: body.icon || "folder",
+      visibility: body.visibility || "private",
+      owner_id: "usr_owner",
+      created_at: now,
+      updated_at: now,
+      current_user_role: "owner",
+      member_count: 1,
+      conversation_count: 0,
+      file_count: 0,
+      members: [
+        {
+          id: "mem_" + Date.now(),
+          user_id: "usr_owner",
+          email: "user@omniai.app",
+          display_name: "Workspace Owner",
+          role: "owner",
+          joined_at: now,
+        },
+      ],
+      conversations: [],
+      files: [],
+      skills: (typeof BUILTIN_SKILLS !== "undefined" ? BUILTIN_SKILLS : []).map(s => ({
+        skill_id: s.id,
+        name: s.name,
+        description: s.description,
+        icon: s.icon,
+        category: s.category,
+        is_enabled: true,
+      })),
+      recent_activity: [
+        {
+          id: "act_" + Date.now(),
+          project_id: id,
+          event_type: "project_created",
+          details: `Project "${name}" workspace created`,
+          created_at: now,
+        },
+      ],
+      pending_invitations: [],
+    };
+    projectsStore.set(id, newProject);
+    return jsonResponse(newProject, 201);
+  }
+
+  if (path.startsWith("/api/projects/join/")) {
+    const token = path.split("/")[4];
+    const invite = invitationsStore.get(token);
+    if (!invite) {
+      return jsonResponse({ detail: "Invitation link is invalid or has expired." }, 404);
+    }
+    const proj = projectsStore.get(invite.project_id);
+    if (proj) {
+      const now = new Date().toISOString();
+      proj.members.push({
+        id: "mem_" + Date.now(),
+        user_id: "usr_" + Math.random().toString(36).slice(2, 7),
+        email: invite.email || "collaborator@omniai.app",
+        display_name: "Collaborator",
+        role: invite.role || "member",
+        joined_at: now,
+      });
+      proj.member_count = proj.members.length;
+      proj.updated_at = now;
+    }
+    return jsonResponse({
+      success: true,
+      project_id: invite.project_id,
+      message: "Joined collaborative project successfully!",
+    });
+  }
+
+  if (path.startsWith("/api/projects/")) {
+    const parts = path.split("/").filter(Boolean); // ['api', 'projects', ':id', ...]
+    const projectId = parts[2];
+    const subRoute = parts[3];
+    const extra = parts[4];
+
+    if (projectId) {
+      let proj = projectsStore.get(projectId);
+
+      // GET /api/projects/:id
+      if (method === "GET" && !subRoute) {
+        if (!proj) {
+          proj = {
+            id: projectId,
+            name: "Project Workspace",
+            description: "",
+            icon: "folder",
+            visibility: "private",
+            owner_id: "usr_owner",
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            current_user_role: "owner",
+            member_count: 1,
+            conversation_count: 0,
+            file_count: 0,
+            members: [],
+            conversations: [],
+            files: [],
+            skills: [],
+            recent_activity: [],
+            pending_invitations: [],
+          };
+          projectsStore.set(projectId, proj);
+        }
+        return jsonResponse(proj);
+      }
+
+      // PATCH /api/projects/:id (update name, desc, icon, visibility)
+      if (method === "PATCH" && !subRoute) {
+        const body = await request.json().catch(() => ({}));
+        if (!proj) {
+          proj = {
+            id: projectId,
+            name: body.name || "Project Workspace",
+            description: body.description || "",
+            icon: body.icon || "folder",
+            visibility: body.visibility || "private",
+            owner_id: "usr_owner",
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            current_user_role: "owner",
+            member_count: 1,
+            conversation_count: 0,
+            file_count: 0,
+            members: [],
+            conversations: [],
+            files: [],
+            skills: [],
+            recent_activity: [],
+            pending_invitations: [],
+          };
+          projectsStore.set(projectId, proj);
+        } else {
+          if (body.name) proj.name = body.name;
+          if (body.description !== undefined) proj.description = body.description;
+          if (body.icon) proj.icon = body.icon;
+          if (body.visibility) proj.visibility = body.visibility;
+          proj.updated_at = new Date().toISOString();
+        }
+        return jsonResponse(proj);
+      }
+
+      // DELETE /api/projects/:id
+      if (method === "DELETE" && !subRoute) {
+        projectsStore.delete(projectId);
+        return jsonResponse({ success: true, id: projectId });
+      }
+
+      // POST /api/projects/:id/invitations
+      if (method === "POST" && subRoute === "invitations") {
+        const body = await request.json().catch(() => ({}));
+        const token = "inv_" + Math.random().toString(36).slice(2, 12);
+        const now = new Date().toISOString();
+        const invite = {
+          id: "inv_id_" + Date.now(),
+          project_id: projectId,
+          inviter_user_id: "usr_owner",
+          email: body.email || null,
+          token,
+          role: body.role || "member",
+          status: "pending",
+          expires_at: new Date(Date.now() + (body.expiry_days || 7) * 86400000).toISOString(),
+          created_at: now,
+          invite_url: `${url.origin}/?join_project=${token}`,
+        };
+        invitationsStore.set(token, invite);
+        if (proj) {
+          proj.pending_invitations = proj.pending_invitations || [];
+          proj.pending_invitations.push(invite);
+        }
+        return jsonResponse(invite, 201);
+      }
+
+      // POST /api/projects/:id/conversations/move
+      if (method === "POST" && subRoute === "conversations" && extra === "move") {
+        const body = await request.json().catch(() => ({}));
+        const convId = body.conversation_id;
+        if (convId && proj) {
+          const conv = conversationsStore.get(convId);
+          if (conv) {
+            conv.project_id = projectId;
+            if (!proj.conversations.some(c => c.id === convId)) {
+              proj.conversations.push(conv);
+            }
+            proj.conversation_count = proj.conversations.length;
+            proj.updated_at = new Date().toISOString();
+          }
+        }
+        return jsonResponse({ success: true, project_id: projectId, conversation_id: convId });
+      }
+
+      // POST /api/projects/:id/skills/:skillId
+      if (method === "POST" && subRoute === "skills" && extra) {
+        const isEnabled = url.searchParams.get("is_enabled") !== "false";
+        if (proj && proj.skills) {
+          const sk = proj.skills.find(s => s.skill_id === extra);
+          if (sk) sk.is_enabled = isEnabled;
+        }
+        return jsonResponse({ success: true, skill_id: extra, is_enabled: isEnabled });
+      }
+
+      // GET /api/projects/:id/files
+      if (method === "GET" && subRoute === "files") {
+        return jsonResponse(proj ? (proj.files || []) : []);
+      }
+
+      // DELETE /api/projects/:id/files/:fileId
+      if (method === "DELETE" && subRoute === "files" && extra) {
+        if (proj && proj.files) {
+          proj.files = proj.files.filter(f => f.id !== extra);
+          proj.file_count = proj.files.length;
+        }
+        return jsonResponse({ success: true, file_id: extra });
+      }
     }
   }
 

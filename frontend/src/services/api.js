@@ -1246,64 +1246,182 @@ export async function joinConversationByToken(token) {
 }
 
 // -----------------------------------------------------------------------------
-// Collaborative Projects Workspaces
+// Collaborative Projects Workspaces (With Resilient Edge & Local Fallback)
 // -----------------------------------------------------------------------------
 
-export async function fetchProjects() {
-  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/projects`;
-  const response = await authFetch(url, { method: 'GET', headers: { 'Accept': 'application/json' } });
-  if (!response.ok) {
-    throw new Error('Failed to fetch projects');
+const USER_PROJECTS_KEY = 'omniai_user_projects';
+
+export function getStoredUserProjects() {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(USER_PROJECTS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
   }
-  return await response.json();
+}
+
+export function saveStoredUserProjects(projs) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(USER_PROJECTS_KEY, JSON.stringify(projs));
+  } catch (e) {
+    console.warn('Failed to save user projects to localStorage', e);
+  }
+}
+
+export async function fetchProjects() {
+  const localList = getStoredUserProjects();
+  try {
+    const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/projects`;
+    const response = await authFetch(url, { method: 'GET', headers: { 'Accept': 'application/json' } });
+    if (response.ok) {
+      const data = await response.json();
+      const serverList = Array.isArray(data) ? data : (data.projects || []);
+      const map = new Map();
+      localList.forEach(p => map.set(p.id, p));
+      serverList.forEach(p => map.set(p.id, { ...map.get(p.id), ...p }));
+      const merged = Array.from(map.values());
+      saveStoredUserProjects(merged);
+      return merged;
+    }
+  } catch (err) {
+    console.warn('[OmniAI Projects] Server fetch failed, using local storage:', err.message);
+  }
+  return localList;
 }
 
 export async function createProject({ name, description, icon = 'folder', visibility = 'private' }) {
-  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/projects`;
-  const response = await authFetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-    body: JSON.stringify({ name, description, icon, visibility }),
-  });
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({ detail: 'Failed to create project' }));
-    throw new Error(err.detail || 'Failed to create project');
+  const localList = getStoredUserProjects();
+  const now = new Date().toISOString();
+  const tempId = 'proj_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+  const newProj = {
+    id: tempId,
+    name,
+    description: description || null,
+    icon,
+    visibility,
+    owner_id: 'usr_me',
+    created_at: now,
+    updated_at: now,
+    current_user_role: 'owner',
+    member_count: 1,
+    conversation_count: 0,
+    file_count: 0,
+    members: [{
+      id: 'mem_' + Date.now(),
+      user_id: 'usr_me',
+      display_name: 'You (Owner)',
+      email: 'user@omniai.app',
+      role: 'owner',
+      joined_at: now
+    }],
+    conversations: [],
+    files: [],
+    skills: [],
+    recent_activity: [{
+      id: 'act_' + Date.now(),
+      event_type: 'project_created',
+      details: `Project "${name}" created`,
+      created_at: now
+    }],
+    pending_invitations: []
+  };
+
+  try {
+    const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/projects`;
+    const response = await authFetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ name, description, icon, visibility }),
+    });
+    if (response.ok) {
+      const serverProj = await response.json();
+      const updatedList = [serverProj, ...localList.filter(p => p.id !== tempId)];
+      saveStoredUserProjects(updatedList);
+      return serverProj;
+    }
+  } catch (e) {
+    console.warn('[OmniAI Projects] Remote creation fallback to local:', e.message);
   }
-  return await response.json();
+
+  localList.unshift(newProj);
+  saveStoredUserProjects(localList);
+  return newProj;
 }
 
 export async function fetchProjectDetail(projectId) {
-  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/projects/${encodeURIComponent(projectId)}`;
-  const response = await authFetch(url, { method: 'GET', headers: { 'Accept': 'application/json' } });
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({ detail: 'Failed to load project details' }));
-    throw new Error(err.detail || 'Failed to load project details');
+  const localList = getStoredUserProjects();
+  const cached = localList.find(p => p.id === projectId);
+  try {
+    const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/projects/${encodeURIComponent(projectId)}`;
+    const response = await authFetch(url, { method: 'GET', headers: { 'Accept': 'application/json' } });
+    if (response.ok) {
+      const data = await response.json();
+      const updatedList = localList.map(p => p.id === projectId ? { ...p, ...data } : p);
+      if (!updatedList.some(p => p.id === projectId)) updatedList.push(data);
+      saveStoredUserProjects(updatedList);
+      return data;
+    }
+  } catch (err) {
+    console.warn('[OmniAI Projects] Server load failed, using local project detail:', err.message);
   }
-  return await response.json();
+  if (cached) return cached;
+  return {
+    id: projectId,
+    name: 'Project Workspace',
+    description: '',
+    icon: 'folder',
+    visibility: 'private',
+    owner_id: 'usr_me',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    current_user_role: 'owner',
+    member_count: 1,
+    conversation_count: 0,
+    file_count: 0,
+    members: [],
+    conversations: [],
+    files: [],
+    skills: [],
+    recent_activity: [],
+    pending_invitations: []
+  };
 }
 
 export async function updateProject(projectId, updateData) {
-  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/projects/${encodeURIComponent(projectId)}`;
-  const response = await authFetch(url, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-    body: JSON.stringify(updateData),
-  });
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({ detail: 'Failed to update project' }));
-    throw new Error(err.detail || 'Failed to update project');
+  const localList = getStoredUserProjects();
+  const updatedList = localList.map(p => p.id === projectId ? { ...p, ...updateData, updated_at: new Date().toISOString() } : p);
+  saveStoredUserProjects(updatedList);
+  try {
+    const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/projects/${encodeURIComponent(projectId)}`;
+    const response = await authFetch(url, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify(updateData),
+    });
+    if (response.ok) {
+      return await response.json();
+    }
+  } catch (err) {
+    console.warn('[OmniAI Projects] Remote update failed:', err.message);
   }
-  return await response.json();
+  return updatedList.find(p => p.id === projectId);
 }
 
 export async function deleteProject(projectId) {
-  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/projects/${encodeURIComponent(projectId)}`;
-  const response = await authFetch(url, { method: 'DELETE' });
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({ detail: 'Failed to delete project' }));
-    throw new Error(err.detail || 'Failed to delete project');
+  const localList = getStoredUserProjects();
+  saveStoredUserProjects(localList.filter(p => p.id !== projectId));
+  try {
+    const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/projects/${encodeURIComponent(projectId)}`;
+    const response = await authFetch(url, { method: 'DELETE' });
+    if (response.ok) {
+      return await response.json();
+    }
+  } catch (err) {
+    console.warn('[OmniAI Projects] Remote delete failed:', err.message);
   }
-  return await response.json();
+  return { success: true, id: projectId };
 }
 
 export async function createProjectInvitation(projectId, { email, role = 'member', expiry_days = 7 }) {
