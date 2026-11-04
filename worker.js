@@ -471,3 +471,4 @@ export default {
     return new Response("Static assets binding not found.", { status: 500 });
   },
 };
+
