@@ -24,21 +24,27 @@ export function ChatWindow({
     const el = containerRef.current;
     if (!el) return;
     const distanceToBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-    const isNearBottom = distanceToBottom < 100;
+    const isNearBottom = distanceToBottom < 80;
     shouldAutoScrollRef.current = isNearBottom;
     setShowScrollBottom(!isNearBottom);
   }, []);
 
   const scrollToBottom = useCallback((smooth = true) => {
-    bottomRef.current?.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto' });
+    if (containerRef.current) {
+      if (smooth) {
+        containerRef.current.scrollTo({ top: containerRef.current.scrollHeight, behavior: 'smooth' });
+      } else {
+        containerRef.current.scrollTop = containerRef.current.scrollHeight;
+      }
+    }
     shouldAutoScrollRef.current = true;
     setShowScrollBottom(false);
   }, []);
 
   // Auto-scroll when new messages or tokens arrive IF user hasn't scrolled up
   useEffect(() => {
-    if (shouldAutoScrollRef.current) {
-      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (shouldAutoScrollRef.current && containerRef.current) {
+      containerRef.current.scrollTop = containerRef.current.scrollHeight;
     }
   }, [messages, isLoading, typingUsers]);
 
@@ -67,7 +73,7 @@ export function ChatWindow({
     <div
       ref={containerRef}
       onScroll={handleScroll}
-      className="flex-1 overflow-y-auto min-h-0 px-2 sm:px-4 py-4 sm:py-6 space-y-4 relative scroll-smooth"
+      className="flex-1 overflow-y-auto min-h-0 px-2 sm:px-4 py-4 sm:py-6 space-y-4 relative"
     >
       {/* View-Only Warning Banner */}
       {isViewer && (
@@ -120,8 +126,8 @@ export function ChatWindow({
         </div>
       )}
 
-      {/* Scroll anchor */}
-      <div ref={bottomRef} className="h-4" />
+      {/* Scroll anchor with clearance above composer */}
+      <div ref={bottomRef} className="h-28 sm:h-36 shrink-0 pointer-events-none" />
 
       {/* Floating Scroll-to-Bottom Button */}
       {showScrollBottom && (

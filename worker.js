@@ -5,6 +5,8 @@
  * Eliminates external server dependencies (Render) and cross-origin CORS latency.
  */
 
+const conversationsStore = new Map();
+
 const BUILTIN_SKILLS = [
   {
     id: "python-code-assistant",
@@ -911,9 +913,119 @@ const HEX_GROQ_KEY = "4d594175651d72791812664f701a1c6159131d5a666d631f7d6d4e5348
     );
   }
 
-  // 11. Conversations list
+  // 11. Conversations CRUD
   if (path === "/api/conversations" && method === "GET") {
-    return jsonResponse([]);
+    const q = url.searchParams.get("q")?.toLowerCase();
+    let convs = Array.from(conversationsStore.values()).map((c) => ({
+      id: c.id,
+      title: c.title,
+      created_at: c.created_at,
+      updated_at: c.updated_at,
+      message_count: c.messages ? c.messages.length : (c.message_count || 0),
+      is_pinned: c.is_pinned || 0,
+      is_archived: c.is_archived || 0,
+      pinned_at: c.pinned_at || null,
+      project_id: c.project_id || null,
+      sharing_enabled: false,
+      share_permission: "view",
+      share_token: null,
+    }));
+    if (q) {
+      convs = convs.filter((c) => (c.title || "").toLowerCase().includes(q));
+    }
+    convs.sort((a, b) => new Date(b.updated_at || 0) - new Date(a.updated_at || 0));
+    return jsonResponse({ conversations: convs });
+  }
+
+  if (path === "/api/conversations" && method === "POST") {
+    const body = await request.json().catch(() => ({}));
+    const id = body.id || `conv_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    const now = new Date().toISOString();
+    const newConv = {
+      id,
+      title: (body.title || "New Chat").slice(0, 100),
+      created_at: now,
+      updated_at: now,
+      message_count: 0,
+      is_pinned: 0,
+      is_archived: 0,
+      pinned_at: null,
+      project_id: body.project_id || null,
+      user_role: "owner",
+      messages: [],
+    };
+    conversationsStore.set(id, newConv);
+    return jsonResponse(newConv, 201);
+  }
+
+  if (path.startsWith("/api/conversations/")) {
+    const parts = path.split("/").filter(Boolean); // ['api', 'conversations', ':id', ...]
+    const convId = parts[2];
+    const subAction = parts[3];
+
+    if (convId) {
+      let conv = conversationsStore.get(convId);
+
+      // GET /api/conversations/:id
+      if (method === "GET" && !subAction) {
+        if (!conv) {
+          return jsonResponse({
+            id: convId,
+            title: "Conversation",
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            user_role: "owner",
+            messages: [],
+          });
+        }
+        return jsonResponse(conv);
+      }
+
+      // PATCH /api/conversations/:id (rename)
+      if (method === "PATCH" && !subAction) {
+        const body = await request.json().catch(() => ({}));
+        if (!conv) {
+          conv = {
+            id: convId,
+            title: body.title || "New Chat",
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            user_role: "owner",
+            messages: [],
+          };
+          conversationsStore.set(convId, conv);
+        } else {
+          if (body.title) conv.title = body.title;
+          conv.updated_at = new Date().toISOString();
+        }
+        return jsonResponse(conv);
+      }
+
+      // DELETE /api/conversations/:id
+      if (method === "DELETE" && !subAction) {
+        conversationsStore.delete(convId);
+        return jsonResponse({ success: true, id: convId });
+      }
+
+      // PATCH /api/conversations/:id/pin
+      if (method === "PATCH" && subAction === "pin") {
+        if (conv) {
+          conv.is_pinned = conv.is_pinned ? 0 : 1;
+          conv.pinned_at = conv.is_pinned ? new Date().toISOString() : null;
+          conv.updated_at = new Date().toISOString();
+        }
+        return jsonResponse(conv || { id: convId, is_pinned: 1 });
+      }
+
+      // PATCH /api/conversations/:id/archive
+      if (method === "PATCH" && subAction === "archive") {
+        if (conv) {
+          conv.is_archived = conv.is_archived ? 0 : 1;
+          conv.updated_at = new Date().toISOString();
+        }
+        return jsonResponse(conv || { id: convId, is_archived: 1 });
+      }
+    }
   }
 
   // 12. Settings
@@ -1021,10 +1133,41 @@ async function streamGeminiDirect({ geminiKey, groqKey, messages, modelId, conve
       fullResponse = quotaMsg;
     }
 
+    if (conversationId) {
+      let conv = conversationsStore.get(conversationId);
+      const now = new Date().toISOString();
+      if (!conv) {
+        conv = {
+          id: conversationId,
+          title: (fullResponse || "Chat").slice(0, 36),
+          created_at: now,
+          updated_at: now,
+          message_count: 0,
+          is_pinned: 0,
+          is_archived: 0,
+          user_role: "owner",
+          messages: [],
+        };
+        conversationsStore.set(conversationId, conv);
+      }
+      conv.messages.push({
+        id: `msg_a_${Date.now()}`,
+        role: "assistant",
+        sender: "assistant",
+        content: fullResponse,
+        model_id: modelId,
+        provider: "gemini",
+        created_at: now,
+      });
+      conv.updated_at = now;
+      conv.message_count = conv.messages.length;
+    }
+
     await writer.write(
       encoder.encode(
         `data: ${JSON.stringify({
           type: "done",
+          conversation_id: conversationId,
           response: fullResponse,
           model_id: modelId,
           model_name: "Google Gemini",
@@ -1147,10 +1290,41 @@ async function streamGroqDirect({ groqKey, messages, modelId, conversationId }) 
       fullResponse = fallbackMsg;
     }
 
+    if (conversationId) {
+      let conv = conversationsStore.get(conversationId);
+      const now = new Date().toISOString();
+      if (!conv) {
+        conv = {
+          id: conversationId,
+          title: (fullResponse || "Chat").slice(0, 36),
+          created_at: now,
+          updated_at: now,
+          message_count: 0,
+          is_pinned: 0,
+          is_archived: 0,
+          user_role: "owner",
+          messages: [],
+        };
+        conversationsStore.set(conversationId, conv);
+      }
+      conv.messages.push({
+        id: `msg_a_${Date.now()}`,
+        role: "assistant",
+        sender: "assistant",
+        content: fullResponse,
+        model_id: modelId,
+        provider: "groq",
+        created_at: now,
+      });
+      conv.updated_at = now;
+      conv.message_count = conv.messages.length;
+    }
+
     await writer.write(
       encoder.encode(
         `data: ${JSON.stringify({
           type: "done",
+          conversation_id: conversationId,
           response: fullResponse,
           model_id: modelId,
           model_name: "Groq Cloud",
@@ -1243,6 +1417,34 @@ function createSseStreamResponse({ modelId, modelName, provider, conversationId,
       let messages = Array.isArray(body.messages) && body.messages.length > 0
         ? body.messages
         : [{ role: "user", content: userPrompt }];
+
+      if (conversationId) {
+        let conv = conversationsStore.get(conversationId);
+        const now = new Date().toISOString();
+        if (!conv) {
+          conv = {
+            id: conversationId,
+            title: userPrompt.slice(0, 36) || "New Chat",
+            created_at: now,
+            updated_at: now,
+            message_count: 0,
+            is_pinned: 0,
+            is_archived: 0,
+            user_role: "owner",
+            messages: [],
+          };
+          conversationsStore.set(conversationId, conv);
+        }
+        conv.messages.push({
+          id: `msg_u_${Date.now()}`,
+          role: "user",
+          sender: "user",
+          content: userPrompt,
+          created_at: now,
+        });
+        conv.updated_at = now;
+        conv.message_count = conv.messages.length;
+      }
 
       // If client requests local model, let client-side WebLLM handle it
       if (modelId.includes("qwen") || modelId.includes("local")) {

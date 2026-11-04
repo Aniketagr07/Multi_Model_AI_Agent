@@ -5,6 +5,8 @@ import {
   streamChatMessage,
   fetchConversations,
   fetchConversationDetails,
+  createConversation,
+  saveUserMessage,
   renameConversation as apiRenameConversation,
   deleteConversationApi,
   pinConversationApi,
@@ -600,10 +602,22 @@ export function useChat({ customModels = [], customKeys = {}, userSettings = {},
           const newConv = createGuestConversation(messageContent.slice(0, 32));
           currentConvId = newConv.id;
           setActiveConversationId(newConv.id);
+        } else if (!currentConvId && !isGuestMode) {
+          try {
+            const newConv = await createConversation(messageContent.slice(0, 32));
+            if (newConv && newConv.id) {
+              currentConvId = newConv.id;
+              setActiveConversationId(newConv.id);
+            }
+          } catch (e) {
+            console.warn('[OmniAI Chat] Could not create user conversation:', e);
+          }
         }
 
         if (isGuestMode && currentConvId) {
           saveGuestMessage(currentConvId, tempUserMessage);
+        } else if (currentConvId) {
+          saveUserMessage(currentConvId, tempUserMessage);
         }
 
         const messagesForContext = [
@@ -667,6 +681,9 @@ export function useChat({ customModels = [], customKeys = {}, userSettings = {},
           if (isGuestMode && currentConvId) {
             saveGuestMessage(currentConvId, finalAssistantMsg);
             refreshConversations();
+          } else if (currentConvId) {
+            saveUserMessage(currentConvId, finalAssistantMsg);
+            refreshConversations();
           }
         } catch (localErr) {
           setLocalModelLoading(false);
@@ -704,6 +721,29 @@ export function useChat({ customModels = [], customKeys = {}, userSettings = {},
       // -------------------------------------------------------------
       // PATH B: SERVER-SIDE CLOUD INFERENCE (FastAPI / Cloudflare Edge)
       // -------------------------------------------------------------
+      let currentConvId = activeConversationId;
+      if (!currentConvId && isGuestMode) {
+        const newConv = createGuestConversation(messageContent.slice(0, 32));
+        currentConvId = newConv.id;
+        setActiveConversationId(newConv.id);
+      } else if (!currentConvId && !isGuestMode) {
+        try {
+          const newConv = await createConversation(messageContent.slice(0, 36));
+          if (newConv && newConv.id) {
+            currentConvId = newConv.id;
+            setActiveConversationId(newConv.id);
+          }
+        } catch (e) {
+          console.warn('[OmniAI Chat] Could not pre-create user conversation:', e);
+        }
+      }
+
+      if (isGuestMode && currentConvId) {
+        saveGuestMessage(currentConvId, tempUserMessage);
+      } else if (currentConvId) {
+        saveUserMessage(currentConvId, tempUserMessage);
+      }
+
       const byokStoredKey = typeof window !== 'undefined'
         ? (localStorage.getItem(`omniai_byok_${targetModel.provider}_key`) || localStorage.getItem(`omniai_byok_${targetModelId}_key`))
         : null;
@@ -719,7 +759,7 @@ export function useChat({ customModels = [], customKeys = {}, userSettings = {},
           const resp = await sendChatMessage({
             message: messageContent,
             model_id: targetModelId,
-            conversation_id: activeConversationId,
+            conversation_id: currentConvId,
             effort: targetEffort,
             document_id: targetDocId,
             skill_id: overrideSkillId || null,
@@ -730,32 +770,44 @@ export function useChat({ customModels = [], customKeys = {}, userSettings = {},
             custom_provider_model_id: customProviderModelId,
           });
 
-          if (resp.conversation_id && resp.conversation_id !== activeConversationId) {
+          if (resp.conversation_id && resp.conversation_id !== currentConvId) {
+            currentConvId = resp.conversation_id;
             setActiveConversationId(resp.conversation_id);
           }
           const actual = allModels.find((m) => m.id === resp.model_id) || targetModel;
+          const finalAssistantMsg = {
+            id: assistantMsgId,
+            sender: 'assistant',
+            role: 'assistant',
+            isStreaming: false,
+            content: resp.response,
+            latencyMs: resp.latency_ms,
+            modelId: resp.model_id,
+            modelName: actual.name,
+            modelTag: actual.tag,
+            provider: resp.provider,
+            routed: Boolean(resp.routed),
+            routingCategory: resp.routing_category,
+            routingExplanation: resp.routing_explanation,
+            effort: resp.effort || targetEffort,
+            documentId: resp.document_id || targetDocId,
+            documentName: resp.document_name || targetDocName,
+            timestamp: new Date().toISOString(),
+          };
+
           setActiveMessages((prev) =>
             prev.map((msg) =>
               msg.id === assistantMsgId
-                ? {
-                    ...msg,
-                    isStreaming: false,
-                    content: resp.response,
-                    latencyMs: resp.latency_ms,
-                    modelId: resp.model_id,
-                    modelName: actual.name,
-                    modelTag: actual.tag,
-                    provider: resp.provider,
-                    routed: Boolean(resp.routed),
-                    routingCategory: resp.routing_category,
-                    routingExplanation: resp.routing_explanation,
-                    effort: resp.effort || targetEffort,
-                    documentId: resp.document_id || targetDocId,
-                    documentName: resp.document_name || targetDocName,
-                  }
+                ? finalAssistantMsg
                 : msg
             )
           );
+
+          if (isGuestMode && currentConvId) {
+            saveGuestMessage(currentConvId, finalAssistantMsg);
+          } else if (currentConvId) {
+            saveUserMessage(currentConvId, finalAssistantMsg);
+          }
           refreshConversations();
           return;
         }
@@ -763,7 +815,7 @@ export function useChat({ customModels = [], customKeys = {}, userSettings = {},
         await streamChatMessage({
           message: messageContent,
           model_id: targetModelId,
-          conversation_id: activeConversationId,
+          conversation_id: currentConvId,
           effort: targetEffort,
           document_id: targetDocId,
           skill_id: overrideSkillId || null,
@@ -775,7 +827,8 @@ export function useChat({ customModels = [], customKeys = {}, userSettings = {},
           signal: controller.signal,
 
           onMeta: (meta) => {
-            if (meta.conversation_id && meta.conversation_id !== activeConversationId) {
+            if (meta.conversation_id && meta.conversation_id !== currentConvId) {
+              currentConvId = meta.conversation_id;
               setActiveConversationId(meta.conversation_id);
             }
             const actual = allModels.find((m) => m.id === meta.model_id) || targetModel;
@@ -814,24 +867,37 @@ export function useChat({ customModels = [], customKeys = {}, userSettings = {},
           },
 
           onDone: (doneEvent) => {
+            if (doneEvent.conversation_id && doneEvent.conversation_id !== currentConvId) {
+              currentConvId = doneEvent.conversation_id;
+              setActiveConversationId(doneEvent.conversation_id);
+            }
+            const finalAssistantMsg = {
+              id: assistantMsgId,
+              sender: 'assistant',
+              role: 'assistant',
+              isStreaming: false,
+              content: doneEvent.response || accumulatedContent,
+              latencyMs: doneEvent.latency_ms,
+              modelId: doneEvent.model_id || targetModelId,
+              modelName: doneEvent.model_name || targetModel.name,
+              provider: doneEvent.provider || targetModel.provider,
+              effort: doneEvent.effort || targetEffort,
+              documentId: doneEvent.document_id || targetDocId,
+              documentName: doneEvent.document_name || targetDocName,
+              timestamp: new Date().toISOString(),
+            };
             setActiveMessages((prev) =>
               prev.map((msg) =>
                 msg.id === assistantMsgId
-                  ? {
-                      ...msg,
-                      isStreaming: false,
-                      content: doneEvent.response || accumulatedContent,
-                      latencyMs: doneEvent.latency_ms,
-                      modelId: doneEvent.model_id || msg.modelId,
-                      modelName: doneEvent.model_name || msg.modelName,
-                      provider: doneEvent.provider || msg.provider,
-                      effort: doneEvent.effort || targetEffort,
-                      documentId: doneEvent.document_id || targetDocId,
-                      documentName: doneEvent.document_name || targetDocName,
-                    }
+                  ? finalAssistantMsg
                   : msg
               )
             );
+            if (isGuestMode && currentConvId) {
+              saveGuestMessage(currentConvId, finalAssistantMsg);
+            } else if (currentConvId) {
+              saveUserMessage(currentConvId, finalAssistantMsg);
+            }
             refreshConversations();
           },
 

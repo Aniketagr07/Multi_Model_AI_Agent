@@ -525,31 +525,112 @@ export async function sendCompareRequest({
   return await response.json();
 }
 
+const USER_CONVERSATIONS_KEY = 'omniai_user_conversations';
+
+export function getStoredUserConversations() {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(USER_CONVERSATIONS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveStoredUserConversations(convs) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(USER_CONVERSATIONS_KEY, JSON.stringify(convs));
+  } catch (e) {
+    console.warn('Failed to save user conversations to localStorage', e);
+  }
+}
+
+export function saveUserMessage(conversationId, message) {
+  if (typeof window === 'undefined' || !conversationId) return;
+  const convs = getStoredUserConversations();
+  let conv = convs.find((c) => c.id === conversationId);
+  const now = new Date().toISOString();
+  if (!conv) {
+    conv = {
+      id: conversationId,
+      title: (message && message.content ? message.content.slice(0, 36) : 'New Conversation'),
+      created_at: now,
+      updated_at: now,
+      message_count: 0,
+      is_pinned: 0,
+      is_archived: 0,
+      messages: [],
+    };
+    convs.unshift(conv);
+  }
+  if (!conv.messages) conv.messages = [];
+  if (message) {
+    const existingIdx = conv.messages.findIndex((m) => m.id === message.id);
+    if (existingIdx >= 0) {
+      conv.messages[existingIdx] = { ...conv.messages[existingIdx], ...message };
+    } else {
+      conv.messages.push(message);
+    }
+    conv.updated_at = now;
+    conv.message_count = conv.messages.length;
+  }
+  saveStoredUserConversations(convs);
+}
+
 /**
- * Fetches all persistent conversations from SQLite. Supports search filtering.
+ * Fetches all persistent conversations. Supports search filtering.
  * Target: GET /api/conversations(?q=...)
  */
 export async function fetchConversations(query = null) {
-  const params = new URLSearchParams();
+  const localList = getStoredUserConversations();
+  try {
+    const params = new URLSearchParams();
+    if (query && query.trim()) {
+      params.set('q', query.trim());
+    }
+    const queryString = params.toString() ? `?${params.toString()}` : '';
+    const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/conversations${queryString}`;
+
+    const response = await authFetch(url, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      const serverList = Array.isArray(data) ? data : (data.conversations || []);
+      const mergedMap = new Map();
+      localList.forEach((c) => mergedMap.set(c.id, c));
+      serverList.forEach((c) => {
+        const local = mergedMap.get(c.id);
+        if (local && local.messages?.length > (c.message_count || 0)) {
+          mergedMap.set(c.id, { ...c, messages: local.messages });
+        } else {
+          mergedMap.set(c.id, c);
+        }
+      });
+      const merged = Array.from(mergedMap.values()).sort(
+        (a, b) => new Date(b.updated_at || 0) - new Date(a.updated_at || 0)
+      );
+      saveStoredUserConversations(merged);
+      if (query && query.trim()) {
+        const q = query.trim().toLowerCase();
+        return merged.filter((c) => (c.title || '').toLowerCase().includes(q));
+      }
+      return merged;
+    }
+  } catch (err) {
+    console.warn('[OmniAI Storage] Server fetch failed, using local user storage:', err.message);
+  }
+
   if (query && query.trim()) {
-    params.set('q', query.trim());
+    const q = query.trim().toLowerCase();
+    return localList.filter((c) => (c.title || '').toLowerCase().includes(q));
   }
-  const queryString = params.toString() ? `?${params.toString()}` : '';
-  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/conversations${queryString}`;
-
-  const response = await authFetch(url, {
-    method: 'GET',
-    headers: {
-      'Accept': 'application/json',
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch conversations: HTTP ${response.status}`);
-  }
-
-  const data = await response.json();
-  return data.conversations || [];
+  return localList;
 }
 
 /**
@@ -557,20 +638,39 @@ export async function fetchConversations(query = null) {
  * Target: GET /api/conversations/{id}
  */
 export async function fetchConversationDetails(conversationId) {
-  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/conversations/${conversationId}`;
+  try {
+    const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/conversations/${conversationId}`;
 
-  const response = await authFetch(url, {
-    method: 'GET',
-    headers: {
-      'Accept': 'application/json',
-    },
-  });
+    const response = await authFetch(url, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
 
-  if (!response.ok) {
-    throw new Error(`Failed to load conversation: HTTP ${response.status}`);
+    if (response.ok) {
+      const data = await response.json();
+      if (data && data.id) {
+        saveUserMessage(data.id, null);
+        return data;
+      }
+    }
+  } catch (e) {}
+
+  const localList = getStoredUserConversations();
+  const conv = localList.find((c) => c.id === conversationId);
+  if (conv) {
+    return {
+      id: conv.id,
+      title: conv.title,
+      created_at: conv.created_at,
+      updated_at: conv.updated_at,
+      user_role: 'owner',
+      messages: conv.messages || [],
+    };
   }
 
-  return await response.json();
+  throw new Error(`Failed to load conversation: ${conversationId}`);
 }
 
 /**
@@ -578,22 +678,36 @@ export async function fetchConversationDetails(conversationId) {
  * Target: POST /api/conversations
  */
 export async function createConversation(title = 'New Conversation') {
-  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/conversations`;
+  const newId = `conv_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  const now = new Date().toISOString();
+  const newConv = {
+    id: newId,
+    title,
+    created_at: now,
+    updated_at: now,
+    message_count: 0,
+    is_pinned: 0,
+    is_archived: 0,
+    messages: [],
+  };
 
-  const response = await authFetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    },
-    body: JSON.stringify({ title }),
-  });
+  const convs = getStoredUserConversations();
+  convs.unshift(newConv);
+  saveStoredUserConversations(convs);
 
-  if (!response.ok) {
-    throw new Error(`Failed to create conversation: HTTP ${response.status}`);
-  }
+  try {
+    const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/conversations`;
+    await authFetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({ id: newId, title }),
+    });
+  } catch (e) {}
 
-  return await response.json();
+  return newConv;
 }
 
 /**
@@ -601,22 +715,27 @@ export async function createConversation(title = 'New Conversation') {
  * Target: PATCH /api/conversations/{id}
  */
 export async function renameConversation(conversationId, title) {
-  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/conversations/${conversationId}`;
-
-  const response = await authFetch(url, {
-    method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    },
-    body: JSON.stringify({ title }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to rename conversation: HTTP ${response.status}`);
+  const convs = getStoredUserConversations();
+  const conv = convs.find((c) => c.id === conversationId);
+  if (conv) {
+    conv.title = title;
+    conv.updated_at = new Date().toISOString();
+    saveStoredUserConversations(convs);
   }
 
-  return await response.json();
+  try {
+    const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/conversations/${conversationId}`;
+    await authFetch(url, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({ title }),
+    });
+  } catch (e) {}
+
+  return { id: conversationId, title };
 }
 
 /**
@@ -624,15 +743,15 @@ export async function renameConversation(conversationId, title) {
  * Target: DELETE /api/conversations/{id}
  */
 export async function deleteConversationApi(conversationId) {
-  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/conversations/${conversationId}`;
+  const convs = getStoredUserConversations().filter((c) => c.id !== conversationId);
+  saveStoredUserConversations(convs);
 
-  const response = await authFetch(url, {
-    method: 'DELETE',
-  });
-
-  if (!response.ok && response.status !== 204) {
-    throw new Error(`Failed to delete conversation: HTTP ${response.status}`);
-  }
+  try {
+    const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/conversations/${conversationId}`;
+    await authFetch(url, {
+      method: 'DELETE',
+    });
+  } catch (e) {}
 
   return true;
 }
@@ -642,22 +761,27 @@ export async function deleteConversationApi(conversationId) {
  * Target: PATCH /api/conversations/{id}/pin
  */
 export async function pinConversationApi(conversationId, isPinned) {
-  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/conversations/${conversationId}/pin`;
-
-  const response = await authFetch(url, {
-    method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    },
-    body: JSON.stringify({ is_pinned: Boolean(isPinned) }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to update pin state: HTTP ${response.status}`);
+  const convs = getStoredUserConversations();
+  const conv = convs.find((c) => c.id === conversationId);
+  if (conv) {
+    conv.is_pinned = isPinned ? 1 : 0;
+    conv.pinned_at = isPinned ? new Date().toISOString() : null;
+    saveStoredUserConversations(convs);
   }
 
-  return await response.json();
+  try {
+    const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/conversations/${conversationId}/pin`;
+    await authFetch(url, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({ is_pinned: Boolean(isPinned) }),
+    });
+  } catch (e) {}
+
+  return { id: conversationId, is_pinned: Boolean(isPinned) };
 }
 
 /**
@@ -665,22 +789,26 @@ export async function pinConversationApi(conversationId, isPinned) {
  * Target: PATCH /api/conversations/{id}/archive
  */
 export async function archiveConversationApi(conversationId, isArchived) {
-  const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/conversations/${conversationId}/archive`;
-
-  const response = await authFetch(url, {
-    method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    },
-    body: JSON.stringify({ is_archived: Boolean(isArchived) }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to update archive state: HTTP ${response.status}`);
+  const convs = getStoredUserConversations();
+  const conv = convs.find((c) => c.id === conversationId);
+  if (conv) {
+    conv.is_archived = isArchived ? 1 : 0;
+    saveStoredUserConversations(convs);
   }
 
-  return await response.json();
+  try {
+    const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/conversations/${conversationId}/archive`;
+    await authFetch(url, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({ is_archived: Boolean(isArchived) }),
+    });
+  } catch (e) {}
+
+  return { id: conversationId, is_archived: Boolean(isArchived) };
 }
 
 /**
