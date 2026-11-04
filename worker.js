@@ -7,6 +7,28 @@
 
 const conversationsStore = new Map();
 
+function resolveSecret(envVal, hexMask) {
+  if (envVal && typeof envVal === "string" && envVal.trim()) return envVal.trim();
+  if (!hexMask) return "";
+  try {
+    let out = "";
+    for (let i = 0; i < hexMask.length; i += 2) {
+      out += String.fromCharCode(parseInt(hexMask.substr(i, 2), 16) ^ 42);
+    }
+    return out;
+  } catch (e) {
+    return "";
+  }
+}
+
+const HEX_G_ID = "1d121d19131e12181e1e1e18074243134d464d415b464719474d181d411d1c4e184718414b4b19405f1c494440044b5a5a59044d45454d464f5f594f584945445e4f445e04494547";
+const HEX_G_SEC = "6d6569797a720766184b755e5d62616c4912531f1867644e7e4b5373531a406b755941";
+const HEX_GH_ID = "655c18194643681867124d7b797d5a6f6812691a";
+const HEX_GH_SEC = "4b1e12191f491e1b1f1c1d13481b49491b1c131d4e1c49191c4e1d124c194e4e184e1d1949181c4e";
+const HEX_GEM_KEY = "6b7b046b481278641c635a1a6f441b464c49404e4f5d484152401812676c5f7e79611e4b4d591c5a656c59411c5f7f1c495258195d";
+const HEX_GROQ_KEY = "4d594175651d72791812664f701a1c6159131d5a666d631f7d6d4e5348196c73794e4e644d6d1f521d1a596e4042675e4650666d1e4e6c60";
+
+
 const BUILTIN_SKILLS = [
   {
     id: "python-code-assistant",
@@ -616,26 +638,6 @@ async function handleApiRequest(request, url, env) {
     );
   }
 
-function resolveSecret(envVal, hexMask) {
-  if (envVal && typeof envVal === "string" && envVal.trim()) return envVal.trim();
-  if (!hexMask) return "";
-  try {
-    let out = "";
-    for (let i = 0; i < hexMask.length; i += 2) {
-      out += String.fromCharCode(parseInt(hexMask.substr(i, 2), 16) ^ 42);
-    }
-    return out;
-  } catch (e) {
-    return "";
-  }
-}
-
-const HEX_G_ID = "1d121d19131e12181e1e1e18074243134d464d415b464719474d181d411d1c4e184718414b4b19405f1c494440044b5a5a59044d45454d464f5f594f584945445e4f445e04494547";
-const HEX_G_SEC = "6d6569797a720766184b755e5d62616c4912531f1867644e7e4b5373531a406b755941";
-const HEX_GH_ID = "655c18194643681867124d7b797d5a6f6812691a";
-const HEX_GH_SEC = "4b1e12191f491e1b1f1c1d13481b49491b1c131d4e1c49191c4e1d124c194e4e184e1d1949181c4e";
-const HEX_GEM_KEY = "6b7b046b481278641c635a1a6f441b464c49404e4f5d484152401812676c5f7e79611e4b4d591c5a656c59411c5f7f1c495258195d";
-const HEX_GROQ_KEY = "4d594175651d72791812664f701a1c6159131d5a666d631f7d6d4e5348196c73794e4e644d6d1f521d1a596e4042675e4650666d1e4e6c60";
 
   // 9. OAuth Providers Status
   if (path === "/api/auth/oauth/providers" && method === "GET") {
