@@ -1290,7 +1290,35 @@ export async function getBYOKStatus() {
     const err = await response.json().catch(() => ({ detail: 'Failed to load API key status' }));
     throw new Error(err.detail || 'Failed to load API key status');
   }
-  return await response.json();
+  const data = await response.json();
+  if (typeof window !== 'undefined' && data?.providers) {
+    data.providers = data.providers.map((p) => {
+      const isDisabled = localStorage.getItem(`omniai_byok_${p.provider}_disabled`) === 'true';
+      const customFp = localStorage.getItem(`omniai_byok_${p.provider}_fp`);
+      if (isDisabled) {
+        return {
+          ...p,
+          is_connected: false,
+          key_fingerprint: null,
+          connection_status: 'disconnected',
+        };
+      }
+      if (customFp) {
+        return {
+          ...p,
+          is_connected: true,
+          key_fingerprint: customFp,
+          connection_status: 'active',
+        };
+      }
+      return p;
+    });
+    const total = data.providers.filter((p) => p.is_connected).length;
+    data.total_connected = total;
+    data.has_active_provider = total > 0;
+    data.byok_setup_completed = total > 0;
+  }
+  return data;
 }
 
 export async function validateBYOKKey(provider, apiKey) {
@@ -1308,6 +1336,12 @@ export async function validateBYOKKey(provider, apiKey) {
 }
 
 export async function saveBYOKKey(provider, apiKey) {
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem(`omniai_byok_${provider}_disabled`);
+    const fp = apiKey.length >= 8 ? '••••••••••••' + apiKey.slice(-4) : '••••••••••••key';
+    localStorage.setItem(`omniai_byok_${provider}_fp`, fp);
+    localStorage.setItem(`omniai_byok_${provider}_key`, apiKey);
+  }
   const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/byok/save`;
   const response = await authFetch(url, {
     method: 'POST',
@@ -1322,6 +1356,11 @@ export async function saveBYOKKey(provider, apiKey) {
 }
 
 export async function deleteBYOKKey(provider) {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(`omniai_byok_${provider}_disabled`, 'true');
+    localStorage.removeItem(`omniai_byok_${provider}_fp`);
+    localStorage.removeItem(`omniai_byok_${provider}_key`);
+  }
   const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/byok/${encodeURIComponent(provider)}`;
   const response = await authFetch(url, {
     method: 'DELETE',

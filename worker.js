@@ -665,37 +665,63 @@ const HEX_GROQ_KEY = "4d594175651d72791812664f701a1c6159131d5a666d631f7d6d4e5348
 
   // 14. BYOK Status
   if (path === "/api/byok/status" && method === "GET") {
+    const cookieHeader = request.headers.get("Cookie") || "";
+    const cookies = {};
+    cookieHeader.split(";").forEach((c) => {
+      const idx = c.indexOf("=");
+      if (idx > -1) {
+        cookies[c.substring(0, idx).trim()] = decodeURIComponent(c.substring(idx + 1).trim());
+      }
+    });
+
     const defaultGemKey = resolveSecret(env?.GEMINI_API_KEY, HEX_GEM_KEY);
     const defaultGroqKey = resolveSecret(env?.GROQ_API_KEY, HEX_GROQ_KEY);
 
+    // Gemini status check
+    const gemDisabled = cookies["omniai_byok_gemini_disabled"] === "1";
+    const customGemFp = cookies["omniai_byok_gemini_fp"];
+    const isGemConnected = !gemDisabled && Boolean(customGemFp || defaultGemKey);
+
+    // Groq status check
+    const groqDisabled = cookies["omniai_byok_groq_disabled"] === "1";
+    const customGroqFp = cookies["omniai_byok_groq_fp"];
+    const isGroqConnected = !groqDisabled && Boolean(customGroqFp || defaultGroqKey);
+
+    // OpenAI status check
+    const openaiDisabled = cookies["omniai_byok_openai_disabled"] === "1";
+    const customOpenaiFp = cookies["omniai_byok_openai_fp"];
+    const isOpenaiConnected = !openaiDisabled && Boolean(customOpenaiFp);
+
+    const totalConnected = (isGemConnected ? 1 : 0) + (isGroqConnected ? 1 : 0) + (isOpenaiConnected ? 1 : 0);
+
     return jsonResponse({
-      byok_setup_completed: true,
-      has_active_provider: true,
-      total_connected: (defaultGemKey ? 1 : 0) + (defaultGroqKey ? 1 : 0),
+      byok_setup_completed: totalConnected > 0,
+      has_active_provider: totalConnected > 0,
+      total_connected: totalConnected,
       providers: [
         {
           provider: "gemini",
           name: "Google Gemini",
-          is_connected: true,
-          key_fingerprint: "••••••••••••3rxw",
-          connection_status: "active",
-          last_validated_at: new Date().toISOString(),
+          is_connected: isGemConnected,
+          key_fingerprint: isGemConnected ? (customGemFp || "••••••••••••3rxw") : null,
+          connection_status: isGemConnected ? "active" : "disconnected",
+          last_validated_at: isGemConnected ? new Date().toISOString() : null,
         },
         {
           provider: "groq",
           name: "Groq Cloud",
-          is_connected: true,
-          key_fingerprint: "••••••••••••4dFJ",
-          connection_status: "active",
-          last_validated_at: new Date().toISOString(),
+          is_connected: isGroqConnected,
+          key_fingerprint: isGroqConnected ? (customGroqFp || "••••••••••••4dFJ") : null,
+          connection_status: isGroqConnected ? "active" : "disconnected",
+          last_validated_at: isGroqConnected ? new Date().toISOString() : null,
         },
         {
           provider: "openai",
           name: "OpenAI",
-          is_connected: false,
-          key_fingerprint: null,
-          connection_status: "disconnected",
-          last_validated_at: null,
+          is_connected: isOpenaiConnected,
+          key_fingerprint: isOpenaiConnected ? customOpenaiFp : null,
+          connection_status: isOpenaiConnected ? "active" : "disconnected",
+          last_validated_at: isOpenaiConnected ? new Date().toISOString() : null,
         },
       ],
     });
@@ -817,17 +843,34 @@ const HEX_GROQ_KEY = "4d594175651d72791812664f701a1c6159131d5a666d631f7d6d4e5348
       const provider = String(body.provider || "gemini").toLowerCase().trim();
       const apiKey = String(body.api_key || "").trim();
 
+      if (!apiKey) {
+        return jsonResponse({ detail: "API key cannot be empty" }, 400);
+      }
+
       const fingerprint = apiKey.length >= 8 ? "••••••••••••" + apiKey.slice(-4) : "••••••••••••key";
 
-      return jsonResponse(
-        {
+      const headers = new Headers({
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-OmniAI-Token, X-Gemini-Key, X-Groq-Key",
+      });
+      headers.append("Set-Cookie", `omniai_byok_${provider}_disabled=0; Path=/; SameSite=Lax; Secure; Max-Age=31536000`);
+      headers.append("Set-Cookie", `omniai_byok_${provider}_fp=${fingerprint}; Path=/; SameSite=Lax; Secure; Max-Age=31536000`);
+      headers.append("Set-Cookie", `omniai_byok_${provider}_key=${encodeURIComponent(apiKey)}; Path=/; SameSite=Lax; Secure; Max-Age=31536000`);
+
+      return new Response(
+        JSON.stringify({
           success: true,
           provider,
           key_fingerprint: fingerprint,
           message: `${provider.toUpperCase()} API key saved and activated successfully.`,
           byok_setup_completed: true,
-        },
-        201
+        }),
+        {
+          status: 201,
+          headers,
+        }
       );
     } catch (e) {
       return jsonResponse({ detail: "Failed to save API key" }, 400);
@@ -836,12 +879,28 @@ const HEX_GROQ_KEY = "4d594175651d72791812664f701a1c6159131d5a666d631f7d6d4e5348
 
   // 17. BYOK Delete API Key
   if (path.startsWith("/api/byok/") && method === "DELETE") {
-    const provider = path.split("/").pop();
-    return jsonResponse({
-      success: true,
-      provider,
-      message: `API key for ${provider} has been disconnected.`,
+    const provider = path.split("/").pop()?.toLowerCase().trim() || "gemini";
+    const headers = new Headers({
+      "Content-Type": "application/json",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization, X-OmniAI-Token, X-Gemini-Key, X-Groq-Key",
     });
+    headers.append("Set-Cookie", `omniai_byok_${provider}_disabled=1; Path=/; SameSite=Lax; Secure; Max-Age=31536000`);
+    headers.append("Set-Cookie", `omniai_byok_${provider}_fp=; Path=/; SameSite=Lax; Secure; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT`);
+    headers.append("Set-Cookie", `omniai_byok_${provider}_key=; Path=/; SameSite=Lax; Secure; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT`);
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        provider,
+        message: `API key for ${provider} has been disconnected.`,
+      }),
+      {
+        status: 200,
+        headers,
+      }
+    );
   }
 
   // 11. Conversations list
