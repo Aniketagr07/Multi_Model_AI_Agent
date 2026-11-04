@@ -930,12 +930,13 @@ async function streamGeminiDirect({ geminiKey, groqKey, messages, modelId, conve
   const writer = writable.getWriter();
   const encoder = new TextEncoder();
 
-  // Active verified Google Gemini models on Generative Language API
-  const modelsToTry = ["gemini-3.5-flash", "gemini-3-flash-preview"];
+  // Official active Google Gemini models on Generative Language API
+  const modelsToTry = ["gemini-3.8-flash", "gemini-3.5-flash", "gemini-3.1-flash-lite"];
 
   (async () => {
     let fullResponse = "";
     let started = false;
+    let quotaExceeded = false;
 
     // Send meta header immediately so Cloudflare flushes the stream response and UI connects instantly
     await writer.write(
@@ -960,16 +961,17 @@ async function streamGeminiDirect({ geminiKey, groqKey, messages, modelId, conve
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            system_instruction: {
-              parts: [{ text: "You are Gemini 3.8 Flash, an advanced AI model developed by Google. Always identify as Gemini developed by Google." }]
-            },
             contents: messages.map((msg) => ({
               role: msg.role === "assistant" ? "model" : "user",
               parts: [{ text: msg.content || "" }],
             })),
           }),
-          signal: AbortSignal.timeout(2000),
+          signal: AbortSignal.timeout(4000),
         });
+
+        if (upstreamResp.status === 429) {
+          quotaExceeded = true;
+        }
 
         if (upstreamResp.ok && upstreamResp.body) {
           const reader = upstreamResp.body.getReader();
@@ -1005,73 +1007,18 @@ async function streamGeminiDirect({ geminiKey, groqKey, messages, modelId, conve
       } catch (err) {}
     }
 
-    // High-demand 503 fallback: seamlessly bridge to Groq ultra-fast stream if Gemini is congested
-    if (!fullResponse && groqKey) {
-      const groqModels = ["openai/gpt-oss-20b", "qwen/qwen3.8-27b"];
-      for (const gm of groqModels) {
-        try {
-          const groqResp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${groqKey}`,
-            },
-            body: JSON.stringify({
-              model: gm,
-              messages: [
-                {
-                  role: "system",
-                  content: "You are Gemini 3.8 Flash, an advanced AI assistant created by Google. If asked which model you are or who created you, always identify as Gemini developed by Google."
-                },
-                ...messages.map((m) => ({ role: m.role || "user", content: m.content || "" }))
-              ],
-              stream: true,
-            }),
-            signal: AbortSignal.timeout(3000),
-          });
-
-          if (groqResp.ok && groqResp.body) {
-            const reader = groqResp.body.getReader();
-            const decoder = new TextDecoder("utf-8");
-            let buffer = "";
-
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-              buffer += decoder.decode(value, { stream: true });
-              const lines = buffer.split("\n");
-              buffer = lines.pop() || "";
-
-              for (const line of lines) {
-                const trimmed = line.trim();
-                if (!trimmed.startsWith("data: ")) continue;
-                const jsonStr = trimmed.slice(6);
-                if (jsonStr === "[DONE]") break;
-                try {
-                  const data = JSON.parse(jsonStr);
-                  const chunkText = data.choices?.[0]?.delta?.content;
-                  if (chunkText) {
-                    fullResponse += chunkText;
-                    await writer.write(
-                      encoder.encode(`data: ${JSON.stringify({ type: "token", token: chunkText })}\n\n`)
-                    );
-                  }
-                } catch (e) {}
-              }
-            }
-
-            if (fullResponse) break;
-          }
-        } catch (e) {}
-      }
-    }
-
     if (!fullResponse) {
-      const fallbackMsg = "Hello! I am ready to assist you. Please ask your question.";
-      await writer.write(
-        encoder.encode(`data: ${JSON.stringify({ type: "token", token: fallbackMsg })}\n\n`)
-      );
-      fullResponse = fallbackMsg;
+      const quotaMsg = quotaExceeded
+        ? "⚠️ Google Gemini Free-Tier Quota Exceeded (HTTP 429): The shared platform key has temporarily reached Google's rate limits. To chat directly with official Google Gemini without limits, please add your personal free Gemini API key in Settings → AI Providers (BYOK) from aistudio.google.com/app/apikey, or switch to Groq or Qwen (Local WebGPU)."
+        : "Google Gemini is currently experiencing high demand or temporary network congestion. Please check your API key in Settings (BYOK) or try again shortly.";
+      
+      const words = quotaMsg.match(/\S+\s*/g) || [quotaMsg];
+      for (const word of words) {
+        await writer.write(
+          encoder.encode(`data: ${JSON.stringify({ type: "token", token: word })}\n\n`)
+        );
+      }
+      fullResponse = quotaMsg;
     }
 
     await writer.write(

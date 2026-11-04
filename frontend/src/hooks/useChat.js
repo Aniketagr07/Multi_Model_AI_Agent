@@ -702,9 +702,12 @@ export function useChat({ customModels = [], customKeys = {}, userSettings = {},
       }
 
       // -------------------------------------------------------------
-      // PATH B: SERVER-SIDE CLOUD INFERENCE (FastAPI)
+      // PATH B: SERVER-SIDE CLOUD INFERENCE (FastAPI / Cloudflare Edge)
       // -------------------------------------------------------------
-      const customKey = targetModel.customApiKey || customKeys[targetModel.provider]?.apiKey || null;
+      const byokStoredKey = typeof window !== 'undefined'
+        ? (localStorage.getItem(`omniai_byok_${targetModel.provider}_key`) || localStorage.getItem(`omniai_byok_${targetModelId}_key`))
+        : null;
+      const customKey = targetModel.customApiKey || customKeys[targetModel.provider]?.apiKey || byokStoredKey || null;
       const customBaseUrl = targetModel.customBaseUrl || customKeys[targetModel.provider]?.baseUrl || null;
       const customProvider = targetModel.customProvider || targetModel.provider || null;
       const customProviderModelId = targetModel.provider_model_id || null;
