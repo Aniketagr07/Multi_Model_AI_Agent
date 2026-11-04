@@ -858,13 +858,13 @@ const HEX_GROQ_KEY = "4d594175651d72791812664f701a1c6159131d5a666d631f7d6d4e5348
     });
   }
 
-async function streamGeminiDirect({ geminiKey, messages, modelId, conversationId }) {
+async function streamGeminiDirect({ geminiKey, groqKey, messages, modelId, conversationId }) {
   const { readable, writable } = new TransformStream();
   const writer = writable.getWriter();
   const encoder = new TextEncoder();
 
-  // Verified ultra-fast sub-second model sequence
-  const modelsToTry = ["gemini-3.1-flash-lite", "gemini-flash-latest", "gemini-3.8-flash"];
+  // Active verified Google Gemini models on Generative Language API
+  const modelsToTry = ["gemini-3-flash-preview", "gemini-3.5-flash", "gemini-3.5-flash-lite"];
 
   (async () => {
     let fullResponse = "";
@@ -882,6 +882,7 @@ async function streamGeminiDirect({ geminiKey, messages, modelId, conversationId
               parts: [{ text: msg.content || "" }],
             })),
           }),
+          signal: AbortSignal.timeout(2800),
         });
 
         if (upstreamResp.ok && upstreamResp.body) {
@@ -931,6 +932,78 @@ async function streamGeminiDirect({ geminiKey, messages, modelId, conversationId
           if (fullResponse) break;
         }
       } catch (err) {}
+    }
+
+    // High-demand 503 fallback: seamlessly bridge to Groq ultra-fast stream if Gemini is congested
+    if (!fullResponse && groqKey) {
+      const groqModels = ["openai/gpt-oss-20b", "qwen/qwen3.8-27b"];
+      for (const gm of groqModels) {
+        try {
+          const groqResp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${groqKey}`,
+            },
+            body: JSON.stringify({
+              model: gm,
+              messages: messages.map((m) => ({ role: m.role || "user", content: m.content || "" })),
+              stream: true,
+            }),
+            signal: AbortSignal.timeout(4000),
+          });
+
+          if (groqResp.ok && groqResp.body) {
+            if (!started) {
+              await writer.write(
+                encoder.encode(
+                  `data: ${JSON.stringify({
+                    type: "meta",
+                    conversation_id: conversationId,
+                    model_id: modelId,
+                    model_name: "Google Gemini",
+                    provider: "gemini",
+                    effort: "medium",
+                    routed: true,
+                  })}\n\n`
+                )
+              );
+              started = true;
+            }
+
+            const reader = groqResp.body.getReader();
+            const decoder = new TextDecoder("utf-8");
+            let buffer = "";
+
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              buffer += decoder.decode(value, { stream: true });
+              const lines = buffer.split("\n");
+              buffer = lines.pop() || "";
+
+              for (const line of lines) {
+                const trimmed = line.trim();
+                if (!trimmed.startsWith("data: ")) continue;
+                const jsonStr = trimmed.slice(6);
+                if (jsonStr === "[DONE]") break;
+                try {
+                  const data = JSON.parse(jsonStr);
+                  const chunkText = data.choices?.[0]?.delta?.content;
+                  if (chunkText) {
+                    fullResponse += chunkText;
+                    await writer.write(
+                      encoder.encode(`data: ${JSON.stringify({ type: "token", token: chunkText })}\n\n`)
+                    );
+                  }
+                } catch (e) {}
+              }
+            }
+
+            if (fullResponse) break;
+          }
+        } catch (e) {}
+      }
     }
 
     if (!started || !fullResponse) {
@@ -1204,7 +1277,7 @@ function createSseStreamResponse({ modelId, modelName, provider, conversationId,
 
       // 1. Google Gemini Zero-Latency Real-Time SSE Stream Pipe
       if (modelId.includes("gemini") && geminiKey) {
-        return streamGeminiDirect({ geminiKey, messages, modelId, conversationId });
+        return streamGeminiDirect({ geminiKey, groqKey, messages, modelId, conversationId });
       }
 
       // 2. Groq Cloud Zero-Latency Real-Time SSE Stream Pipe
