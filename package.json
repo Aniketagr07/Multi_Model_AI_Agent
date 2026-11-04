@@ -1,6 +1,7 @@
 {
   "name": "omniai-monorepo",
   "private": true,
+  "type": "module",
   "scripts": {
     "build": "npm --prefix frontend install && npm --prefix frontend run build",
     "predeploy": "npm run build",
@@ -11,5 +12,3 @@
     "wrangler": "^3.114.0"
   }
 }
-
-
