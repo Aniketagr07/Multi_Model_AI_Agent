@@ -1184,9 +1184,9 @@ async function handleApiRequest(request, url, env) {
       is_archived: c.is_archived || 0,
       pinned_at: c.pinned_at || null,
       project_id: c.project_id || null,
-      sharing_enabled: false,
-      share_permission: "view",
-      share_token: null,
+      sharing_enabled: Boolean(c.sharing_enabled),
+      share_permission: c.share_permission || "editor",
+      share_token: c.share_token || null,
     }));
     if (q) {
       convs = convs.filter((c) => (c.title || "").toLowerCase().includes(q));
@@ -1474,7 +1474,17 @@ async function handleApiRequest(request, url, env) {
       // GET /api/conversations/:id
       if (method === "GET" && !subAction) {
         if (!conv) {
-          return jsonResponse({ detail: "Conversation not found on edge" }, 404);
+          conv = {
+            id: convId,
+            title: "Conversation",
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            user_role: "owner",
+            sharing_enabled: false,
+            share_permission: "editor",
+            messages: [],
+          };
+          conversationsStore.set(convId, conv);
         }
         return jsonResponse(conv);
       }

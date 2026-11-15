@@ -140,6 +140,7 @@ export function Sidebar({
     return (
       <div
         key={conv.id}
+        title={isActive && activeView === 'chat' ? `Currently chatting on: ${conv.title || 'Conversation'}` : `Open & continue chatting: ${conv.title || 'Conversation'}`}
         className={`group relative flex items-center justify-between rounded-lg px-2.5 py-2 text-xs transition-colors cursor-pointer ${
           isActive && activeView === 'chat'
             ? 'bg-[#151923] text-white border border-[#282D38]'
@@ -224,6 +225,11 @@ export function Sidebar({
             <div className="flex flex-col min-w-0 flex-1">
               <div className="flex items-center gap-1.5 min-w-0">
                 <span className="truncate font-medium">{conv.title || 'Untitled Session'}</span>
+                {isActive && activeView === 'chat' && (
+                  <span className="shrink-0 text-[9px] font-semibold text-emerald-400 bg-emerald-950/70 border border-emerald-500/30 px-1.5 py-0.2 rounded-full">
+                    Active
+                  </span>
+                )}
                 {conv.sharing_enabled && (
                   <span className="text-[10px] text-purple-400 shrink-0" title="Shared conversation">🔗</span>
                 )}

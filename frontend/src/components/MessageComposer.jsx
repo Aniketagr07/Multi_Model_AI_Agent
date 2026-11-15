@@ -32,6 +32,8 @@ export function MessageComposer({
   onOpenSkills,
   currentUserRole = 'owner',
   onTyping,
+  activeConversationId = null,
+  activeTitle = '',
 }) {
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -98,6 +100,13 @@ export function MessageComposer({
       textarea.style.height = `${Math.min(scrollHeight, maxHeight)}px`;
     }
   }, [input]);
+
+  // Focus textarea when user selects/opens a conversation to continue chatting
+  useEffect(() => {
+    if (activeConversationId && textareaRef.current && currentUserRole !== 'viewer') {
+      textareaRef.current.focus();
+    }
+  }, [activeConversationId, currentUserRole]);
 
   // Check for slash command at current input cursor / end
   useEffect(() => {
@@ -462,6 +471,8 @@ export function MessageComposer({
               ? "Generating response... Click Stop to halt."
               : attachedDocument
               ? `Ask a question, request summary, or choose a quick analysis for ${attachedDocument.filename}...`
+              : activeConversationId
+              ? `Continue chatting on "${activeTitle || 'this conversation'}" with ${selectedModel?.name || 'AI'}... (Shift + Enter for new line)`
               : "Ask anything, request code, or type / for skills... (Shift + Enter for new line)"
           }
           className="w-full bg-transparent resize-none text-sm text-[#F3F4F6] placeholder-slate-500 focus:outline-none leading-relaxed min-h-[44px] max-h-[160px] px-1 py-1 disabled:opacity-60"

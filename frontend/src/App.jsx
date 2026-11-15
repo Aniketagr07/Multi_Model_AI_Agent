@@ -582,6 +582,15 @@ export default function App() {
               showTokenMetrics={settings.show_token_metrics !== false}
               currentUserRole={currentUserRole}
               typingUsers={typingUsers}
+              activeConversationId={activeConversationId}
+              activeTitle={activeTitle}
+              onFocusComposer={() => {
+                const el = document.querySelector('textarea');
+                if (el) {
+                  el.focus();
+                  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+              }}
             />
 
             {/* Bottom Message Composer */}
@@ -613,6 +622,8 @@ export default function App() {
               onOpenSkills={() => setActiveView('skills')}
               currentUserRole={currentUserRole}
               onTyping={sendTyping}
+              activeConversationId={activeConversationId}
+              activeTitle={activeTitle}
             />
           </main>
         )}

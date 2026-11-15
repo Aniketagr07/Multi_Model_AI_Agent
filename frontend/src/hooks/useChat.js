@@ -151,40 +151,27 @@ export function useChat({ customModels = [], customKeys = {}, userSettings = {},
       setAttachedDocument(null);
       setIsLoading(false);
 
-      if (isGuestMode) {
-        const guestConv = getGuestConversation(convId);
-        if (guestConv && Array.isArray(guestConv.messages) && guestConv.messages.length > 0) {
-          setActiveMessages(guestConv.messages);
-          setCurrentUserRole('owner');
-          return;
-        }
-        // Fallback: check stored user conversations even in guest mode
+      // 1. Instant optimistic load from browser local stores (0 latency, eliminates blank flash)
+      let immediateMessages = [];
+      const guestConv = getGuestConversation(convId);
+      if (guestConv && Array.isArray(guestConv.messages) && guestConv.messages.length > 0) {
+        immediateMessages = guestConv.messages;
+      } else {
         const localList = getStoredUserConversations();
         const foundLocal = localList.find((c) => c.id === convId);
         if (foundLocal && Array.isArray(foundLocal.messages) && foundLocal.messages.length > 0) {
-          setActiveMessages(foundLocal.messages);
-          setCurrentUserRole('owner');
-          return;
+          immediateMessages = foundLocal.messages;
         }
-        if (guestConv) {
-          setActiveMessages(guestConv.messages || []);
-          setCurrentUserRole('owner');
-          return;
-        }
-        setActiveMessages([]);
-        return;
       }
 
-      try {
-        const data = await fetchConversationDetails(convId);
-        setCurrentUserRole(data.user_role || 'owner');
-
-        const loadedMessages = (data.messages || []).map((msg) => {
+      if (immediateMessages.length > 0) {
+        const mappedImmediate = immediateMessages.map((msg) => {
           const actualModelId = msg.model_id || msg.modelId;
           const modelInfo = allModels.find((m) => m.id === actualModelId);
           return {
             id: msg.id,
             sender: msg.sender || (msg.role === 'assistant' ? 'assistant' : 'user'),
+            role: msg.role || (msg.sender === 'assistant' ? 'assistant' : 'user'),
             content: msg.content,
             modelId: actualModelId,
             provider: msg.provider,
@@ -202,7 +189,52 @@ export function useChat({ customModels = [], customKeys = {}, userSettings = {},
             modelTag: modelInfo ? modelInfo.tag : null,
           };
         });
-        setActiveMessages(loadedMessages);
+        setActiveMessages(mappedImmediate);
+        setCurrentUserRole('owner');
+      }
+
+      if (isGuestMode) {
+        if (immediateMessages.length === 0) {
+          setActiveMessages([]);
+        }
+        return;
+      }
+
+      // 2. Fetch server updates (preserves existing messages if server returns empty)
+      try {
+        const data = await fetchConversationDetails(convId);
+        if (data) {
+          setCurrentUserRole(data.user_role || 'owner');
+          if (Array.isArray(data.messages) && data.messages.length > 0) {
+            const loadedMessages = data.messages.map((msg) => {
+              const actualModelId = msg.model_id || msg.modelId;
+              const modelInfo = allModels.find((m) => m.id === actualModelId);
+              return {
+                id: msg.id,
+                sender: msg.sender || (msg.role === 'assistant' ? 'assistant' : 'user'),
+                role: msg.role || (msg.sender === 'assistant' ? 'assistant' : 'user'),
+                content: msg.content,
+                modelId: actualModelId,
+                provider: msg.provider,
+                latencyMs: msg.latency_ms || msg.latencyMs,
+                author_id: msg.author_id,
+                author_name: msg.author_name,
+                routed: Boolean(msg.routed),
+                routingCategory: msg.routing_category,
+                routingExplanation: msg.routing_explanation,
+                effort: msg.effort || 'medium',
+                documentId: msg.document_id || msg.documentId,
+                documentName: msg.document_name || msg.documentName,
+                timestamp: msg.created_at || msg.timestamp,
+                modelName: modelInfo ? modelInfo.name : msg.model_name || msg.modelName || actualModelId || 'OmniAI Model',
+                modelTag: modelInfo ? modelInfo.tag : null,
+              };
+            });
+            setActiveMessages(loadedMessages);
+          } else if (immediateMessages.length === 0) {
+            setActiveMessages([]);
+          }
+        }
       } catch (err) {
         console.error('[OmniAI Storage] Unable to load conversation details:', err);
       }
@@ -758,6 +790,17 @@ export function useChat({ customModels = [], customKeys = {}, userSettings = {},
         saveUserMessage(currentConvId, tempUserMessage);
       }
 
+      // Compute complete multi-turn conversation history for AI provider context
+      const messagesForContext = [
+        ...activeMessages
+          .filter((m) => !m.isStreaming && !m.isError && m.content)
+          .map((m) => ({
+            role: m.sender === 'assistant' || m.role === 'assistant' ? 'assistant' : 'user',
+            content: m.content || '',
+          })),
+        { role: 'user', content: messageContent },
+      ];
+
       const byokStoredKey = typeof window !== 'undefined'
         ? (localStorage.getItem(`omniai_byok_${targetModel.provider}_key`) || localStorage.getItem(`omniai_byok_${targetModelId}_key`))
         : null;
@@ -772,6 +815,7 @@ export function useChat({ customModels = [], customKeys = {}, userSettings = {},
         if (userSettings?.streaming_enabled === false) {
           const resp = await sendChatMessage({
             message: messageContent,
+            messages: messagesForContext,
             model_id: targetModelId,
             conversation_id: currentConvId,
             effort: targetEffort,
@@ -784,7 +828,7 @@ export function useChat({ customModels = [], customKeys = {}, userSettings = {},
             custom_provider_model_id: customProviderModelId,
           });
 
-          if (resp.conversation_id && resp.conversation_id !== currentConvId) {
+          if (resp.conversation_id && !currentConvId) {
             currentConvId = resp.conversation_id;
             setActiveConversationId(resp.conversation_id);
           }
@@ -828,6 +872,7 @@ export function useChat({ customModels = [], customKeys = {}, userSettings = {},
 
         await streamChatMessage({
           message: messageContent,
+          messages: messagesForContext,
           model_id: targetModelId,
           conversation_id: currentConvId,
           effort: targetEffort,
@@ -841,7 +886,7 @@ export function useChat({ customModels = [], customKeys = {}, userSettings = {},
           signal: controller.signal,
 
           onMeta: (meta) => {
-            if (meta.conversation_id && meta.conversation_id !== currentConvId) {
+            if (meta.conversation_id && !currentConvId) {
               currentConvId = meta.conversation_id;
               setActiveConversationId(meta.conversation_id);
             }
@@ -881,7 +926,7 @@ export function useChat({ customModels = [], customKeys = {}, userSettings = {},
           },
 
           onDone: (doneEvent) => {
-            if (doneEvent.conversation_id && doneEvent.conversation_id !== currentConvId) {
+            if (doneEvent.conversation_id && !currentConvId) {
               currentConvId = doneEvent.conversation_id;
               setActiveConversationId(doneEvent.conversation_id);
             }
