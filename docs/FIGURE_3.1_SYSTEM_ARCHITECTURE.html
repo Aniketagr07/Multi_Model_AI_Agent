@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>FIGURE 3.1: HIGH-LEVEL OMNIAI SYSTEM ARCHITECTURE</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 30px;
+      background: #E2E8F0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    .toolbar {
+      width: 1320px;
+      max-width: 95vw;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      background: #FFFFFF;
+      padding: 12px 24px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+    }
+    .btn {
+      background: #2563EB;
+      color: white;
+      border: none;
+      padding: 10px 18px;
+      font-weight: 600;
+      font-size: 13px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .btn:hover { background: #1D4ED8; }
+    .card {
+      width: 1320px;
+      max-width: 95vw;
+      background: #FFFFFF;
+      border-radius: 12px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+      overflow: hidden;
+    }
+    @media print {
+      body { padding: 0; background: #FFFFFF; }
+      .toolbar { display: none; }
+      .card { box-shadow: none; border-radius: 0; width: 100%; max-width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <div>
+      <h2 style="margin: 0 0 4px 0; font-size: 16px; color: #0F172A;">FIGURE 3.1: HIGH-LEVEL OMNIAI SYSTEM ARCHITECTURE</h2>
+      <span style="font-size: 12px; color: #64748B;">B.Tech Artificial Intelligence Project Report Artifact | Vector High-Resolution Display</span>
+    </div>
+    <button class="btn" onclick="window.print()">Print / Save as PDF</button>
+  </div>
+  <div class="card">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1320 1620" width="100%" height="100%" style="background-color: #FFFFFF; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+  <defs>
+    <!-- Shadow Filter -->
+    <filter id="drop-shadow" x="-10%" y="-10%" width="125%" height="125%">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#0F172A" flood-opacity="0.06" />
+    </filter>
+    <filter id="card-shadow" x="-10%" y="-10%" width="125%" height="125%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#0F172A" flood-opacity="0.05" />
+    </filter>
+
+    <!-- Markers -->
+    <marker id="arrow-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="#2563EB" />
+    </marker>
+    <marker id="arrow-purple" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="#7C3AED" />
+    </marker>
+    <marker id="arrow-navy" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="#1E293B" />
+    </marker>
+    <marker id="arrow-teal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="#059669" />
+    </marker>
+    <marker id="arrow-bidir-start" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 10 1.5 L 0 5 L 10 8.5 z" fill="#7C3AED" />
+    </marker>
+  </defs>
+
+  <!-- ================= HEADER TITLE BLOCK ================= -->
+  <g id="title-block">
+    <rect x="50" y="20" width="1220" height="70" rx="8" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1.5" />
+    <text x="660" y="50" text-anchor="middle" font-size="20" font-weight="800" fill="#0F172A" letter-spacing="0.5">FIGURE 3.1: HIGH-LEVEL OMNIAI SYSTEM ARCHITECTURE</text>
+    <text x="660" y="72" text-anchor="middle" font-size="13" font-weight="600" fill="#475569">OmniAI – Intelligent Multi-Model AI Chatbot | Layered Architecture &amp; Dataflow</text>
+  </g>
+
+  <!-- ================= 1. USER LAYER ================= -->
+  <g id="user-layer">
+    <rect x="50" y="110" width="1220" height="110" rx="10" fill="#FFFFFF" stroke="#0F172A" stroke-width="1.75" filter="url(#drop-shadow)" />
+    <rect x="70" y="99" width="150" height="22" rx="4" fill="#0F172A" />
+    <text x="145" y="114" text-anchor="middle" font-size="11" font-weight="700" fill="#FFFFFF" letter-spacing="0.5">1. USER LAYER</text>
+
+    <!-- End User -->
+    <rect x="120" y="135" width="400" height="65" rx="8" fill="#F8FAFC" stroke="#94A3B8" stroke-width="1.5" filter="url(#card-shadow)" />
+    <rect x="120" y="135" width="8" height="65" rx="3" fill="#2563EB" />
+    <text x="145" y="162" font-size="16" font-weight="700" fill="#0F172A">End User</text>
+    <text x="145" y="183" font-size="12" font-weight="400" fill="#475569">Interacts with Chat, Multi-Model Compare, Documents, and Workspaces</text>
+
+    <!-- Arrow: User to Browser -->
+    <path d="M 520 167 L 755 167" stroke="#1E293B" stroke-width="2" marker-end="url(#arrow-navy)" />
+    <rect x="560" y="153" width="155" height="26" rx="4" fill="#EFF6FF" stroke="#BFDBFE" stroke-width="1" />
+    <text x="637" y="170" text-anchor="middle" font-size="11" font-weight="600" fill="#1D4ED8">Human-Computer Interface</text>
+
+    <!-- Web Browser -->
+    <rect x="765" y="135" width="455" height="65" rx="8" fill="#F8FAFC" stroke="#94A3B8" stroke-width="1.5" filter="url(#card-shadow)" />
+    <rect x="765" y="135" width="8" height="65" rx="3" fill="#2563EB" />
+    <text x="790" y="162" font-size="16" font-weight="700" fill="#0F172A">Web Browser</text>
+    <text x="790" y="183" font-size="12" font-weight="400" fill="#475569">Chrome / Firefox / Safari / Edge (HTTP Client, EventSource, WebSocket Client)</text>
+  </g>
+
+  <!-- Arrow: Browser to Frontend Layer -->
+  <path d="M 990 220 L 990 255" stroke="#2563EB" stroke-width="2" marker-end="url(#arrow-blue)" />
+  <rect x="910" y="226" width="160" height="20" rx="3" fill="#EFF6FF" stroke="#BFDBFE" stroke-width="1" />
+  <text x="990" y="240" text-anchor="middle" font-size="10.5" font-weight="700" fill="#1D4ED8">Renders Client SPA (DOM)</text>
+
+  <!-- ================= 2. FRONTEND LAYER ================= -->
+  <g id="frontend-layer">
+    <rect x="50" y="260" width="1220" height="240" rx="10" fill="#FFFFFF" stroke="#2563EB" stroke-width="2" filter="url(#drop-shadow)" />
+    <rect x="70" y="248" width="290" height="24" rx="4" fill="#2563EB" />
+    <text x="215" y="264" text-anchor="middle" font-size="11.5" font-weight="700" fill="#FFFFFF" letter-spacing="0.5">2. FRONTEND LAYER (React.js Application)</text>
+
+    <!-- Top Row of Frontend Components -->
+    <!-- Chat Interface -->
+    <rect x="80" y="285" width="350" height="80" rx="8" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.5" filter="url(#card-shadow)" />
+    <rect x="80" y="285" width="6" height="80" rx="3" fill="#2563EB" />
+    <text x="100" y="312" font-size="14.5" font-weight="700" fill="#0F172A">Chat Interface</text>
+    <text x="100" y="332" font-size="11.5" font-weight="400" fill="#475569">Message Bubble Renderer, Composer, Auto-Scroll</text>
+    <text x="100" y="349" font-size="11" font-weight="600" fill="#2563EB">Markdown Parser, Code Syntax Highlighting, Audio TTS</text>
+
+    <!-- Model Selection Interface -->
+    <rect x="450" y="285" width="410" height="80" rx="8" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.5" filter="url(#card-shadow)" />
+    <rect x="450" y="285" width="6" height="80" rx="3" fill="#7C3AED" />
+    <text x="470" y="310" font-size="14.5" font-weight="700" fill="#0F172A">Model Selection Interface</text>
+    <!-- Sub-Badges for Auto Mode and Compare Mode -->
+    <rect x="470" y="325" width="105" height="28" rx="4" fill="#F5F3FF" stroke="#DDD6FE" stroke-width="1.2" />
+    <text x="522" y="343" text-anchor="middle" font-size="11" font-weight="700" fill="#6D28D9">⚡ Auto Mode</text>
+    <rect x="585" y="325" width="125" height="28" rx="4" fill="#F5F3FF" stroke="#DDD6FE" stroke-width="1.2" />
+    <text x="647" y="343" text-anchor="middle" font-size="11" font-weight="700" fill="#6D28D9">⚖️ Compare Mode</text>
+    <text x="725" y="343" font-size="11" font-weight="500" fill="#64748B">Manual Dropdown</text>
+
+    <!-- Document Upload Interface -->
+    <rect x="880" y="285" width="365" height="80" rx="8" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.5" filter="url(#card-shadow)" />
+    <rect x="880" y="285" width="6" height="80" rx="3" fill="#059669" />
+    <text x="900" y="312" font-size="14.5" font-weight="700" fill="#0F172A">Document Upload Interface</text>
+    <text x="900" y="332" font-size="11.5" font-weight="400" fill="#475569">PDF, TXT, MD, DOCX Attachment Handler</text>
+    <text x="900" y="349" font-size="11" font-weight="600" fill="#059669">Drag-and-Drop, File Validation &amp; Token Preview</text>
+
+    <!-- Bottom Row of Frontend Components -->
+    <!-- Conversation Management -->
+    <rect x="80" y="385" width="550" height="90" rx="8" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.5" filter="url(#card-shadow)" />
+    <rect x="80" y="385" width="6" height="90" rx="3" fill="#2563EB" />
+    <text x="100" y="413" font-size="14.5" font-weight="700" fill="#0F172A">Conversation Management</text>
+    <text x="100" y="434" font-size="11.5" font-weight="400" fill="#475569">Sidebar History, Real-time Search Filter, Pinned Chats, Session Archival</text>
+    <text x="100" y="452" font-size="11" font-weight="600" fill="#2563EB">Local Storage Fallback (omniai_user_conversations) &amp; Server Synchronization</text>
+
+    <!-- Collaborative Workspace -->
+    <rect x="655" y="385" width="590" height="90" rx="8" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.5" filter="url(#card-shadow)" />
+    <rect x="655" y="385" width="6" height="90" rx="3" fill="#7C3AED" />
+    <text x="675" y="413" font-size="14.5" font-weight="700" fill="#0F172A">Collaborative Workspace</text>
+    <text x="675" y="434" font-size="11.5" font-weight="400" fill="#475569">Team Workspaces, Role-Based Access Control (Owner / Member / Viewer)</text>
+    <text x="675" y="452" font-size="11" font-weight="600" fill="#7C3AED">Shared Project History, Invite Tokens, Live Member Presence &amp; Real-Time Sync</text>
+  </g>
+
+  <!-- ================= 7. REAL-TIME COMMUNICATION LAYER ================= -->
+  <g id="realtime-communication">
+    <rect x="50" y="525" width="1220" height="85" rx="8" fill="#F1F5F9" stroke="#94A3B8" stroke-width="1.5" stroke-dasharray="5 4" />
+    <rect x="70" y="514" width="270" height="22" rx="4" fill="#475569" />
+    <text x="205" y="529" text-anchor="middle" font-size="11" font-weight="700" fill="#FFFFFF" letter-spacing="0.5">7. REAL-TIME COMMUNICATION</text>
+
+    <!-- Channel 1: HTTP REST (Unidirectional Request) -->
+    <line x1="260" y1="475" x2="260" y2="635" stroke="#2563EB" stroke-width="2" marker-end="url(#arrow-blue)" />
+    <rect x="155" y="542" width="210" height="48" rx="6" fill="#EFF6FF" stroke="#93C5FD" stroke-width="1.2" filter="url(#card-shadow)" />
+    <text x="260" y="562" text-anchor="middle" font-size="12" font-weight="700" fill="#1E40AF">HTTP / REST (JSON)</text>
+    <text x="260" y="578" text-anchor="middle" font-size="10.5" font-weight="500" fill="#2563EB">Auth, CRUD, Config, Prompts</text>
+
+    <!-- Channel 2: Server-Sent Events (SSE) (Response Streaming) -->
+    <line x1="660" y1="635" x2="660" y2="475" stroke="#059669" stroke-width="2.5" marker-end="url(#arrow-teal)" />
+    <rect x="505" y="542" width="310" height="48" rx="6" fill="#ECFDF5" stroke="#6EE7B7" stroke-width="1.5" filter="url(#card-shadow)" />
+    <text x="660" y="562" text-anchor="middle" font-size="12.5" font-weight="700" fill="#065F46">Server-Sent Events (SSE)</text>
+    <text x="660" y="579" text-anchor="middle" font-size="10.5" font-weight="600" fill="#047857">AI Response Streaming (Backend → Frontend)</text>
+
+    <!-- Channel 3: WebSockets (Bidirectional Sync) -->
+    <line x1="1060" y1="475" x2="1060" y2="635" stroke="#7C3AED" stroke-width="2.5" marker-start="url(#arrow-bidir-start)" marker-end="url(#arrow-purple)" />
+    <rect x="910" y="542" width="300" height="48" rx="6" fill="#F5F3FF" stroke="#C4B5FD" stroke-width="1.5" filter="url(#card-shadow)" />
+    <text x="1060" y="562" text-anchor="middle" font-size="12.5" font-weight="700" fill="#5B21B6">WebSockets (WS / WSS)</text>
+    <text x="1060" y="579" text-anchor="middle" font-size="10.5" font-weight="600" fill="#7C3AED">Bidirectional Collaborative Synchronization</text>
+  </g>
+
+  <!-- ================= 3. BACKEND LAYER ================= -->
+  <g id="backend-layer">
+    <rect x="50" y="635" width="1220" height="305" rx="10" fill="#FFFFFF" stroke="#0F172A" stroke-width="2" filter="url(#drop-shadow)" />
+    <rect x="70" y="623" width="320" height="24" rx="4" fill="#0F172A" />
+    <text x="230" y="639" text-anchor="middle" font-size="11.5" font-weight="700" fill="#FFFFFF" letter-spacing="0.5">3. BACKEND LAYER (Python FastAPI Backend)</text>
+
+    <!-- Row 1: API Modules -->
+    <!-- Authentication Module -->
+    <rect x="80" y="660" width="270" height="80" rx="8" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.5" filter="url(#card-shadow)" />
+    <rect x="80" y="660" width="6" height="80" rx="3" fill="#0F172A" />
+    <text x="100" y="687" font-size="14" font-weight="700" fill="#0F172A">Authentication Module</text>
+    <text x="100" y="707" font-size="11" font-weight="400" fill="#475569">OAuth 2.0 (Google / GitHub) &amp; Local</text>
+    <text x="100" y="725" font-size="10.5" font-weight="600" fill="#0F172A">JWT Token Signing &amp; Security Guards</text>
+
+    <!-- Chat API & Conversation API -->
+    <rect x="370" y="660" width="280" height="80" rx="8" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.5" filter="url(#card-shadow)" />
+    <rect x="370" y="660" width="6" height="80" rx="3" fill="#2563EB" />
+    <text x="390" y="687" font-size="14" font-weight="700" fill="#0F172A">Chat API &amp; Conversation API</text>
+    <text x="390" y="707" font-size="11" font-weight="400" fill="#475569">POST /api/chat/stream, POST /api/compare</text>
+    <text x="390" y="725" font-size="10.5" font-weight="600" fill="#2563EB">Conversation History &amp; Message CRUD</text>
+
+    <!-- Document Processing API -->
+    <rect x="670" y="660" width="280" height="80" rx="8" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.5" filter="url(#card-shadow)" />
+    <rect x="670" y="660" width="6" height="80" rx="3" fill="#059669" />
+    <text x="690" y="687" font-size="14" font-weight="700" fill="#0F172A">Document Processing API</text>
+    <text x="690" y="707" font-size="11" font-weight="400" fill="#475569">PyPDF Text Extraction &amp; Chunking</text>
+    <text x="690" y="725" font-size="10.5" font-weight="600" fill="#059669">Context Augmentation &amp; File Ingestion</text>
+
+    <!-- Collaboration API -->
+    <rect x="970" y="660" width="275" height="80" rx="8" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.5" filter="url(#card-shadow)" />
+    <rect x="970" y="660" width="6" height="80" rx="3" fill="#7C3AED" />
+    <text x="990" y="687" font-size="14" font-weight="700" fill="#0F172A">Collaboration API</text>
+    <text x="990" y="707" font-size="11" font-weight="400" fill="#475569">/ws/collaborate Connection Manager</text>
+    <text x="990" y="725" font-size="10.5" font-weight="600" fill="#7C3AED">Multi-User Room Broadcast &amp; Events</text>
+
+    <!-- Row 2: Intelligent Core Routing Engine -->
+    <g id="routing-subsystem">
+      <rect x="80" y="760" width="1165" height="155" rx="8" fill="#F8FAFC" stroke="#93C5FD" stroke-width="1.75" />
+
+      <!-- Model Registry Sub-Box -->
+      <rect x="105" y="780" width="410" height="115" rx="6" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.2" filter="url(#card-shadow)" />
+      <rect x="105" y="780" width="5" height="115" rx="2.5" fill="#2563EB" />
+      <text x="125" y="807" font-size="15" font-weight="700" fill="#0F172A">Model Registry</text>
+      <text x="125" y="828" font-size="11.5" font-weight="600" fill="#2563EB">Dynamic Provider Catalog &amp; Capability Matrix</text>
+      <text x="125" y="847" font-size="11" font-weight="400" fill="#475569">• Provider mapping, context bounds &amp; active health</text>
+      <text x="125" y="865" font-size="11" font-weight="400" fill="#475569">• Dynamic BYOK credentials &amp; endpoint resolution</text>
+      <text x="125" y="883" font-size="11" font-weight="400" fill="#475569">• Fallback route lists for high-availability failover</text>
+
+      <!-- Connection Arrow: Registry -> Router -->
+      <path d="M 515 837 L 575 837" stroke="#2563EB" stroke-width="2" marker-end="url(#arrow-blue)" />
+      <rect x="522" y="824" width="46" height="24" rx="3" fill="#EFF6FF" stroke="#BFDBFE" stroke-width="1" />
+      <text x="545" y="840" text-anchor="middle" font-size="10" font-weight="700" fill="#1D4ED8">Meta</text>
+
+      <!-- Model Router Sub-Box -->
+      <rect x="580" y="780" width="640" height="115" rx="6" fill="#EFF6FF" stroke="#3B82F6" stroke-width="1.5" filter="url(#card-shadow)" />
+      <rect x="580" y="780" width="5" height="115" rx="2.5" fill="#1D4ED8" />
+      <text x="600" y="807" font-size="15" font-weight="700" fill="#1E3A8A">Model Router (Heuristic &amp; Intent Decision Engine)</text>
+      <text x="600" y="828" font-size="12" font-weight="600" fill="#2563EB">Sub-millisecond intent classification, complexity evaluation &amp; load balancing</text>
+      <text x="600" y="848" font-size="11" font-weight="500" fill="#334155">• Code / Algorithmic Intent → Dispatches to DeepSeek / Llama 3.3 (High precision reasoning)</text>
+      <text x="600" y="866" font-size="11" font-weight="500" fill="#334155">• Creative / Long Document → Dispatches to Google Gemini 3.8 Flash (1M+ context window)</text>
+      <text x="600" y="884" font-size="11" font-weight="500" fill="#334155">• Fast / Conversational → Dispatches to Groq LPU (Sub-300ms ultra-low latency)</text>
+    </g>
+  </g>
+
+  <!-- ================= DOWNWARD CONNECTIONS TO LOWER LAYERS ================= -->
+  <!-- Left Connection: Model Router -> AI Provider Abstraction Layer -->
+  <path d="M 450 940 L 450 985" stroke="#7C3AED" stroke-width="2.5" marker-end="url(#arrow-purple)" />
+  <rect x="365" y="952" width="170" height="22" rx="4" fill="#F5F3FF" stroke="#DDD6FE" stroke-width="1" />
+  <text x="450" y="967" text-anchor="middle" font-size="11" font-weight="700" fill="#6D28D9">Selected Model Request</text>
+
+  <!-- Right Connection: FastAPI Backend <-> SQLite Database -->
+  <path d="M 1020 940 L 1020 985" stroke="#0F172A" stroke-width="2.5" marker-start="url(#arrow-bidir-start)" marker-end="url(#arrow-navy)" />
+  <rect x="925" y="952" width="190" height="22" rx="4" fill="#F1F5F9" stroke="#CBD5E1" stroke-width="1" />
+  <text x="1020" y="967" text-anchor="middle" font-size="11" font-weight="700" fill="#0F172A">Async SQLAlchemy ORM</text>
+
+  <!-- ================= 4. AI PROVIDER ABSTRACTION LAYER ================= -->
+  <g id="provider-abstraction-layer">
+    <rect x="50" y="990" width="740" height="250" rx="10" fill="#FFFFFF" stroke="#7C3AED" stroke-width="2" filter="url(#drop-shadow)" />
+    <rect x="70" y="978" width="310" height="24" rx="4" fill="#7C3AED" />
+    <text x="225" y="994" text-anchor="middle" font-size="11.5" font-weight="700" fill="#FFFFFF" letter-spacing="0.5">4. AI PROVIDER ABSTRACTION LAYER</text>
+
+    <!-- Provider Adapter -->
+    <rect x="80" y="1020" width="330" height="95" rx="8" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.5" filter="url(#card-shadow)" />
+    <rect x="80" y="1020" width="6" height="95" rx="3" fill="#7C3AED" />
+    <text x="100" y="1047" font-size="14.5" font-weight="700" fill="#0F172A">Provider Adapter</text>
+    <text x="100" y="1067" font-size="11.5" font-weight="600" fill="#7C3AED">Polymorphic Base Provider Interface</text>
+    <text x="100" y="1086" font-size="11" font-weight="400" fill="#475569">• Standardizes parameter conventions across APIs</text>
+    <text x="100" y="1103" font-size="11" font-weight="400" fill="#475569">• Decouples core logic from proprietary vendor SDKs</text>
+
+    <!-- API Request Handler -->
+    <rect x="435" y="1020" width="330" height="95" rx="8" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.5" filter="url(#card-shadow)" />
+    <rect x="435" y="1020" width="6" height="95" rx="3" fill="#2563EB" />
+    <text x="455" y="1047" font-size="14.5" font-weight="700" fill="#0F172A">API Request Handler</text>
+    <text x="455" y="1067" font-size="11.5" font-weight="600" fill="#2563EB">Network &amp; Payload Dispatcher</text>
+    <text x="455" y="1086" font-size="11" font-weight="400" fill="#475569">• Constructs JSON payloads &amp; headers</text>
+    <text x="455" y="1103" font-size="11" font-weight="400" fill="#475569">• Enforces exponential backoff &amp; rate limits</text>
+
+    <!-- Response Handler -->
+    <rect x="80" y="1130" width="330" height="90" rx="8" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.5" filter="url(#card-shadow)" />
+    <rect x="80" y="1130" width="6" height="90" rx="3" fill="#059669" />
+    <text x="100" y="1157" font-size="14.5" font-weight="700" fill="#0F172A">Response Handler</text>
+    <text x="100" y="1177" font-size="11.5" font-weight="600" fill="#059669">Telemetry &amp; Content Normalizer</text>
+    <text x="100" y="1195" font-size="11" font-weight="400" fill="#475569">• Normalizes output tokens &amp; error responses</text>
+    <text x="100" y="1211" font-size="11" font-weight="400" fill="#475569">• Computes round-trip latency &amp; token metrics</text>
+
+    <!-- Streaming Handler -->
+    <rect x="435" y="1130" width="330" height="90" rx="8" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.5" filter="url(#card-shadow)" />
+    <rect x="435" y="1130" width="6" height="90" rx="3" fill="#7C3AED" />
+    <text x="455" y="1157" font-size="14.5" font-weight="700" fill="#0F172A">Streaming Handler</text>
+    <text x="455" y="1177" font-size="11.5" font-weight="600" fill="#7C3AED">Async Chunk Stream Pipeline</text>
+    <text x="455" y="1195" font-size="11" font-weight="400" fill="#475569">• Decodes incoming SSE chunk frames</text>
+    <text x="455" y="1211" font-size="11" font-weight="400" fill="#475569">• Flushes delta tokens to FastAPI SSE queue</text>
+  </g>
+
+  <!-- ================= 6. DATABASE LAYER ================= -->
+  <g id="database-layer">
+    <rect x="815" y="990" width="455" height="250" rx="10" fill="#FFFFFF" stroke="#0F172A" stroke-width="2" filter="url(#drop-shadow)" />
+    <rect x="835" y="978" width="280" height="24" rx="4" fill="#0F172A" />
+    <text x="975" y="994" text-anchor="middle" font-size="11.5" font-weight="700" fill="#FFFFFF" letter-spacing="0.5">6. DATABASE LAYER (SQLite Database)</text>
+
+    <!-- Table Cards Grid (2 columns x 3 rows) -->
+    <!-- User Accounts -->
+    <rect x="840" y="1018" width="195" height="46" rx="6" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.2" filter="url(#card-shadow)" />
+    <text x="852" y="1038" font-size="12.5" font-weight="700" fill="#0F172A">User Accounts</text>
+    <text x="852" y="1053" font-size="10" font-weight="500" fill="#64748B">ID, Email, Hashed PW, Role</text>
+
+    <!-- User Settings -->
+    <rect x="1050" y="1018" width="195" height="46" rx="6" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.2" filter="url(#card-shadow)" />
+    <text x="1062" y="1038" font-size="12.5" font-weight="700" fill="#0F172A">User Settings</text>
+    <text x="1062" y="1053" font-size="10" font-weight="500" fill="#64748B">Theme, Effort, BYOK Keys</text>
+
+    <!-- Conversations -->
+    <rect x="840" y="1075" width="195" height="46" rx="6" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.2" filter="url(#card-shadow)" />
+    <text x="852" y="1095" font-size="12.5" font-weight="700" fill="#0F172A">Conversations</text>
+    <text x="852" y="1110" font-size="10" font-weight="500" fill="#64748B">ID, Title, Pinned, Archived</text>
+
+    <!-- Messages -->
+    <rect x="1050" y="1075" width="195" height="46" rx="6" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.2" filter="url(#card-shadow)" />
+    <text x="1062" y="1095" font-size="12.5" font-weight="700" fill="#0F172A">Messages</text>
+    <text x="1062" y="1110" font-size="10" font-weight="500" fill="#64748B">ID, Role, Content, Latency</text>
+
+    <!-- Documents Metadata -->
+    <rect x="840" y="1132" width="195" height="46" rx="6" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.2" filter="url(#card-shadow)" />
+    <text x="852" y="1152" font-size="12.5" font-weight="700" fill="#0F172A">Documents Metadata</text>
+    <text x="852" y="1167" font-size="10" font-weight="500" fill="#64748B">File Name, Path, Token Count</text>
+
+    <!-- Workspace Information -->
+    <rect x="1050" y="1132" width="195" height="46" rx="6" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.2" filter="url(#card-shadow)" />
+    <text x="1062" y="1152" font-size="12.5" font-weight="700" fill="#0F172A">Workspace Information</text>
+    <text x="1062" y="1167" font-size="10" font-weight="500" fill="#64748B">Projects, Roles, Tokens</text>
+
+    <!-- DB Storage Note -->
+    <rect x="840" y="1190" width="405" height="35" rx="5" fill="#EFF6FF" stroke="#BFDBFE" stroke-width="1" />
+    <text x="1042" y="1212" text-anchor="middle" font-size="11" font-weight="600" fill="#1D4ED8">WAL Mode (Write-Ahead Logging) | Full ACID Relational Persistence</text>
+  </g>
+
+  <!-- ================= 5. EXTERNAL AI PROVIDERS LAYER ================= -->
+  <!-- Downward Arrow from Abstraction Layer to External Providers -->
+  <path d="M 420 1240 L 420 1285" stroke="#7C3AED" stroke-width="2.5" marker-end="url(#arrow-purple)" />
+  <rect x="330" y="1252" width="180" height="22" rx="4" fill="#F5F3FF" stroke="#DDD6FE" stroke-width="1" />
+  <text x="420" y="1267" text-anchor="middle" font-size="11" font-weight="700" fill="#6D28D9">HTTPS API Calls (SSL/TLS)</text>
+
+  <g id="external-providers-layer">
+    <rect x="50" y="1290" width="1220" height="175" rx="10" fill="#FFFFFF" stroke="#0F172A" stroke-width="2" filter="url(#drop-shadow)" />
+    <rect x="70" y="1278" width="260" height="24" rx="4" fill="#0F172A" />
+    <text x="200" y="1294" text-anchor="middle" font-size="11.5" font-weight="700" fill="#FFFFFF" letter-spacing="0.5">5. EXTERNAL AI PROVIDERS</text>
+
+    <!-- Provider 1: Google Gemini API -->
+    <rect x="80" y="1320" width="275" height="120" rx="8" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.5" filter="url(#card-shadow)" />
+    <rect x="80" y="1320" width="6" height="120" rx="3" fill="#2563EB" />
+    <text x="100" y="1348" font-size="15" font-weight="700" fill="#0F172A">Google Gemini API</text>
+    <text x="100" y="1370" font-size="12" font-weight="600" fill="#2563EB">gemini-3.8-flash, gemini-1.5-pro</text>
+    <text x="100" y="1390" font-size="11" font-weight="400" fill="#475569">• 1M+ Token Context Window</text>
+    <text x="100" y="1407" font-size="11" font-weight="400" fill="#475569">• Native Multimodal Processing</text>
+    <text x="100" y="1424" font-size="11" font-weight="400" fill="#475569">• StreamGenerateContent SSE protocol</text>
+
+    <!-- Provider 2: Groq API -->
+    <rect x="375" y="1320" width="275" height="120" rx="8" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.5" filter="url(#card-shadow)" />
+    <rect x="375" y="1320" width="6" height="120" rx="3" fill="#EA580C" />
+    <text x="395" y="1348" font-size="15" font-weight="700" fill="#0F172A">Groq API</text>
+    <text x="395" y="1370" font-size="12" font-weight="600" fill="#EA580C">LPU Inference Engine</text>
+    <text x="395" y="1390" font-size="11" font-weight="400" fill="#475569">• Llama 3.3 70B &amp; Qwen Models</text>
+    <text x="395" y="1407" font-size="11" font-weight="400" fill="#475569">• Sub-second latency (300+ tokens/s)</text>
+    <text x="395" y="1424" font-size="11" font-weight="400" fill="#475569">• OpenAI-compatible streaming API</text>
+
+    <!-- Provider 3: OpenAI-Compatible APIs -->
+    <rect x="670" y="1320" width="285" height="120" rx="8" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.5" filter="url(#card-shadow)" />
+    <rect x="670" y="1320" width="6" height="120" rx="3" fill="#059669" />
+    <text x="690" y="1348" font-size="15" font-weight="700" fill="#0F172A">OpenAI-Compatible APIs</text>
+    <text x="690" y="1370" font-size="12" font-weight="600" fill="#059669">v1/chat/completions Protocol</text>
+    <text x="690" y="1390" font-size="11" font-weight="400" fill="#475569">• DeepSeek V3 / R1 &amp; Mistral Large</text>
+    <text x="690" y="1407" font-size="11" font-weight="400" fill="#475569">• vLLM / Ollama Local Endpoints</text>
+    <text x="690" y="1424" font-size="11" font-weight="400" fill="#475569">• Together.ai &amp; OpenRouter Gateways</text>
+
+    <!-- Provider 4: Other Configured LLM Providers -->
+    <rect x="975" y="1320" width="270" height="120" rx="8" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.5" filter="url(#card-shadow)" />
+    <rect x="975" y="1320" width="6" height="120" rx="3" fill="#7C3AED" />
+    <text x="995" y="1348" font-size="15" font-weight="700" fill="#0F172A">Other Configured LLMs</text>
+    <text x="995" y="1370" font-size="12" font-weight="600" fill="#7C3AED">BYOK &amp; Custom Endpoints</text>
+    <text x="995" y="1390" font-size="11" font-weight="400" fill="#475569">• User-defined Base URL &amp; API Keys</text>
+    <text x="995" y="1407" font-size="11" font-weight="400" fill="#475569">• Anthropic Claude / Cohere Connectors</text>
+    <text x="995" y="1424" font-size="11" font-weight="400" fill="#475569">• On-Device WebGPU In-Browser Engine</text>
+  </g>
+
+  <!-- ================= RETURN RESPONSE FLOW (LEFT CHANNEL) ================= -->
+  <!-- Long return line showing response flow returning from Providers through Backend to Frontend -->
+  <path d="M 50 1370 C 15 1370, 15 360, 50 360" stroke="#059669" stroke-width="3" stroke-dasharray="6 4" fill="none" marker-end="url(#arrow-teal)" />
+  <rect x="5" y="780" width="40" height="230" rx="5" fill="#ECFDF5" stroke="#A7F3D0" stroke-width="1.2" />
+  <text x="25" y="895" text-anchor="middle" font-size="11" font-weight="800" fill="#065F46" transform="rotate(-90 25 895)">STREAMED RESPONSE FLOW (SSE / TOKENS)</text>
+
+  <!-- ================= ARCHITECTURE FOOTER & LEGEND ================= -->
+  <g id="footer-legend" transform="translate(50, 1485)">
+    <rect x="0" y="0" width="1220" height="105" rx="8" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.5" />
+    <text x="25" y="28" font-size="12.5" font-weight="800" fill="#0F172A">ACADEMIC SPECIFICATION &amp; CONNECTION PROTOCOLS:</text>
+
+    <!-- Legend Col 1 -->
+    <line x1="25" y1="55" x2="65" y2="55" stroke="#2563EB" stroke-width="2.5" marker-end="url(#arrow-blue)" />
+    <text x="75" y="59" font-size="11.5" font-weight="700" fill="#1E3A8A">HTTP REST (JSON):</text>
+    <text x="195" y="59" font-size="11" font-weight="400" fill="#475569">Stateless request-response protocol for auth, session management, and configuration</text>
+
+    <!-- Legend Col 2 -->
+    <line x1="25" y1="82" x2="65" y2="82" stroke="#059669" stroke-width="2.5" marker-end="url(#arrow-teal)" />
+    <text x="75" y="86" font-size="11.5" font-weight="700" fill="#065F46">Server-Sent Events (SSE):</text>
+    <text x="235" y="86" font-size="11" font-weight="400" fill="#475569">Lightweight unidirectional token streaming over HTTP connection with auto-reconnect</text>
+
+    <!-- Legend Col 3 -->
+    <line x1="720" y1="55" x2="760" y2="55" stroke="#7C3AED" stroke-width="2.5" marker-start="url(#arrow-bidir-start)" marker-end="url(#arrow-purple)" />
+    <text x="770" y="59" font-size="11.5" font-weight="700" fill="#5B21B6">WebSockets (WS):</text>
+    <text x="880" y="59" font-size="11" font-weight="400" fill="#475569">Persistent full-duplex protocol for collaborative multi-user presence</text>
+
+    <!-- Legend Col 4 -->
+    <line x1="720" y1="82" x2="760" y2="82" stroke="#059669" stroke-width="2.5" stroke-dasharray="5 3" marker-end="url(#arrow-teal)" />
+    <text x="770" y="86" font-size="11.5" font-weight="700" fill="#065F46">Token Stream Pipeline:</text>
+    <text x="915" y="86" font-size="11" font-weight="400" fill="#475569">End-to-end token pipeline: AI Provider → Abstraction → Backend → Client</text>
+  </g>
+</svg>
+  </div>
+</body>
+</html>
