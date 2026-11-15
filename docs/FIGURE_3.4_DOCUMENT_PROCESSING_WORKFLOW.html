@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>FIGURE 3.4: DOCUMENT PROCESSING AND CONTEXT INJECTION WORKFLOW IN OMNIAI</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 30px;
+      background: #E2E8F0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    .toolbar {
+      width: 1200px;
+      max-width: 95vw;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      background: #FFFFFF;
+      padding: 12px 24px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+    }
+    .btn {
+      background: #2563EB;
+      color: white;
+      border: none;
+      padding: 10px 18px;
+      font-weight: 600;
+      font-size: 13px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .btn:hover { background: #1D4ED8; }
+    .card {
+      width: 1200px;
+      max-width: 95vw;
+      background: #FFFFFF;
+      border-radius: 12px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+      overflow: hidden;
+    }
+    @media print {
+      body { padding: 0; background: #FFFFFF; }
+      .toolbar { display: none; }
+      .card { box-shadow: none; border-radius: 0; width: 100%; max-width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <div>
+      <h2 style="margin: 0 0 4px 0; font-size: 16px; color: #0F172A;">FIGURE 3.4: DOCUMENT PROCESSING AND CONTEXT INJECTION WORKFLOW IN OMNIAI</h2>
+      <span style="font-size: 12px; color: #64748B;">B.Tech Artificial Intelligence Project Report Artifact | Grounded Ingestion &amp; Context Pipeline</span>
+    </div>
+    <button class="btn" onclick="window.print()">Print / Save as PDF</button>
+  </div>
+
+  <div class="card">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1780" width="100%" height="100%">
+  <defs>
+    <linearGradient id="header-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0F172A" />
+      <stop offset="60%" stop-color="#1E3A8A" />
+      <stop offset="100%" stop-color="#312E81" />
+    </linearGradient>
+
+    <linearGradient id="step-blue" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#EFF6FF" />
+      <stop offset="100%" stop-color="#DBEAFE" />
+    </linearGradient>
+
+    <linearGradient id="step-purple" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F5F3FF" />
+      <stop offset="100%" stop-color="#EDE9FE" />
+    </linearGradient>
+
+    <linearGradient id="step-cyan" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F0FDFA" />
+      <stop offset="100%" stop-color="#CCFBF1" />
+    </linearGradient>
+
+    <linearGradient id="step-amber" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFBEB" />
+      <stop offset="100%" stop-color="#FEF3C7" />
+    </linearGradient>
+
+    <linearGradient id="overlap-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#FDE68A" />
+      <stop offset="100%" stop-color="#FCD34D" />
+    </linearGradient>
+
+    <filter id="card-shadow" x="-3%" y="-4%" width="106%" height="110%" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#0F172A" flood-opacity="0.06" />
+    </filter>
+
+    <filter id="accent-shadow" x="-5%" y="-8%" width="110%" height="120%" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#1E3A8A" flood-opacity="0.08" />
+    </filter>
+
+    <marker id="arrow-down" viewBox="0 0 10 10" refX="5" refY="9" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 0 L 5 9 z" fill="#2563EB" />
+    </marker>
+
+    <marker id="arrow-purple" viewBox="0 0 10 10" refX="5" refY="9" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 0 L 5 9 z" fill="#7C3AED" />
+    </marker>
+
+    <marker id="arrow-navy" viewBox="0 0 10 10" refX="5" refY="9" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 0 L 5 9 z" fill="#1E3A8A" />
+    </marker>
+  </defs>
+
+  <!-- Background Canvas -->
+  <rect width="1200" height="1780" fill="#FFFFFF" />
+
+  <!-- Outer Border Frame -->
+  <rect x="25" y="25" width="1150" height="1730" rx="14" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.5" />
+
+  <!-- ==================== HEADER SECTION ==================== -->
+  <rect x="25" y="25" width="1150" height="92" rx="14" fill="url(#header-grad)" />
+  <rect x="25" y="103" width="1150" height="14" fill="#1E3A8A" />
+
+  <text x="600" y="60" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="20" font-weight="800" fill="#FFFFFF" letter-spacing="0.5">
+    FIGURE 3.4: DOCUMENT PROCESSING AND CONTEXT INJECTION WORKFLOW IN OMNIAI
+  </text>
+  <text x="600" y="85" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#93C5FD">
+    Grounded Document Ingestion, Semantic Chunking, Prompt Synthesis, and Context Augmentation Pipeline
+  </text>
+
+  <!-- ==================== STEP 1: DOCUMENT UPLOAD ==================== -->
+  <g transform="translate(180, 135)">
+    <rect x="0" y="0" width="840" height="110" rx="10" fill="#FFFFFF" stroke="#2563EB" stroke-width="1.5" filter="url(#card-shadow)" />
+    
+    <!-- Step Badge -->
+    <rect x="20" y="14" width="86" height="26" rx="6" fill="#1E3A8A" />
+    <text x="63" y="31" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="700" fill="#FFFFFF">STEP 1</text>
+    
+    <text x="118" y="32" font-family="sans-serif" font-size="15" font-weight="700" fill="#0F172A">DOCUMENT UPLOAD</text>
+    <text x="20" y="60" font-family="sans-serif" font-size="12" fill="#475569">
+      End-user selects a document from the local device and uploads it via the OmniAI chat attachment interface.
+    </text>
+
+    <!-- Document Icon Graphic -->
+    <g transform="translate(755, 18)">
+      <rect x="0" y="0" width="48" height="62" rx="4" fill="#EFF6FF" stroke="#3B82F6" stroke-width="1.5" />
+      <path d="M 32 0 L 48 16 L 32 16 Z" fill="#93C5FD" stroke="#3B82F6" stroke-width="1" />
+      <line x1="8" y1="24" x2="38" y2="24" stroke="#60A5FA" stroke-width="2" stroke-linecap="round" />
+      <line x1="8" y1="34" x2="38" y2="34" stroke="#60A5FA" stroke-width="2" stroke-linecap="round" />
+      <line x1="8" y1="44" x2="28" y2="44" stroke="#60A5FA" stroke-width="2" stroke-linecap="round" />
+      <text x="24" y="56" text-anchor="middle" font-family="monospace" font-size="8" font-weight="700" fill="#1E3A8A">DOC</text>
+    </g>
+
+    <!-- Supported Format Badges -->
+    <g transform="translate(20, 72)">
+      <rect x="0" y="0" width="145" height="26" rx="5" fill="#EFF6FF" stroke="#BFDBFE" stroke-width="1" />
+      <text x="12" y="17" font-family="sans-serif" font-size="11" font-weight="700" fill="#1D4ED8">PDF</text>
+      <text x="44" y="17" font-family="sans-serif" font-size="11" fill="#475569">(.pdf document)</text>
+
+      <rect x="160" y="0" width="145" height="26" rx="5" fill="#F5F3FF" stroke="#DDD6FE" stroke-width="1" />
+      <text x="172" y="17" font-family="sans-serif" font-size="11" font-weight="700" fill="#6D28D9">TXT</text>
+      <text x="204" y="17" font-family="sans-serif" font-size="11" fill="#475569">(.txt plain text)</text>
+
+      <rect x="320" y="0" width="175" height="26" rx="5" fill="#F0FDF4" stroke="#BBF7D0" stroke-width="1" />
+      <text x="332" y="17" font-family="sans-serif" font-size="11" font-weight="700" fill="#15803D">Markdown</text>
+      <text x="398" y="17" font-family="sans-serif" font-size="11" fill="#475569">(.md documentation)</text>
+    </g>
+  </g>
+
+  <!-- Arrow Step 1 -> Step 2 -->
+  <line x1="600" y1="245" x2="600" y2="268" stroke="#2563EB" stroke-width="2" marker-end="url(#arrow-down)" />
+
+  <!-- ==================== STEP 2: FILE VALIDATION ==================== -->
+  <g transform="translate(180, 270)">
+    <rect x="0" y="0" width="840" height="106" rx="10" fill="#FFFFFF" stroke="#3B82F6" stroke-width="1.5" filter="url(#card-shadow)" />
+    
+    <rect x="20" y="14" width="86" height="26" rx="6" fill="#1E3A8A" />
+    <text x="63" y="31" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="700" fill="#FFFFFF">STEP 2</text>
+    
+    <text x="118" y="32" font-family="sans-serif" font-size="15" font-weight="700" fill="#0F172A">FILE VALIDATION</text>
+    <text x="250" y="32" font-family="sans-serif" font-size="12" fill="#64748B">(FastAPI Backend Security &amp; Format Inspection)</text>
+
+    <!-- 4 Validation Criteria Boxes -->
+    <g transform="translate(20, 50)">
+      <!-- Criteria 1 -->
+      <rect x="0" y="0" width="190" height="42" rx="6" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1" />
+      <text x="12" y="17" font-family="sans-serif" font-size="11" font-weight="700" fill="#0F172A">1. File Extension</text>
+      <text x="12" y="33" font-family="monospace" font-size="10" fill="#2563EB">.pdf, .txt, .md</text>
+
+      <!-- Criteria 2 -->
+      <rect x="202" y="0" width="190" height="42" rx="6" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1" />
+      <text x="214" y="17" font-family="sans-serif" font-size="11" font-weight="700" fill="#0F172A">2. MIME Type</text>
+      <text x="214" y="33" font-family="monospace" font-size="9.5" fill="#2563EB">application/pdf, text/*</text>
+
+      <!-- Criteria 3 -->
+      <rect x="404" y="0" width="190" height="42" rx="6" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1" />
+      <text x="416" y="17" font-family="sans-serif" font-size="11" font-weight="700" fill="#0F172A">3. File Size Limit</text>
+      <text x="416" y="33" font-family="monospace" font-size="10" fill="#2563EB">Size &lt;= 10 MB Max</text>
+
+      <!-- Criteria 4 -->
+      <rect x="606" y="0" width="194" height="42" rx="6" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1" />
+      <text x="618" y="17" font-family="sans-serif" font-size="11" font-weight="700" fill="#0F172A">4. File Integrity</text>
+      <text x="618" y="33" font-family="monospace" font-size="9.5" fill="#2563EB">Path sanitize &amp; byte scan</text>
+    </g>
+  </g>
+
+  <!-- Arrow Step 2 -> Step 3 -->
+  <line x1="600" y1="376" x2="600" y2="399" stroke="#2563EB" stroke-width="2" marker-end="url(#arrow-down)" />
+
+  <!-- ==================== STEP 3: TEXT EXTRACTION ==================== -->
+  <g transform="translate(180, 401)">
+    <rect x="0" y="0" width="840" height="116" rx="10" fill="#FFFFFF" stroke="#3B82F6" stroke-width="1.5" filter="url(#card-shadow)" />
+    
+    <rect x="20" y="14" width="86" height="26" rx="6" fill="#1E3A8A" />
+    <text x="63" y="31" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="700" fill="#FFFFFF">STEP 3</text>
+    
+    <text x="118" y="32" font-family="sans-serif" font-size="15" font-weight="700" fill="#0F172A">TEXT EXTRACTION</text>
+    <text x="270" y="32" font-family="sans-serif" font-size="12" fill="#64748B">(Format-Specific Document Ingestion Adapters)</text>
+
+    <!-- 3 Extractor Sub-Cards -->
+    <g transform="translate(20, 50)">
+      <!-- PDF Extractor -->
+      <rect x="0" y="0" width="256" height="52" rx="6" fill="#EFF6FF" stroke="#BFDBFE" stroke-width="1" />
+      <text x="14" y="19" font-family="sans-serif" font-size="11.5" font-weight="700" fill="#1E3A8A">PDF Text Extraction</text>
+      <text x="14" y="34" font-family="sans-serif" font-size="10.5" fill="#334155">pypdf page iteration &amp; text extraction</text>
+      <text x="14" y="46" font-family="monospace" font-size="9" fill="#2563EB">Page-by-page header preservation</text>
+
+      <!-- Plain Text Extractor -->
+      <rect x="272" y="0" width="256" height="52" rx="6" fill="#F5F3FF" stroke="#DDD6FE" stroke-width="1" />
+      <text x="286" y="19" font-family="sans-serif" font-size="11.5" font-weight="700" fill="#4C1D95">Plain Text Reading</text>
+      <text x="286" y="34" font-family="sans-serif" font-size="10.5" fill="#334155">Multi-encoding fallback decoder</text>
+      <text x="286" y="46" font-family="monospace" font-size="9" fill="#7C3AED">UTF-8, UTF-8-sig, Latin-1, CP1252</text>
+
+      <!-- Markdown Extractor -->
+      <rect x="544" y="0" width="256" height="52" rx="6" fill="#F0FDF4" stroke="#BBF7D0" stroke-width="1" />
+      <text x="558" y="19" font-family="sans-serif" font-size="11.5" font-weight="700" fill="#14532D">Markdown Extraction</text>
+      <text x="558" y="34" font-family="sans-serif" font-size="10.5" fill="#334155">Structural syntax parsing</text>
+      <text x="558" y="46" font-family="monospace" font-size="9" fill="#15803D">Headings, lists, code block blocks</text>
+    </g>
+  </g>
+
+  <!-- Arrow Step 3 -> Step 4 -->
+  <line x1="600" y1="517" x2="600" y2="540" stroke="#2563EB" stroke-width="2" marker-end="url(#arrow-down)" />
+
+  <!-- ==================== STEP 4: TEXT CHUNKING ==================== -->
+  <g transform="translate(180, 542)">
+    <rect x="0" y="0" width="840" height="162" rx="10" fill="#FFFFFF" stroke="#3B82F6" stroke-width="1.5" filter="url(#card-shadow)" />
+    
+    <rect x="20" y="14" width="86" height="26" rx="6" fill="#1E3A8A" />
+    <text x="63" y="31" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="700" fill="#FFFFFF">STEP 4</text>
+    
+    <text x="118" y="32" font-family="sans-serif" font-size="15" font-weight="700" fill="#0F172A">TEXT CHUNKING</text>
+    
+    <!-- Documented Configuration Badge -->
+    <rect x="520" y="14" width="300" height="26" rx="6" fill="#EFF6FF" stroke="#93C5FD" stroke-width="1" />
+    <text x="670" y="31" text-anchor="middle" font-family="monospace" font-size="11" font-weight="700" fill="#1E3A8A">
+      Size: 2,500 chars | Overlap: 250 chars
+    </text>
+
+    <text x="20" y="58" font-family="sans-serif" font-size="11.5" fill="#475569">
+      Extracted document text is divided into overlapping blocks along natural paragraph boundaries (
+
+) to preserve semantic coherence.
+    </text>
+
+    <!-- Visual Overlapping Text Blocks Graphic -->
+    <g transform="translate(20, 68)">
+      <!-- Visual Container -->
+      <rect x="0" y="0" width="800" height="80" rx="6" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1" />
+
+      <!-- Chunk 1 -->
+      <rect x="15" y="14" width="260" height="52" rx="6" fill="#DBEAFE" stroke="#3B82F6" stroke-width="1.5" />
+      <text x="25" y="32" font-family="sans-serif" font-size="11" font-weight="700" fill="#1E3A8A">Chunk #1 (Chars 0 – 2,500)</text>
+      <text x="25" y="50" font-family="monospace" font-size="9.5" fill="#3B82F6">Paragraph context A</text>
+
+      <!-- Overlap 1 Badge -->
+      <rect x="215" y="18" width="85" height="44" rx="4" fill="url(#overlap-grad)" stroke="#D97706" stroke-width="1" stroke-dasharray="3 2" />
+      <text x="257" y="36" text-anchor="middle" font-family="sans-serif" font-size="8.5" font-weight="700" fill="#78350F">OVERLAP</text>
+      <text x="257" y="50" text-anchor="middle" font-family="monospace" font-size="8" fill="#78350F">250 chars</text>
+
+      <!-- Chunk 2 -->
+      <rect x="270" y="14" width="260" height="52" rx="6" fill="#EDE9FE" stroke="#8B5CF6" stroke-width="1.5" />
+      <text x="310" y="32" font-family="sans-serif" font-size="11" font-weight="700" fill="#4C1D95">Chunk #2 (Chars 2,250 – 4,750)</text>
+      <text x="310" y="50" font-family="monospace" font-size="9.5" fill="#7C3AED">Paragraph context B</text>
+
+      <!-- Overlap 2 Badge -->
+      <rect x="470" y="18" width="85" height="44" rx="4" fill="url(#overlap-grad)" stroke="#D97706" stroke-width="1" stroke-dasharray="3 2" />
+      <text x="512" y="36" text-anchor="middle" font-family="sans-serif" font-size="8.5" font-weight="700" fill="#78350F">OVERLAP</text>
+      <text x="512" y="50" text-anchor="middle" font-family="monospace" font-size="8" fill="#78350F">250 chars</text>
+
+      <!-- Chunk 3 -->
+      <rect x="525" y="14" width="260" height="52" rx="6" fill="#E0F2FE" stroke="#0284C7" stroke-width="1.5" />
+      <text x="565" y="32" font-family="sans-serif" font-size="11" font-weight="700" fill="#0369A1">Chunk #3 (Chars 4,500 – 7,000)</text>
+      <text x="565" y="50" font-family="monospace" font-size="9.5" fill="#0284C7">Paragraph context C</text>
+    </g>
+  </g>
+
+  <!-- Arrow Step 4 -> Step 5 -->
+  <line x1="600" y1="704" x2="600" y2="727" stroke="#2563EB" stroke-width="2" marker-end="url(#arrow-down)" />
+
+  <!-- ==================== DUAL-INPUT STAGES: STEP 5 & STEP 6 ==================== -->
+
+  <!-- STEP 5: CONTEXT PREPARATION (Left Side) -->
+  <g transform="translate(180, 729)">
+    <rect x="0" y="0" width="405" height="114" rx="10" fill="#FFFFFF" stroke="#3B82F6" stroke-width="1.5" filter="url(#card-shadow)" />
+    
+    <rect x="16" y="14" width="86" height="24" rx="5" fill="#1E3A8A" />
+    <text x="59" y="30" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="700" fill="#FFFFFF">STEP 5</text>
+    
+    <text x="110" y="31" font-family="sans-serif" font-size="14" font-weight="700" fill="#0F172A">CONTEXT PREPARATION</text>
+    <text x="16" y="58" font-family="sans-serif" font-size="11" fill="#475569">
+      Ranks &amp; extracts top relevant chunks based on query term frequency or uniform document sampling.
+    </text>
+
+    <rect x="16" y="74" width="373" height="26" rx="4" fill="#EFF6FF" stroke="#BFDBFE" stroke-width="1" />
+    <text x="26" y="91" font-family="monospace" font-size="9.5" fill="#1E3A8A">
+      • top_chunks selection (max 7,000 characters)
+    </text>
+  </g>
+
+  <!-- STEP 6: USER QUESTION (Right Side) -->
+  <g transform="translate(615, 729)">
+    <rect x="0" y="0" width="405" height="114" rx="10" fill="#FFFFFF" stroke="#7C3AED" stroke-width="1.5" filter="url(#card-shadow)" />
+    
+    <rect x="16" y="14" width="86" height="24" rx="5" fill="#581C87" />
+    <text x="59" y="30" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="700" fill="#FFFFFF">STEP 6</text>
+    
+    <text x="110" y="31" font-family="sans-serif" font-size="14" font-weight="700" fill="#0F172A">USER QUESTION</text>
+    <text x="16" y="58" font-family="sans-serif" font-size="11" fill="#475569">
+      End-user enters a prompt or domain query related to the attached document in the chat interface.
+    </text>
+
+    <rect x="16" y="74" width="373" height="26" rx="4" fill="#F5F3FF" stroke="#DDD6FE" stroke-width="1" />
+    <text x="26" y="91" font-family="monospace" font-size="9.5" fill="#6D28D9">
+      &quot;Summarize Section 2 and list key trade-offs&quot;
+    </text>
+  </g>
+
+  <!-- Convergence Arrows from Step 5 & Step 6 into Step 7 -->
+  <path d="M 382 843 L 382 865 Q 382 875 400 875 L 530 875 L 530 892" fill="none" stroke="#2563EB" stroke-width="2" marker-end="url(#arrow-down)" />
+  <path d="M 817 843 L 817 865 Q 817 875 800 875 L 670 875 L 670 892" fill="none" stroke="#7C3AED" stroke-width="2" marker-end="url(#arrow-purple)" />
+
+  <text x="445" y="868" text-anchor="middle" font-family="sans-serif" font-size="9" font-weight="700" fill="#1E3A8A">Extracted Context</text>
+  <text x="750" y="868" text-anchor="middle" font-family="sans-serif" font-size="9" font-weight="700" fill="#6D28D9">User Query</text>
+
+  <!-- ==================== STEP 7: CONTEXT INJECTION ==================== -->
+  <g transform="translate(180, 894)">
+    <rect x="0" y="0" width="840" height="182" rx="10" fill="#FFFFFF" stroke="#1E3A8A" stroke-width="2" filter="url(#card-shadow)" />
+    
+    <rect x="20" y="14" width="86" height="26" rx="6" fill="#1E3A8A" />
+    <text x="63" y="31" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="700" fill="#FFFFFF">STEP 7</text>
+    
+    <text x="118" y="32" font-family="sans-serif" font-size="15" font-weight="700" fill="#0F172A">CONTEXT INJECTION</text>
+    <text x="280" y="32" font-family="sans-serif" font-size="12" fill="#64748B">(Grounded Prompt Synthesis Engine)</text>
+
+    <text x="20" y="58" font-family="sans-serif" font-size="11.5" fill="#334155">
+      Synthesizes the user query and extracted text into a strictly bounded prompt with anti-hallucination constraints:
+    </text>
+
+    <!-- Code Blueprint of Injected Prompt -->
+    <g transform="translate(20, 68)">
+      <rect x="0" y="0" width="800" height="98" rx="6" fill="#0F172A" stroke="#334155" stroke-width="1" />
+      <text x="16" y="20" font-family="monospace" font-size="10" fill="#38BDF8">You are analyzing the uploaded document: &quot;{document_filename}&quot;.</text>
+      <text x="16" y="36" font-family="monospace" font-size="10" fill="#FDE047">=== DOCUMENT CONTEXT ===</text>
+      <text x="16" y="52" font-family="monospace" font-size="10" fill="#CBD5E1">{Extracted Top-Chunks Context Text up to 7,000 characters}</text>
+      <text x="16" y="68" font-family="monospace" font-size="10" fill="#FDE047">=== END DOCUMENT CONTEXT ===</text>
+      <text x="16" y="84" font-family="monospace" font-size="10" fill="#F87171">CRITICAL INSTRUCTIONS: Answer using ONLY document facts. Never hallucinate.</text>
+      <text x="560" y="84" font-family="monospace" font-size="10" fill="#A7F3D0">User Request: {user_query}</text>
+    </g>
+  </g>
+
+  <!-- Arrow Step 7 -> Step 8 -->
+  <line x1="600" y1="1076" x2="600" y2="1099" stroke="#1E3A8A" stroke-width="2" marker-end="url(#arrow-navy)" />
+
+  <!-- ==================== STEP 8: AI MODEL PROCESSING ==================== -->
+  <g transform="translate(180, 1101)">
+    <rect x="0" y="0" width="840" height="116" rx="10" fill="#FFFFFF" stroke="#3B82F6" stroke-width="1.5" filter="url(#card-shadow)" />
+    
+    <rect x="20" y="14" width="86" height="26" rx="6" fill="#1E3A8A" />
+    <text x="63" y="31" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="700" fill="#FFFFFF">STEP 8</text>
+    
+    <text x="118" y="32" font-family="sans-serif" font-size="15" font-weight="700" fill="#0F172A">AI MODEL PROCESSING</text>
+    <text x="300" y="32" font-family="sans-serif" font-size="12" fill="#64748B">(Provider Integration &amp; Dispatch Layer)</text>
+
+    <!-- Dispatched Providers Sub-Boxes -->
+    <g transform="translate(20, 50)">
+      <!-- Gemini -->
+      <rect x="0" y="0" width="256" height="52" rx="6" fill="#EFF6FF" stroke="#BFDBFE" stroke-width="1" />
+      <text x="14" y="20" font-family="sans-serif" font-size="12" font-weight="700" fill="#1E3A8A">Google Gemini API</text>
+      <text x="14" y="35" font-family="sans-serif" font-size="10" fill="#334155">gemini-3.8-flash (1M context)</text>
+      <text x="14" y="47" font-family="monospace" font-size="9" fill="#2563EB">Full document attention</text>
+
+      <!-- Groq LPU -->
+      <rect x="272" y="0" width="256" height="52" rx="6" fill="#F5F3FF" stroke="#DDD6FE" stroke-width="1" />
+      <text x="286" y="20" font-family="sans-serif" font-size="12" font-weight="700" fill="#4C1D95">Groq Cloud LPUs</text>
+      <text x="286" y="35" font-family="sans-serif" font-size="10" fill="#334155">Llama 3.3 70B &amp; Mixtral 8x7B</text>
+      <text x="286" y="47" font-family="monospace" font-size="9" fill="#7C3AED">High-speed inference</text>
+
+      <!-- OpenAI-Compatible -->
+      <rect x="544" y="0" width="256" height="52" rx="6" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1" />
+      <text x="558" y="20" font-family="sans-serif" font-size="12" font-weight="700" fill="#0F172A">OpenAI / BYOK Endpoints</text>
+      <text x="558" y="35" font-family="sans-serif" font-size="10" fill="#334155">Custom user-configured LLMs</text>
+      <text x="558" y="47" font-family="monospace" font-size="9" fill="#475569">Grounded payload stream</text>
+    </g>
+  </g>
+
+  <!-- Arrow Step 8 -> Step 9 -->
+  <line x1="600" y1="1217" x2="600" y2="1240" stroke="#2563EB" stroke-width="2" marker-end="url(#arrow-down)" />
+
+  <!-- ==================== STEP 9: RESPONSE GENERATION ==================== -->
+  <g transform="translate(180, 1242)">
+    <rect x="0" y="0" width="840" height="110" rx="10" fill="#FFFFFF" stroke="#3B82F6" stroke-width="1.5" filter="url(#card-shadow)" />
+    
+    <rect x="20" y="14" width="86" height="26" rx="6" fill="#1E3A8A" />
+    <text x="63" y="31" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="700" fill="#FFFFFF">STEP 9</text>
+    
+    <text x="118" y="32" font-family="sans-serif" font-size="15" font-weight="700" fill="#0F172A">RESPONSE GENERATION</text>
+    <text x="20" y="58" font-family="sans-serif" font-size="11.5" fill="#334155">
+      The selected AI model reasons over the combined context and synthesizes an answer anchored in document evidence:
+    </text>
+
+    <!-- Generation Attributes -->
+    <g transform="translate(20, 68)">
+      <rect x="0" y="0" width="256" height="30" rx="4" fill="#F0FDF4" stroke="#BBF7D0" stroke-width="1" />
+      <text x="12" y="19" font-family="sans-serif" font-size="10.5" font-weight="700" fill="#15803D">✓ Grounded Factual Accuracy</text>
+
+      <rect x="272" y="0" width="256" height="30" rx="4" fill="#EFF6FF" stroke="#BFDBFE" stroke-width="1" />
+      <text x="284" y="19" font-family="sans-serif" font-size="10.5" font-weight="700" fill="#1D4ED8">✓ Strict Anti-Hallucination Guard</text>
+
+      <rect x="544" y="0" width="256" height="30" rx="4" fill="#F5F3FF" stroke="#DDD6FE" stroke-width="1" />
+      <text x="556" y="19" font-family="sans-serif" font-size="10.5" font-weight="700" fill="#6D28D9">✓ Page &amp; Section Attribution</text>
+    </g>
+  </g>
+
+  <!-- Arrow Step 9 -> Step 10 -->
+  <line x1="600" y1="1352" x2="600" y2="1375" stroke="#2563EB" stroke-width="2" marker-end="url(#arrow-down)" />
+
+  <!-- ==================== STEP 10: RESPONSE DISPLAY ==================== -->
+  <g transform="translate(180, 1377)">
+    <rect x="0" y="0" width="840" height="110" rx="10" fill="#FFFFFF" stroke="#059669" stroke-width="1.5" filter="url(#card-shadow)" />
+    
+    <rect x="20" y="14" width="94" height="26" rx="6" fill="#065F46" />
+    <text x="67" y="31" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="700" fill="#FFFFFF">STEP 10</text>
+    
+    <text x="126" y="32" font-family="sans-serif" font-size="15" font-weight="700" fill="#0F172A">RESPONSE DISPLAY</text>
+    <text x="20" y="58" font-family="sans-serif" font-size="11.5" fill="#334155">
+      The assistant response is rendered in the OmniAI chat UI with Markdown formatting, document tags, and latency metrics.
+    </text>
+
+    <!-- Response Display Features -->
+    <g transform="translate(20, 68)">
+      <rect x="0" y="0" width="256" height="30" rx="4" fill="#F0FDF4" stroke="#A7F3D0" stroke-width="1" />
+      <text x="12" y="19" font-family="sans-serif" font-size="10.5" fill="#065F46">Markdown, Tables &amp; Code Syntax</text>
+
+      <rect x="272" y="0" width="256" height="30" rx="4" fill="#F0FDF4" stroke="#A7F3D0" stroke-width="1" />
+      <text x="284" y="19" font-family="sans-serif" font-size="10.5" fill="#065F46">Document Attachment Badge</text>
+
+      <rect x="544" y="0" width="256" height="30" rx="4" fill="#F0FDF4" stroke="#A7F3D0" stroke-width="1" />
+      <text x="556" y="19" font-family="sans-serif" font-size="10.5" fill="#065F46">Copy, Regenerate &amp; Audio TTS</text>
+    </g>
+  </g>
+
+  <!-- Arrow to Note -->
+  <line x1="600" y1="1487" x2="600" y2="1512" stroke="#64748B" stroke-width="1.5" stroke-dasharray="3 3" marker-end="url(#arrow-down)" />
+
+  <!-- ==================== IMPORTANT LIMITATIONS NOTE ==================== -->
+  <g transform="translate(180, 1515)">
+    <rect x="0" y="0" width="840" height="96" rx="8" fill="#FFFBEB" stroke="#F59E0B" stroke-width="1.5" filter="url(#accent-shadow)" />
+    
+    <g transform="translate(20, 14)">
+      <!-- Alert Icon -->
+      <circle cx="12" cy="12" r="12" fill="#FDE68A" />
+      <text x="12" y="16" text-anchor="middle" font-family="sans-serif" font-size="13" font-weight="800" fill="#92400E">i</text>
+      
+      <text x="34" y="16" font-family="sans-serif" font-size="12" font-weight="700" fill="#92400E">
+        IMPORTANT ARCHITECTURAL NOTE &amp; CURRENT LIMITATIONS
+      </text>
+
+      <text x="0" y="42" font-family="sans-serif" font-size="11.5" font-weight="600" fill="#78350F">
+        &quot;Current implementation supports text extraction from PDF, TXT and Markdown files. OCR for scanned image-only PDFs is planned for future development.&quot;
+      </text>
+
+      <text x="0" y="64" font-family="sans-serif" font-size="11" fill="#92400E">
+        • Vector database retrieval (e.g. Pinecone/Chroma) and OCR engines (e.g. Tesseract) are intentionally omitted from current scope to ensure zero-cost execution and lightweight serverless operation on free tiers.
+      </text>
+    </g>
+  </g>
+
+  <!-- ==================== FOOTER / METADATA ==================== -->
+  <rect x="25" y="1660" width="1150" height="95" rx="0" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1" />
+  <line x1="25" y1="1660" x2="1175" y2="1660" stroke="#CBD5E1" stroke-width="1" />
+
+  <text x="50" y="1688" font-family="sans-serif" font-size="11.5" font-weight="700" fill="#1E3A8A">
+    OmniAI B.Tech Capstone Project
+  </text>
+  <text x="50" y="1708" font-family="sans-serif" font-size="10.5" fill="#64748B">
+    Course: CSE 276 | Figure 3.4: Document Processing and Context Injection Workflow
+  </text>
+  <text x="50" y="1726" font-family="sans-serif" font-size="10" fill="#94A3B8">
+    Architecture: Text Extraction Pipeline (pypdf) → Semantic Chunking (2500/250) → Prompt Injection → AI Generation
+  </text>
+
+  <text x="1150" y="1688" text-anchor="end" font-family="sans-serif" font-size="11" font-weight="700" fill="#0F172A">
+    Format: Pure SVG / Vector Resolution
+  </text>
+  <text x="1150" y="1708" text-anchor="end" font-family="sans-serif" font-size="10.5" fill="#64748B">
+    Color Palette: Navy (#0F172A), Blue (#2563EB), Purple (#7C3AED), Amber (#F59E0B)
+  </text>
+  <text x="1150" y="1726" text-anchor="end" font-family="sans-serif" font-size="10" fill="#94A3B8">
+    University Report Compliant | Free-Tier Compatible
+  </text>
+</svg>
+  </div>
+</body>
+</html>
