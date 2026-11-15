@@ -606,11 +606,15 @@ export async function fetchConversations(query = null) {
       localList.forEach((c) => mergedMap.set(c.id, c));
       serverList.forEach((c) => {
         const local = mergedMap.get(c.id);
-        if (local && local.messages?.length > (c.message_count || 0)) {
-          mergedMap.set(c.id, { ...c, messages: local.messages });
-        } else {
-          mergedMap.set(c.id, c);
-        }
+        const preservedMessages = (local && Array.isArray(local.messages) && local.messages.length > 0)
+          ? local.messages
+          : (c.messages || []);
+        mergedMap.set(c.id, {
+          ...local,
+          ...c,
+          messages: preservedMessages,
+          message_count: preservedMessages.length || c.message_count || local?.message_count || 0,
+        });
       });
       const merged = Array.from(mergedMap.values()).sort(
         (a, b) => new Date(b.updated_at || 0) - new Date(a.updated_at || 0)
@@ -638,8 +642,9 @@ export async function fetchConversations(query = null) {
  * Target: GET /api/conversations/{id}
  */
 export async function fetchConversationDetails(conversationId) {
+  let serverData = null;
   try {
-    const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/conversations/${conversationId}`;
+    const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/conversations/${encodeURIComponent(conversationId)}`;
 
     const response = await authFetch(url, {
       method: 'GET',
@@ -649,28 +654,89 @@ export async function fetchConversationDetails(conversationId) {
     });
 
     if (response.ok) {
-      const data = await response.json();
-      if (data && data.id) {
-        saveUserMessage(data.id, null);
-        return data;
-      }
+      serverData = await response.json();
     }
-  } catch (e) {}
+  } catch (e) {
+    console.warn('[OmniAI Storage] Network error loading conversation details:', e);
+  }
 
+  // 1. Look in user conversations local store
   const localList = getStoredUserConversations();
   const conv = localList.find((c) => c.id === conversationId);
-  if (conv) {
+
+  // 2. Also check guest storage if missing or empty in user storage
+  let guestConv = null;
+  if (!conv || !conv.messages || conv.messages.length === 0) {
+    try {
+      const { getGuestConversation } = await import('./guestStorage');
+      guestConv = getGuestConversation(conversationId);
+    } catch {}
+  }
+
+  // If server returned valid messages (non-empty), prefer server messages and sync to local
+  if (serverData && Array.isArray(serverData.messages) && serverData.messages.length > 0) {
+    if (conv) {
+      conv.messages = serverData.messages;
+      conv.title = serverData.title || conv.title;
+      conv.updated_at = serverData.updated_at || conv.updated_at;
+      saveStoredUserConversations(localList);
+    } else {
+      saveUserMessage(serverData.id, null);
+      const updated = getStoredUserConversations();
+      const c = updated.find((x) => x.id === serverData.id);
+      if (c) {
+        c.messages = serverData.messages;
+        c.title = serverData.title || c.title;
+        saveStoredUserConversations(updated);
+      }
+    }
+    return serverData;
+  }
+
+  // If server had no messages or failed, use local messages!
+  if (conv && Array.isArray(conv.messages) && conv.messages.length > 0) {
     return {
       id: conv.id,
-      title: conv.title,
-      created_at: conv.created_at,
-      updated_at: conv.updated_at,
-      user_role: 'owner',
-      messages: conv.messages || [],
+      title: serverData?.title || conv.title,
+      created_at: serverData?.created_at || conv.created_at,
+      updated_at: serverData?.updated_at || conv.updated_at,
+      user_role: serverData?.user_role || 'owner',
+      messages: conv.messages,
     };
   }
 
-  throw new Error(`Failed to load conversation: ${conversationId}`);
+  if (guestConv && Array.isArray(guestConv.messages) && guestConv.messages.length > 0) {
+    return {
+      id: guestConv.id,
+      title: guestConv.title || 'Conversation',
+      created_at: guestConv.createdAt || guestConv.created_at || new Date().toISOString(),
+      updated_at: guestConv.updatedAt || guestConv.updated_at || new Date().toISOString(),
+      user_role: 'owner',
+      messages: guestConv.messages,
+    };
+  }
+
+  if (serverData && serverData.id) {
+    return serverData;
+  }
+
+  if (conv) {
+    return conv;
+  }
+
+  if (guestConv) {
+    return guestConv;
+  }
+
+  // Graceful fallback for empty conversation
+  return {
+    id: conversationId,
+    title: 'Conversation',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    user_role: 'owner',
+    messages: [],
+  };
 }
 
 /**

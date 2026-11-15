@@ -153,12 +153,25 @@ export function useChat({ customModels = [], customKeys = {}, userSettings = {},
 
       if (isGuestMode) {
         const guestConv = getGuestConversation(convId);
+        if (guestConv && Array.isArray(guestConv.messages) && guestConv.messages.length > 0) {
+          setActiveMessages(guestConv.messages);
+          setCurrentUserRole('owner');
+          return;
+        }
+        // Fallback: check stored user conversations even in guest mode
+        const localList = getStoredUserConversations();
+        const foundLocal = localList.find((c) => c.id === convId);
+        if (foundLocal && Array.isArray(foundLocal.messages) && foundLocal.messages.length > 0) {
+          setActiveMessages(foundLocal.messages);
+          setCurrentUserRole('owner');
+          return;
+        }
         if (guestConv) {
           setActiveMessages(guestConv.messages || []);
           setCurrentUserRole('owner');
-        } else {
-          setActiveMessages([]);
+          return;
         }
+        setActiveMessages([]);
         return;
       }
 
@@ -167,24 +180,25 @@ export function useChat({ customModels = [], customKeys = {}, userSettings = {},
         setCurrentUserRole(data.user_role || 'owner');
 
         const loadedMessages = (data.messages || []).map((msg) => {
-          const modelInfo = allModels.find((m) => m.id === msg.model_id);
+          const actualModelId = msg.model_id || msg.modelId;
+          const modelInfo = allModels.find((m) => m.id === actualModelId);
           return {
             id: msg.id,
-            sender: msg.role === 'assistant' ? 'assistant' : 'user',
+            sender: msg.sender || (msg.role === 'assistant' ? 'assistant' : 'user'),
             content: msg.content,
-            modelId: msg.model_id,
+            modelId: actualModelId,
             provider: msg.provider,
-            latencyMs: msg.latency_ms,
+            latencyMs: msg.latency_ms || msg.latencyMs,
             author_id: msg.author_id,
             author_name: msg.author_name,
             routed: Boolean(msg.routed),
             routingCategory: msg.routing_category,
             routingExplanation: msg.routing_explanation,
             effort: msg.effort || 'medium',
-            documentId: msg.document_id,
-            documentName: msg.document_name,
-            timestamp: msg.created_at,
-            modelName: modelInfo ? modelInfo.name : msg.model_id || 'OmniAI Model',
+            documentId: msg.document_id || msg.documentId,
+            documentName: msg.document_name || msg.documentName,
+            timestamp: msg.created_at || msg.timestamp,
+            modelName: modelInfo ? modelInfo.name : msg.model_name || msg.modelName || actualModelId || 'OmniAI Model',
             modelTag: modelInfo ? modelInfo.tag : null,
           };
         });

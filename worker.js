@@ -1474,14 +1474,7 @@ async function handleApiRequest(request, url, env) {
       // GET /api/conversations/:id
       if (method === "GET" && !subAction) {
         if (!conv) {
-          return jsonResponse({
-            id: convId,
-            title: "Conversation",
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            user_role: "owner",
-            messages: [],
-          });
+          return jsonResponse({ detail: "Conversation not found on edge" }, 404);
         }
         return jsonResponse(conv);
       }
