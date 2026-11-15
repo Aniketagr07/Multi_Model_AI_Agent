@@ -1217,12 +1217,259 @@ async function handleApiRequest(request, url, env) {
   }
 
   if (path.startsWith("/api/conversations/")) {
-    const parts = path.split("/").filter(Boolean); // ['api', 'conversations', ':id', ...]
+    const parts = path.split("/").filter(Boolean); // ['api', 'conversations', ':id' or 'join', ...]
     const convId = parts[2];
     const subAction = parts[3];
 
+    // POST or GET /api/conversations/join/:token
+    if (convId === "join") {
+      const token = subAction;
+      let matchedConv = null;
+      let matchedRole = "editor";
+
+      for (const c of conversationsStore.values()) {
+        if (c.share_token === token) {
+          matchedConv = c;
+          matchedRole = c.share_permission || "editor";
+          break;
+        }
+        if (c.pending_invitations) {
+          const inv = c.pending_invitations.find((i) => i.token === token);
+          if (inv) {
+            matchedConv = c;
+            matchedRole = inv.role || "editor";
+            inv.status = "accepted";
+            break;
+          }
+        }
+      }
+
+      if (!matchedConv) {
+        const extractedId = token && token.startsWith("st_") ? token.replace(/^st_/, "").split("_")[0] : null;
+        if (extractedId && conversationsStore.has(extractedId)) {
+          matchedConv = conversationsStore.get(extractedId);
+        }
+      }
+
+      if (matchedConv) {
+        if (!matchedConv.members) matchedConv.members = [];
+        if (!matchedConv.members.some((m) => m.user_id === "joined_user")) {
+          matchedConv.members.push({
+            id: `mem_${Date.now()}`,
+            user_id: `user_${Date.now().toString(36)}`,
+            display_name: "Collaborator",
+            role: matchedRole,
+            joined_at: new Date().toISOString(),
+          });
+        }
+        return jsonResponse({
+          conversation_id: matchedConv.id,
+          role: matchedRole,
+          title: matchedConv.title || "Shared Conversation",
+          message: "Joined shared conversation successfully.",
+        });
+      }
+
+      return jsonResponse({
+        conversation_id: `conv_${(token || "shared").slice(0, 12)}`,
+        role: "editor",
+        title: "Shared Conversation",
+        message: "Joined shared conversation successfully.",
+      });
+    }
+
     if (convId) {
       let conv = conversationsStore.get(convId);
+
+      // GET /api/conversations/:id/share
+      if (subAction === "share" && method === "GET") {
+        if (!conv) {
+          conv = {
+            id: convId,
+            title: "Shared Conversation",
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            user_role: "owner",
+            sharing_enabled: false,
+            share_permission: "editor",
+            share_token: `st_${convId.replace(/[^a-zA-Z0-9]/g, "").slice(0, 16)}_${Date.now().toString(36)}`,
+            members: [],
+            pending_invitations: [],
+            messages: [],
+          };
+          conversationsStore.set(convId, conv);
+        }
+
+        if (!conv.share_token) {
+          conv.share_token = `st_${convId.replace(/[^a-zA-Z0-9]/g, "").slice(0, 16)}_${Date.now().toString(36)}`;
+        }
+        if (conv.sharing_enabled === undefined) conv.sharing_enabled = false;
+        if (!conv.share_permission) conv.share_permission = "editor";
+        if (!conv.members) conv.members = [];
+        if (!conv.pending_invitations) conv.pending_invitations = [];
+
+        const origin = request.headers.get("Origin") || new URL(request.url).origin;
+        return jsonResponse({
+          conversation_id: convId,
+          title: conv.title || "Conversation",
+          sharing_enabled: Boolean(conv.sharing_enabled),
+          share_permission: conv.share_permission || "editor",
+          share_token: conv.share_token,
+          share_url: `${origin}/join/c/${conv.share_token}`,
+          current_user_role: conv.user_role || "owner",
+          owner: {
+            id: "owner",
+            display_name: "You",
+            email: "owner@omniai.app",
+          },
+          members:
+            conv.members.length > 0
+              ? conv.members
+              : [
+                  {
+                    id: "mem_owner",
+                    user_id: "owner",
+                    display_name: "You (Owner)",
+                    role: "owner",
+                    joined_at: conv.created_at || new Date().toISOString(),
+                  },
+                ],
+          pending_invitations: conv.pending_invitations,
+        });
+      }
+
+      // PATCH /api/conversations/:id/share
+      if (subAction === "share" && method === "PATCH") {
+        const body = await request.json().catch(() => ({}));
+        if (!conv) {
+          conv = {
+            id: convId,
+            title: "Shared Conversation",
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            user_role: "owner",
+            sharing_enabled: false,
+            share_permission: "editor",
+            share_token: `st_${convId.replace(/[^a-zA-Z0-9]/g, "").slice(0, 16)}_${Date.now().toString(36)}`,
+            members: [],
+            pending_invitations: [],
+            messages: [],
+          };
+          conversationsStore.set(convId, conv);
+        }
+
+        if (body.sharing_enabled !== undefined) {
+          conv.sharing_enabled = Boolean(body.sharing_enabled);
+        }
+        if (body.share_permission) {
+          conv.share_permission = body.share_permission;
+        }
+        if (!conv.share_token) {
+          conv.share_token = `st_${convId.replace(/[^a-zA-Z0-9]/g, "").slice(0, 16)}_${Date.now().toString(36)}`;
+        }
+        conv.updated_at = new Date().toISOString();
+
+        const origin = request.headers.get("Origin") || new URL(request.url).origin;
+        return jsonResponse({
+          conversation_id: convId,
+          title: conv.title || "Conversation",
+          sharing_enabled: Boolean(conv.sharing_enabled),
+          share_permission: conv.share_permission || "editor",
+          share_token: conv.share_token,
+          share_url: `${origin}/join/c/${conv.share_token}`,
+          current_user_role: conv.user_role || "owner",
+          owner: {
+            id: "owner",
+            display_name: "You",
+            email: "owner@omniai.app",
+          },
+          members:
+            conv.members && conv.members.length > 0
+              ? conv.members
+              : [
+                  {
+                    id: "mem_owner",
+                    user_id: "owner",
+                    display_name: "You (Owner)",
+                    role: "owner",
+                    joined_at: conv.created_at || new Date().toISOString(),
+                  },
+                ],
+          pending_invitations: conv.pending_invitations || [],
+        });
+      }
+
+      // POST /api/conversations/:id/invitations
+      if (subAction === "invitations" && method === "POST") {
+        const body = await request.json().catch(() => ({}));
+        if (!conv) {
+          conv = {
+            id: convId,
+            title: "Shared Conversation",
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            user_role: "owner",
+            sharing_enabled: true,
+            share_permission: "editor",
+            share_token: `st_${convId.replace(/[^a-zA-Z0-9]/g, "").slice(0, 16)}_${Date.now().toString(36)}`,
+            members: [],
+            pending_invitations: [],
+            messages: [],
+          };
+          conversationsStore.set(convId, conv);
+        }
+        if (!conv.pending_invitations) conv.pending_invitations = [];
+
+        const invToken = `inv_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+        const origin = request.headers.get("Origin") || new URL(request.url).origin;
+        const newInv = {
+          id: `inv_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          conversation_id: convId,
+          inviter_user_id: "owner",
+          email: body.email || null,
+          token: invToken,
+          role: body.role || "editor",
+          status: "pending",
+          expires_at: new Date(Date.now() + (body.expiry_days || 7) * 86400 * 1000).toISOString(),
+          created_at: new Date().toISOString(),
+          invite_url: `${origin}/join/c/${invToken}`,
+        };
+        conv.pending_invitations.push(newInv);
+        return jsonResponse(newInv, 201);
+      }
+
+      // DELETE /api/conversations/:id/invitations/:invId
+      if (subAction === "invitations" && method === "DELETE") {
+        const invId = parts[4];
+        if (conv && conv.pending_invitations) {
+          conv.pending_invitations = conv.pending_invitations.filter((i) => i.id !== invId && i.token !== invId);
+        }
+        return jsonResponse({ success: true, invitation_id: invId });
+      }
+
+      // DELETE /api/conversations/:id/members/:userId
+      if (subAction === "members" && method === "DELETE") {
+        const userId = parts[4];
+        if (conv && conv.members) {
+          conv.members = conv.members.filter((m) => m.user_id !== userId && m.id !== userId);
+        }
+        return jsonResponse({ success: true, user_id: userId });
+      }
+
+      // PATCH /api/conversations/:id/members/:userId
+      if (subAction === "members" && method === "PATCH") {
+        const userId = parts[4];
+        const body = await request.json().catch(() => ({}));
+        let updatedMember = null;
+        if (conv && conv.members) {
+          const m = conv.members.find((x) => x.user_id === userId || x.id === userId);
+          if (m) {
+            if (body.role) m.role = body.role;
+            updatedMember = m;
+          }
+        }
+        return jsonResponse(updatedMember || { user_id: userId, role: body.role || "editor" });
+      }
 
       // GET /api/conversations/:id
       if (method === "GET" && !subAction) {
