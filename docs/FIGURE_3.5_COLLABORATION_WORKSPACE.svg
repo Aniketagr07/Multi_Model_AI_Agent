@@ -1,0 +1,579 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1920" width="100%" height="100%">
+  <defs>
+    <linearGradient id="header-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0F172A" />
+      <stop offset="50%" stop-color="#1E3A8A" />
+      <stop offset="100%" stop-color="#312E81" />
+    </linearGradient>
+
+    <linearGradient id="owner-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFBEB" />
+      <stop offset="100%" stop-color="#FEF3C7" />
+    </linearGradient>
+
+    <linearGradient id="editor-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#EFF6FF" />
+      <stop offset="100%" stop-color="#DBEAFE" />
+    </linearGradient>
+
+    <linearGradient id="viewer-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F0FDF4" />
+      <stop offset="100%" stop-color="#DCFCE7" />
+    </linearGradient>
+
+    <linearGradient id="ws-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F5F3FF" />
+      <stop offset="100%" stop-color="#EDE9FE" />
+    </linearGradient>
+
+    <filter id="card-shadow" x="-2%" y="-3%" width="104%" height="108%" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#0F172A" flood-opacity="0.06" />
+    </filter>
+
+    <filter id="accent-shadow" x="-2%" y="-4%" width="104%" height="110%" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#1E3A8A" flood-opacity="0.08" />
+    </filter>
+
+    <marker id="arrow-down" viewBox="0 0 10 10" refX="5" refY="9" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 0 L 5 9 z" fill="#2563EB" />
+    </marker>
+
+    <marker id="arrow-right" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 9 5 L 0 10 z" fill="#2563EB" />
+    </marker>
+
+    <marker id="arrow-left" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 10 0 L 1 5 L 10 10 z" fill="#2563EB" />
+    </marker>
+
+    <marker id="arrow-purple-right" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 9 5 L 0 10 z" fill="#7C3AED" />
+    </marker>
+
+    <marker id="arrow-purple-left" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 10 0 L 1 5 L 10 10 z" fill="#7C3AED" />
+    </marker>
+
+    <marker id="arrow-emerald-right" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 9 5 L 0 10 z" fill="#059669" />
+    </marker>
+
+    <marker id="arrow-navy-down" viewBox="0 0 10 10" refX="5" refY="9" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 0 L 5 9 z" fill="#1E3A8A" />
+    </marker>
+  </defs>
+
+  <!-- Background Canvas -->
+  <rect width="1200" height="1920" fill="#FFFFFF" />
+
+  <!-- Outer Frame -->
+  <rect x="25" y="25" width="1150" height="1870" rx="14" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.5" />
+
+  <!-- ==================== HEADER ==================== -->
+  <rect x="25" y="25" width="1150" height="92" rx="14" fill="url(#header-grad)" />
+  <rect x="25" y="103" width="1150" height="14" fill="#1E3A8A" />
+
+  <text x="600" y="60" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="20" font-weight="800" fill="#FFFFFF" letter-spacing="0.5">
+    FIGURE 3.5: COLLABORATION AND PROJECT WORKSPACE INTERACTION IN OMNIAI
+  </text>
+  <text x="600" y="85" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#93C5FD">
+    Multi-User Project Workspaces, Role-Based Access Control (RBAC), Shared Resources &amp; Real-Time WebSocket Synchronization
+  </text>
+
+
+  <!-- ==================== SECTION 1: WORKSPACE CREATION ==================== -->
+  <g transform="translate(100, 135)">
+    <!-- Section Header Container -->
+    <rect x="0" y="0" width="1000" height="150" rx="10" fill="#FFFFFF" stroke="#2563EB" stroke-width="1.5" filter="url(#card-shadow)" />
+    
+    <rect x="20" y="14" width="105" height="26" rx="6" fill="#1E3A8A" />
+    <text x="72" y="31" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="700" fill="#FFFFFF">SECTION 1</text>
+    
+    <text x="135" y="32" font-family="sans-serif" font-size="15" font-weight="700" fill="#0F172A">WORKSPACE CREATION &amp; INVITATION LIFECYCLE</text>
+    <text x="560" y="32" font-family="sans-serif" font-size="12" fill="#64748B">(Owner-Initiated Collaborative Setup)</text>
+
+    <!-- Step 1.1: Owner -->
+    <g transform="translate(30, 56)">
+      <rect x="0" y="0" width="240" height="74" rx="8" fill="#FFFBEB" stroke="#F59E0B" stroke-width="1.5" />
+      <rect x="12" y="10" width="70" height="20" rx="4" fill="#D97706" />
+      <text x="47" y="24" text-anchor="middle" font-family="sans-serif" font-size="10" font-weight="700" fill="#FFFFFF">INITIATOR</text>
+      <text x="92" y="25" font-family="sans-serif" font-size="12.5" font-weight="700" fill="#78350F">Workspace Owner</text>
+      <text x="12" y="48" font-family="sans-serif" font-size="10.5" fill="#475569">Authenticated primary user</text>
+      <text x="12" y="62" font-family="sans-serif" font-size="10.5" fill="#475569">initiating collaborative project.</text>
+    </g>
+
+    <!-- Arrow 1.1 -> 1.2 -->
+    <line x1="272" y1="93" x2="350" y2="93" stroke="#2563EB" stroke-width="2" marker-end="url(#arrow-right)" />
+    <text x="311" y="83" text-anchor="middle" font-family="sans-serif" font-size="9.5" font-weight="700" fill="#2563EB">Creates</text>
+
+    <!-- Step 1.2: Workspace Creation -->
+    <g transform="translate(355, 56)">
+      <rect x="0" y="0" width="280" height="74" rx="8" fill="#EFF6FF" stroke="#3B82F6" stroke-width="1.5" />
+      <rect x="12" y="10" width="80" height="20" rx="4" fill="#1D4ED8" />
+      <text x="52" y="24" text-anchor="middle" font-family="sans-serif" font-size="10" font-weight="700" fill="#FFFFFF">WORKSPACE</text>
+      <text x="102" y="25" font-family="sans-serif" font-size="12.5" font-weight="700" fill="#1E3A8A">Collaborative Project</text>
+      <text x="12" y="48" font-family="sans-serif" font-size="10.5" fill="#475569">Allocates workspace UUID in SQLite,</text>
+      <text x="12" y="62" font-family="sans-serif" font-size="10.5" fill="#475569">initializes settings, binds owner role.</text>
+    </g>
+
+    <!-- Arrow 1.2 -> 1.3 -->
+    <line x1="637" y1="93" x2="715" y2="93" stroke="#2563EB" stroke-width="2" marker-end="url(#arrow-right)" />
+    <text x="676" y="83" text-anchor="middle" font-family="sans-serif" font-size="9.5" font-weight="700" fill="#2563EB">Invites</text>
+
+    <!-- Step 1.3: Member Invitations -->
+    <g transform="translate(720, 56)">
+      <rect x="0" y="0" width="250" height="74" rx="8" fill="#F5F3FF" stroke="#8B5CF6" stroke-width="1.5" />
+      <rect x="12" y="10" width="85" height="20" rx="4" fill="#6D28D9" />
+      <text x="54" y="24" text-anchor="middle" font-family="sans-serif" font-size="10" font-weight="700" fill="#FFFFFF">INVITATIONS</text>
+      <text x="106" y="25" font-family="sans-serif" font-size="12" font-weight="700" fill="#4C1D95">Adds Members</text>
+      <text x="12" y="48" font-family="sans-serif" font-size="10.5" fill="#475569">Issues secure invite tokens</text>
+      <text x="12" y="62" font-family="sans-serif" font-size="10.5" fill="#475569">or email invites with role tiers.</text>
+    </g>
+  </g>
+
+  <!-- Arrow Section 1 -> Section 2 -->
+  <line x1="600" y1="287" x2="600" y2="310" stroke="#2563EB" stroke-width="2" marker-end="url(#arrow-down)" />
+
+
+  <!-- ==================== SECTION 2: ROLE-BASED ACCESS CONTROL (RBAC) ==================== -->
+  <g transform="translate(100, 313)">
+    <rect x="0" y="0" width="1000" height="225" rx="10" fill="#FFFFFF" stroke="#3B82F6" stroke-width="1.5" filter="url(#card-shadow)" />
+    
+    <rect x="20" y="14" width="105" height="26" rx="6" fill="#1E3A8A" />
+    <text x="72" y="31" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="700" fill="#FFFFFF">SECTION 2</text>
+    
+    <text x="135" y="32" font-family="sans-serif" font-size="15" font-weight="700" fill="#0F172A">ROLE-BASED ACCESS CONTROL (RBAC)</text>
+    <text x="470" y="32" font-family="sans-serif" font-size="12" fill="#64748B">(Granular Multi-User Authorization Matrix)</text>
+
+    <!-- 3 Roles Side by Side -->
+    <g transform="translate(20, 52)">
+      <!-- Role 1: OWNER -->
+      <rect x="0" y="0" width="306" height="155" rx="8" fill="url(#owner-grad)" stroke="#F59E0B" stroke-width="1.5" />
+      <rect x="14" y="14" width="75" height="24" rx="5" fill="#B45309" />
+      <text x="51" y="30" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="800" fill="#FFFFFF">OWNER</text>
+      <text x="98" y="31" font-family="sans-serif" font-size="13" font-weight="700" fill="#78350F">Workspace Creator</text>
+      
+      <line x1="14" y1="46" x2="292" y2="46" stroke="#FDE68A" stroke-width="1.5" />
+
+      <text x="14" y="65" font-family="sans-serif" font-size="11" font-weight="700" fill="#92400E">• Full workspace administrative control</text>
+      <text x="14" y="85" font-family="sans-serif" font-size="11" fill="#78350F">• Manage members (invite, promote, remove)</text>
+      <text x="14" y="105" font-family="sans-serif" font-size="11" fill="#78350F">• Manage workspace settings &amp; public access</text>
+      <text x="14" y="125" font-family="sans-serif" font-size="11" fill="#78350F">• Manage shared resources &amp; file attachments</text>
+      <text x="14" y="143" font-family="monospace" font-size="9.5" font-weight="700" fill="#B45309">can_manage = true | can_write = true</text>
+
+      <!-- Role 2: EDITOR -->
+      <rect x="326" y="0" width="306" height="155" rx="8" fill="url(#editor-grad)" stroke="#3B82F6" stroke-width="1.5" />
+      <rect x="340" y="14" width="75" height="24" rx="5" fill="#1D4ED8" />
+      <text x="377" y="30" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="800" fill="#FFFFFF">EDITOR</text>
+      <text x="424" y="31" font-family="sans-serif" font-size="13" font-weight="700" fill="#1E3A8A">Collaborating Member</text>
+
+      <line x1="340" y1="46" x2="618" y2="46" stroke="#BFDBFE" stroke-width="1.5" />
+
+      <text x="340" y="65" font-family="sans-serif" font-size="11" font-weight="700" fill="#1E40AF">• Participate actively in shared chats</text>
+      <text x="340" y="85" font-family="sans-serif" font-size="11" fill="#334155">• Send prompts &amp; trigger model reasoning</text>
+      <text x="340" y="105" font-family="sans-serif" font-size="11" fill="#334155">• Create, modify &amp; annotate shared documents</text>
+      <text x="340" y="125" font-family="sans-serif" font-size="11" fill="#334155">• Cannot remove members or alter privacy</text>
+      <text x="340" y="143" font-family="monospace" font-size="9.5" font-weight="700" fill="#1D4ED8">can_manage = false | can_write = true</text>
+
+      <!-- Role 3: VIEWER -->
+      <rect x="652" y="0" width="308" height="155" rx="8" fill="url(#viewer-grad)" stroke="#059669" stroke-width="1.5" />
+      <rect x="666" y="14" width="75" height="24" rx="5" fill="#047857" />
+      <text x="703" y="30" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="800" fill="#FFFFFF">VIEWER</text>
+      <text x="750" y="31" font-family="sans-serif" font-size="13" font-weight="700" fill="#065F46">Observer / Auditor</text>
+
+      <line x1="666" y1="46" x2="946" y2="46" stroke="#BBF7D0" stroke-width="1.5" />
+
+      <text x="666" y="65" font-family="sans-serif" font-size="11" font-weight="700" fill="#065F46">• Access &amp; inspect shared conversations</text>
+      <text x="666" y="85" font-family="sans-serif" font-size="11" fill="#334155">• Read-only permission over chat history</text>
+      <text x="666" y="105" font-family="sans-serif" font-size="11" fill="#334155">• View synchronized AI responses in real time</text>
+      <text x="666" y="125" font-family="sans-serif" font-size="11" fill="#334155">• Message submission inputs disabled</text>
+      <text x="666" y="143" font-family="monospace" font-size="9.5" font-weight="700" fill="#047857">can_manage = false | can_write = false</text>
+    </g>
+  </g>
+
+  <!-- Arrow Section 2 -> Section 3 -->
+  <line x1="600" y1="540" x2="600" y2="563" stroke="#2563EB" stroke-width="2" marker-end="url(#arrow-down)" />
+
+
+  <!-- ==================== SECTION 3: SHARED RESOURCES ==================== -->
+  <g transform="translate(100, 566)">
+    <rect x="0" y="0" width="1000" height="255" rx="10" fill="#FFFFFF" stroke="#1E3A8A" stroke-width="1.5" filter="url(#card-shadow)" />
+    
+    <rect x="20" y="14" width="105" height="26" rx="6" fill="#1E3A8A" />
+    <text x="72" y="31" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="700" fill="#FFFFFF">SECTION 3</text>
+    
+    <text x="135" y="32" font-family="sans-serif" font-size="15" font-weight="700" fill="#0F172A">SHARED WORKSPACE RESOURCES</text>
+    <text x="430" y="32" font-family="sans-serif" font-size="12" fill="#64748B">(Centralized Project Entity in SQLite Persistence)</text>
+
+    <!-- Role-Based Authorization Gatekeeper Bar -->
+    <g transform="translate(20, 52)">
+      <rect x="0" y="0" width="960" height="34" rx="6" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1" />
+      <rect x="10" y="6" width="155" height="22" rx="4" fill="#0F172A" />
+      <text x="87" y="21" text-anchor="middle" font-family="sans-serif" font-size="10" font-weight="700" fill="#F8FAFC">RBAC GATEKEEPER</text>
+      <text x="180" y="21" font-family="sans-serif" font-size="11" font-weight="600" fill="#334155">
+        Backend validates member role &amp; execution permission before permitting operations on shared assets.
+      </text>
+    </g>
+
+    <!-- 5 Shared Resource Containers -->
+    <g transform="translate(20, 96)">
+      <!-- Resource 1: Shared Conversations -->
+      <rect x="0" y="0" width="180" height="135" rx="8" fill="#EFF6FF" stroke="#3B82F6" stroke-width="1.5" />
+      <rect x="12" y="12" width="28" height="28" rx="6" fill="#DBEAFE" />
+      <text x="26" y="30" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#1E40AF">💬</text>
+      <text x="48" y="25" font-family="sans-serif" font-size="12" font-weight="700" fill="#1E3A8A">Shared</text>
+      <text x="48" y="40" font-family="sans-serif" font-size="12" font-weight="700" fill="#1E3A8A">Conversations</text>
+      <line x1="12" y1="48" x2="168" y2="48" stroke="#BFDBFE" stroke-width="1" />
+      <text x="12" y="66" font-family="sans-serif" font-size="10.5" fill="#334155">• Multi-turn threads</text>
+      <text x="12" y="84" font-family="sans-serif" font-size="10.5" fill="#334155">• Real-time message log</text>
+      <text x="12" y="102" font-family="sans-serif" font-size="10.5" fill="#334155">• Author attribution</text>
+      <text x="12" y="120" font-family="sans-serif" font-size="10.5" fill="#334155">• Model reasoning history</text>
+
+      <!-- Resource 2: Project Files -->
+      <rect x="195" y="0" width="180" height="135" rx="8" fill="#F5F3FF" stroke="#8B5CF6" stroke-width="1.5" />
+      <rect x="207" y="12" width="28" height="28" rx="6" fill="#EDE9FE" />
+      <text x="221" y="30" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#6D28D9">📄</text>
+      <text x="243" y="25" font-family="sans-serif" font-size="12" font-weight="700" fill="#4C1D95">Project</text>
+      <text x="243" y="40" font-family="sans-serif" font-size="12" font-weight="700" fill="#4C1D95">Files</text>
+      <line x1="207" y1="48" x2="363" y2="48" stroke="#DDD6FE" stroke-width="1" />
+      <text x="207" y="66" font-family="sans-serif" font-size="10.5" fill="#334155">• Attached PDF manuals</text>
+      <text x="207" y="84" font-family="sans-serif" font-size="10.5" fill="#334155">• Plain text notes (.txt)</text>
+      <text x="207" y="102" font-family="sans-serif" font-size="10.5" fill="#334155">• Markdown specs (.md)</text>
+      <text x="207" y="120" font-family="sans-serif" font-size="10.5" fill="#334155">• Chunked text metadata</text>
+
+      <!-- Resource 3: Workspace Members -->
+      <rect x="390" y="0" width="180" height="135" rx="8" fill="#FFFBEB" stroke="#F59E0B" stroke-width="1.5" />
+      <rect x="402" y="12" width="28" height="28" rx="6" fill="#FEF3C7" />
+      <text x="416" y="30" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#B45309">👥</text>
+      <text x="438" y="25" font-family="sans-serif" font-size="12" font-weight="700" fill="#78350F">Workspace</text>
+      <text x="438" y="40" font-family="sans-serif" font-size="12" font-weight="700" fill="#78350F">Members</text>
+      <line x1="402" y1="48" x2="558" y2="48" stroke="#FDE68A" stroke-width="1" />
+      <text x="402" y="66" font-family="sans-serif" font-size="10.5" fill="#334155">• Member roster table</text>
+      <text x="402" y="84" font-family="sans-serif" font-size="10.5" fill="#334155">• Assigned RBAC roles</text>
+      <text x="402" y="102" font-family="sans-serif" font-size="10.5" fill="#334155">• Pending invite tokens</text>
+      <text x="402" y="120" font-family="sans-serif" font-size="10.5" fill="#334155">• Join date tracking</text>
+
+      <!-- Resource 4: Workspace Settings -->
+      <rect x="585" y="0" width="180" height="135" rx="8" fill="#F0FDF4" stroke="#059669" stroke-width="1.5" />
+      <rect x="597" y="12" width="28" height="28" rx="6" fill="#DCFCE7" />
+      <text x="611" y="30" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#047857">⚙️</text>
+      <text x="633" y="25" font-family="sans-serif" font-size="12" font-weight="700" fill="#065F46">Workspace</text>
+      <text x="633" y="40" font-family="sans-serif" font-size="12" font-weight="700" fill="#065F46">Settings</text>
+      <line x1="597" y1="48" x2="753" y2="48" stroke="#BBF7D0" stroke-width="1" />
+      <text x="597" y="66" font-family="sans-serif" font-size="10.5" fill="#334155">• Public link sharing toggle</text>
+      <text x="597" y="84" font-family="sans-serif" font-size="10.5" fill="#334155">• Default join permission</text>
+      <text x="597" y="102" font-family="sans-serif" font-size="10.5" fill="#334155">• Project icon &amp; description</text>
+      <text x="597" y="120" font-family="sans-serif" font-size="10.5" fill="#334155">• Model routing presets</text>
+
+      <!-- Resource 5: Custom Skills -->
+      <rect x="780" y="0" width="180" height="135" rx="8" fill="#F8FAFC" stroke="#64748B" stroke-width="1.5" />
+      <rect x="792" y="12" width="28" height="28" rx="6" fill="#E2E8F0" />
+      <text x="806" y="30" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#334155">⚡</text>
+      <text x="828" y="25" font-family="sans-serif" font-size="12" font-weight="700" fill="#1E293B">Custom</text>
+      <text x="828" y="40" font-family="sans-serif" font-size="12" font-weight="700" fill="#1E293B">Skills</text>
+      <line x1="792" y1="48" x2="948" y2="48" stroke="#CBD5E1" stroke-width="1" />
+      <text x="792" y="66" font-family="sans-serif" font-size="10.5" fill="#334155">• Workspace prompt rules</text>
+      <text x="792" y="84" font-family="sans-serif" font-size="10.5" fill="#334155">• Custom instruction sets</text>
+      <text x="792" y="102" font-family="sans-serif" font-size="10.5" fill="#334155">• Domain prompt templates</text>
+      <text x="792" y="120" font-family="sans-serif" font-size="10" font-style="italic" fill="#64748B">(Internal custom logic only)</text>
+    </g>
+  </g>
+
+  <!-- Arrow Section 3 -> Section 4 -->
+  <line x1="600" y1="823" x2="600" y2="846" stroke="#2563EB" stroke-width="2" marker-end="url(#arrow-down)" />
+
+
+  <!-- ==================== SECTION 4: REAL-TIME COLLABORATION ==================== -->
+  <g transform="translate(100, 850)">
+    <rect x="0" y="0" width="1000" height="850" rx="10" fill="#FFFFFF" stroke="#2563EB" stroke-width="2" filter="url(#accent-shadow)" />
+    
+    <rect x="20" y="16" width="105" height="26" rx="6" fill="#1E3A8A" />
+    <text x="72" y="33" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="700" fill="#FFFFFF">SECTION 4</text>
+    
+    <text x="135" y="34" font-family="sans-serif" font-size="15" font-weight="700" fill="#0F172A">REAL-TIME MULTI-USER WEBSOCKET COLLABORATION</text>
+    <text x="610" y="34" font-family="sans-serif" font-size="12" fill="#64748B">(State Synchronization &amp; Event Broadcasting)</text>
+
+    <!-- Subtitle description -->
+    <text x="20" y="60" font-family="sans-serif" font-size="11.5" fill="#475569">
+      Two or more active participants interact concurrently within the same shared project conversation. WebSocket channels broadcast real-time updates.
+    </text>
+
+
+    <!-- ==================== 3-COLUMN ARCHITECTURE ==================== -->
+
+    <!-- COLUMN A: USER A (EDITOR / OWNER) CLIENT -->
+    <g transform="translate(25, 76)">
+      <rect x="0" y="0" width="280" height="420" rx="8" fill="#F8FAFC" stroke="#3B82F6" stroke-width="1.5" />
+      
+      <!-- User A Header -->
+      <rect x="12" y="12" width="256" height="44" rx="6" fill="#EFF6FF" stroke="#BFDBFE" stroke-width="1" />
+      <circle cx="32" cy="34" r="12" fill="#2563EB" />
+      <text x="32" y="38" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="700" fill="#FFFFFF">A</text>
+      <text x="52" y="28" font-family="sans-serif" font-size="12" font-weight="700" fill="#1E3A8A">User A (Editor / Owner)</text>
+      <text x="52" y="44" font-family="sans-serif" font-size="10.5" fill="#475569">React.js Client Session #1</text>
+
+      <!-- Action 1: User sends prompt -->
+      <g transform="translate(12, 68)">
+        <rect x="0" y="0" width="256" height="66" rx="6" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1" />
+        <rect x="8" y="8" width="60" height="18" rx="4" fill="#2563EB" />
+        <text x="38" y="21" text-anchor="middle" font-family="sans-serif" font-size="9" font-weight="700" fill="#FFFFFF">STEP 4.1</text>
+        <text x="74" y="21" font-family="sans-serif" font-size="11" font-weight="700" fill="#0F172A">User Submits Message</text>
+        <text x="8" y="42" font-family="sans-serif" font-size="10" fill="#475569">User A types and dispatches a prompt:</text>
+        <text x="8" y="56" font-family="monospace" font-size="9.5" fill="#2563EB">&quot;Explain space complexity of Quicksort&quot;</text>
+      </g>
+
+      <!-- Action 2: Typing indicator broadcast -->
+      <g transform="translate(12, 146)">
+        <rect x="0" y="0" width="256" height="52" rx="6" fill="#EFF6FF" stroke="#BFDBFE" stroke-width="1" />
+        <text x="10" y="20" font-family="sans-serif" font-size="10.5" font-weight="700" fill="#1E3A8A">Typing Event Triggered</text>
+        <text x="10" y="34" font-family="sans-serif" font-size="10" fill="#475569">Client emits real-time keystroke event:</text>
+        <text x="10" y="46" font-family="monospace" font-size="9" fill="#2563EB">{ type: &quot;user_typing&quot;, is_typing: true }</text>
+      </g>
+
+      <!-- Action 3: Progressive streaming display -->
+      <g transform="translate(12, 210)">
+        <rect x="0" y="0" width="256" height="96" rx="6" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1" />
+        <text x="10" y="20" font-family="sans-serif" font-size="11" font-weight="700" fill="#0F172A">Progressive Stream Display</text>
+        <text x="10" y="36" font-family="sans-serif" font-size="10" fill="#475569">Tokens render progressively on User A's</text>
+        <text x="10" y="50" font-family="sans-serif" font-size="10" fill="#475569">screen as model generates response:</text>
+        
+        <rect x="10" y="58" width="236" height="30" rx="4" fill="#0F172A" />
+        <text x="16" y="77" font-family="monospace" font-size="9" fill="#38BDF8">&gt; Quicksort average: O(log n)...</text>
+      </g>
+
+      <!-- Local State -->
+      <g transform="translate(12, 318)">
+        <rect x="0" y="0" width="256" height="88" rx="6" fill="#F0FDF4" stroke="#BBF7D0" stroke-width="1" />
+        <text x="10" y="19" font-family="sans-serif" font-size="10.5" font-weight="700" fill="#15803D">Client UI Capabilities</text>
+        <text x="10" y="35" font-family="sans-serif" font-size="10" fill="#334155">✓ Active message input textarea</text>
+        <text x="10" y="51" font-family="sans-serif" font-size="10" fill="#334155">✓ Document upload attachment</text>
+        <text x="10" y="67" font-family="sans-serif" font-size="10" fill="#334155">✓ Edit / Delete permitted messages</text>
+        <text x="10" y="81" font-family="sans-serif" font-size="10" fill="#334155">✓ Member list &amp; typing status bar</text>
+      </g>
+    </g>
+
+
+    <!-- COLUMN B: FASTAPI BACKEND & COLLABORATION SERVICE -->
+    <g transform="translate(330, 76)">
+      <rect x="0" y="0" width="340" height="420" rx="8" fill="#F8FAFC" stroke="#1E3A8A" stroke-width="1.5" />
+      
+      <!-- Backend Header -->
+      <rect x="12" y="12" width="316" height="44" rx="6" fill="#1E3A8A" />
+      <text x="170" y="29" text-anchor="middle" font-family="sans-serif" font-size="12.5" font-weight="700" fill="#FFFFFF">OmniAI Backend Infrastructure</text>
+      <text x="170" y="45" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#93C5FD">Python FastAPI | Collaboration Service</text>
+
+      <!-- Component 1: RBAC Validation Engine -->
+      <g transform="translate(12, 66)">
+        <rect x="0" y="0" width="316" height="58" rx="6" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1" />
+        <text x="10" y="19" font-family="sans-serif" font-size="11" font-weight="700" fill="#0F172A">1. RBAC Access Verification</text>
+        <text x="10" y="34" font-family="sans-serif" font-size="10" fill="#475569">Executes get_conversation_access(conv_id, user):</text>
+        <text x="10" y="48" font-family="monospace" font-size="9" fill="#1E3A8A">Validates can_write permission prior to accept</text>
+      </g>
+
+      <!-- Component 2: WebSocket Connection Manager -->
+      <g transform="translate(12, 134)">
+        <rect x="0" y="0" width="316" height="74" rx="6" fill="#F5F3FF" stroke="#DDD6FE" stroke-width="1.5" />
+        <text x="10" y="20" font-family="sans-serif" font-size="11.5" font-weight="700" fill="#4C1D95">2. WebSocket Room Manager</text>
+        <text x="10" y="36" font-family="sans-serif" font-size="10" fill="#334155">Maintains active socket channels per conversation:</text>
+        <text x="10" y="52" font-family="monospace" font-size="9" fill="#6D28D9">active_connections: Dict[conv_id, Set[WebSocket]]</text>
+        <text x="10" y="66" font-family="sans-serif" font-size="10" fill="#475569">Broadcasts room messages excluding sender</text>
+      </g>
+
+      <!-- Component 3: Chat Service & Model Router -->
+      <g transform="translate(12, 218)">
+        <rect x="0" y="0" width="316" height="66" rx="6" fill="#EFF6FF" stroke="#BFDBFE" stroke-width="1" />
+        <text x="10" y="19" font-family="sans-serif" font-size="11" font-weight="700" fill="#1E3A8A">3. Model Router &amp; Inference Pipeline</text>
+        <text x="10" y="34" font-family="sans-serif" font-size="10" fill="#334155">Dispatches user prompt to configured provider</text>
+        <text x="10" y="48" font-family="sans-serif" font-size="10" fill="#334155">(Google Gemini / Groq LPU). Streams tokens to</text>
+        <text x="10" y="60" font-family="sans-serif" font-size="10" font-weight="600" fill="#2563EB">WebSocket broadcaster as they generate.</text>
+      </g>
+
+      <!-- Component 4: SQLite Database Persistence -->
+      <g transform="translate(12, 294)">
+        <rect x="0" y="0" width="316" height="114" rx="6" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1" />
+        <text x="10" y="19" font-family="sans-serif" font-size="11" font-weight="700" fill="#0F172A">4. SQLite Persistence Layer</text>
+        <text x="10" y="35" font-family="sans-serif" font-size="10" fill="#475569">Commits synchronized events to disk with foreign keys:</text>
+
+        <rect x="8" y="44" width="300" height="62" rx="4" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1" />
+        <text x="14" y="59" font-family="monospace" font-size="9" fill="#1E3A8A">• INSERT INTO messages (id, conv_id, author_id...)</text>
+        <text x="14" y="75" font-family="monospace" font-size="9" fill="#1E3A8A">• UPDATE conversations SET updated_at = now</text>
+        <text x="14" y="91" font-family="monospace" font-size="9" fill="#1E3A8A">• INSERT INTO conversation_members (role, joined...)</text>
+      </g>
+    </g>
+
+
+    <!-- COLUMN C: USER B (VIEWER / EDITOR) CLIENT -->
+    <g transform="translate(695, 76)">
+      <rect x="0" y="0" width="280" height="420" rx="8" fill="#F8FAFC" stroke="#059669" stroke-width="1.5" />
+      
+      <!-- User B Header -->
+      <rect x="12" y="12" width="256" height="44" rx="6" fill="#F0FDF4" stroke="#A7F3D0" stroke-width="1" />
+      <circle cx="32" cy="34" r="12" fill="#059669" />
+      <text x="32" y="38" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="700" fill="#FFFFFF">B</text>
+      <text x="52" y="28" font-family="sans-serif" font-size="12" font-weight="700" fill="#065F46">User B (Viewer / Editor)</text>
+      <text x="52" y="44" font-family="sans-serif" font-size="10.5" fill="#475569">React.js Client Session #2</text>
+
+      <!-- Action 1: Receives real-time typing notification -->
+      <g transform="translate(12, 68)">
+        <rect x="0" y="0" width="256" height="52" rx="6" fill="#F5F3FF" stroke="#DDD6FE" stroke-width="1" />
+        <text x="10" y="20" font-family="sans-serif" font-size="10.5" font-weight="700" fill="#4C1D95">Typing Indicator Received</text>
+        <text x="10" y="35" font-family="sans-serif" font-size="10" fill="#334155">UI displays animated status badge:</text>
+        <text x="10" y="47" font-family="monospace" font-size="9" fill="#6D28D9">&quot;User A is typing...&quot;</text>
+      </g>
+
+      <!-- Action 2: Synchronized message delivery -->
+      <g transform="translate(12, 130)">
+        <rect x="0" y="0" width="256" height="66" rx="6" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1" />
+        <rect x="8" y="8" width="60" height="18" rx="4" fill="#059669" />
+        <text x="38" y="21" text-anchor="middle" font-family="sans-serif" font-size="9" font-weight="700" fill="#FFFFFF">SYNC</text>
+        <text x="74" y="21" font-family="sans-serif" font-size="11" font-weight="700" fill="#0F172A">User Message Delivered</text>
+        <text x="8" y="42" font-family="sans-serif" font-size="10" fill="#475569">User A's prompt instantly appears in chat</text>
+        <text x="8" y="56" font-family="sans-serif" font-size="10" fill="#475569">with Author badge: &quot;User A (Owner)&quot;</text>
+      </g>
+
+      <!-- Action 3: Synchronized AI stream reception -->
+      <g transform="translate(12, 206)">
+        <rect x="0" y="0" width="256" height="96" rx="6" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1" />
+        <text x="10" y="20" font-family="sans-serif" font-size="11" font-weight="700" fill="#0F172A">Synchronized Stream Received</text>
+        <text x="10" y="36" font-family="sans-serif" font-size="10" fill="#475569">Assistant response renders concurrently</text>
+        <text x="10" y="50" font-family="sans-serif" font-size="10" fill="#475569">in exact sync with User A's screen:</text>
+        
+        <rect x="10" y="58" width="236" height="30" rx="4" fill="#0F172A" />
+        <text x="16" y="77" font-family="monospace" font-size="9" fill="#34D399">&gt; Quicksort average: O(log n)...</text>
+      </g>
+
+      <!-- Local State -->
+      <g transform="translate(12, 314)">
+        <rect x="0" y="0" width="256" height="92" rx="6" fill="#EFF6FF" stroke="#BFDBFE" stroke-width="1" />
+        <text x="10" y="19" font-family="sans-serif" font-size="10.5" font-weight="700" fill="#1E3A8A">Viewer Role Constraint</text>
+        <text x="10" y="35" font-family="sans-serif" font-size="10" fill="#334155">✓ Real-time read-only chat view</text>
+        <text x="10" y="51" font-family="sans-serif" font-size="10" fill="#334155">✓ Live presence indicator badge</text>
+        <text x="10" y="67" font-family="sans-serif" font-size="10" fill="#64748B">✕ Input bar locked if role is Viewer</text>
+        <text x="10" y="81" font-family="sans-serif" font-size="10" fill="#64748B">✕ Settings management prohibited</text>
+      </g>
+    </g>
+
+
+    <!-- ==================== BIDIRECTIONAL WEBSOCKET DATA ARROWS ==================== -->
+
+    <!-- Arrow A <-> Backend -->
+    <g transform="translate(295, 175)">
+      <!-- WebSocket A Line -->
+      <line x1="12" y1="0" x2="33" y2="0" stroke="#7C3AED" stroke-width="3" marker-end="url(#arrow-purple-right)" marker-start="url(#arrow-purple-left)" />
+      <rect x="0" y="10" width="46" height="18" rx="3" fill="#EDE9FE" stroke="#8B5CF6" stroke-width="1" />
+      <text x="23" y="22" text-anchor="middle" font-family="sans-serif" font-size="8" font-weight="700" fill="#6D28D9">WS &lt;-&gt;</text>
+    </g>
+
+    <!-- Arrow Backend <-> B -->
+    <g transform="translate(660, 175)">
+      <!-- WebSocket B Line -->
+      <line x1="12" y1="0" x2="33" y2="0" stroke="#7C3AED" stroke-width="3" marker-end="url(#arrow-purple-right)" marker-start="url(#arrow-purple-left)" />
+      <rect x="0" y="10" width="46" height="18" rx="3" fill="#EDE9FE" stroke="#8B5CF6" stroke-width="1" />
+      <text x="23" y="22" text-anchor="middle" font-family="sans-serif" font-size="8" font-weight="700" fill="#6D28D9">WS &lt;-&gt;</text>
+    </g>
+
+
+    <!-- ==================== DETAILED EVENT FLOW SEQUENCE (LOWER HALF) ==================== -->
+    <g transform="translate(25, 515)">
+      <rect x="0" y="0" width="950" height="315" rx="8" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.5" />
+      
+      <rect x="16" y="12" width="165" height="22" rx="4" fill="#1E3A8A" />
+      <text x="98" y="27" text-anchor="middle" font-family="sans-serif" font-size="10.5" font-weight="700" fill="#FFFFFF">EVENT EXECUTION TIMELINE</text>
+      <text x="195" y="27" font-family="sans-serif" font-size="12" font-weight="700" fill="#0F172A">Step-by-Step Message &amp; State Synchronization Flow</text>
+
+      <!-- 6 Sequential Execution Steps -->
+      <g transform="translate(16, 46)">
+        <!-- Step 1 -->
+        <g transform="translate(0, 0)">
+          <circle cx="16" cy="16" r="14" fill="#EFF6FF" stroke="#3B82F6" stroke-width="1.5" />
+          <text x="16" y="20" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="800" fill="#1D4ED8">1</text>
+          <text x="38" y="14" font-family="sans-serif" font-size="11" font-weight="700" fill="#0F172A">Client A Message Dispatch</text>
+          <text x="38" y="28" font-family="sans-serif" font-size="10" fill="#475569">User A submits prompt via React interface: POST /api/conversations/{id}/messages</text>
+        </g>
+
+        <!-- Step 2 -->
+        <g transform="translate(480, 0)">
+          <circle cx="16" cy="16" r="14" fill="#EFF6FF" stroke="#3B82F6" stroke-width="1.5" />
+          <text x="16" y="20" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="800" fill="#1D4ED8">2</text>
+          <text x="38" y="14" font-family="sans-serif" font-size="11" font-weight="700" fill="#0F172A">Backend RBAC Permission Verification</text>
+          <text x="38" y="28" font-family="sans-serif" font-size="10" fill="#475569">CollaborationService validates User A role has can_write = true before processing</text>
+        </g>
+
+        <!-- Step 3 -->
+        <g transform="translate(0, 44)">
+          <circle cx="16" cy="16" r="14" fill="#EFF6FF" stroke="#3B82F6" stroke-width="1.5" />
+          <text x="16" y="20" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="800" fill="#1D4ED8">3</text>
+          <text x="38" y="14" font-family="sans-serif" font-size="11" font-weight="700" fill="#0F172A">SQLite Message Persistence</text>
+          <text x="38" y="28" font-family="sans-serif" font-size="10" fill="#475569">FastAPI commits message to SQLite with author ID and updates conversation timestamp</text>
+        </g>
+
+        <!-- Step 4 -->
+        <g transform="translate(480, 44)">
+          <circle cx="16" cy="16" r="14" fill="#EFF6FF" stroke="#3B82F6" stroke-width="1.5" />
+          <text x="16" y="20" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="800" fill="#1D4ED8">4</text>
+          <text x="38" y="14" font-family="sans-serif" font-size="11" font-weight="700" fill="#0F172A">WebSocket Broadcast to Participants</text>
+          <text x="38" y="28" font-family="sans-serif" font-size="10" fill="#475569">WebSocketManager pushes {type: "user_message"} payload to all active room sockets</text>
+        </g>
+
+        <!-- Step 5 -->
+        <g transform="translate(0, 88)">
+          <circle cx="16" cy="16" r="14" fill="#EFF6FF" stroke="#3B82F6" stroke-width="1.5" />
+          <text x="16" y="20" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="800" fill="#1D4ED8">5</text>
+          <text x="38" y="14" font-family="sans-serif" font-size="11" font-weight="700" fill="#0F172A">AI Stream Token Synchronization</text>
+          <text x="38" y="28" font-family="sans-serif" font-size="10" fill="#475569">As AI model generates output tokens, backend streams chunks simultaneously to all users</text>
+        </g>
+
+        <!-- Step 6 -->
+        <g transform="translate(480, 88)">
+          <circle cx="16" cy="16" r="14" fill="#EFF6FF" stroke="#3B82F6" stroke-width="1.5" />
+          <text x="16" y="20" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="800" fill="#1D4ED8">6</text>
+          <text x="38" y="14" font-family="sans-serif" font-size="11" font-weight="700" fill="#0F172A">Presence &amp; Typing Indicator Updates</text>
+          <text x="38" y="28" font-family="sans-serif" font-size="10" fill="#475569">Participant connect/disconnect events and typing status update dynamically on all clients</text>
+        </g>
+      </g>
+
+      <!-- WebSocket Message Payload Schema Blueprint -->
+      <g transform="translate(16, 185)">
+        <rect x="0" y="0" width="918" height="110" rx="6" fill="#0F172A" stroke="#334155" stroke-width="1" />
+        <text x="16" y="20" font-family="monospace" font-size="10" font-weight="700" fill="#38BDF8">// WebSocket Protocol Event Schemas (OmniAI Collaboration Service)</text>
+        
+        <text x="16" y="40" font-family="monospace" font-size="9.5" fill="#FDE047">1. Typing Broadcast:</text>
+        <text x="180" y="40" font-family="monospace" font-size="9.5" fill="#CBD5E1">{ &quot;type&quot;: &quot;user_typing&quot;, &quot;conversation_id&quot;: &quot;conv_101&quot;, &quot;user_id&quot;: &quot;usr_a&quot;, &quot;is_typing&quot;: true }</text>
+
+        <text x="16" y="60" font-family="monospace" font-size="9.5" fill="#FDE047">2. Message Sync:</text>
+        <text x="180" y="60" font-family="monospace" font-size="9.5" fill="#CBD5E1">{ &quot;type&quot;: &quot;user_message&quot;, &quot;message_id&quot;: &quot;msg_202&quot;, &quot;author&quot;: &quot;User A&quot;, &quot;content&quot;: &quot;...&quot; }</text>
+
+        <text x="16" y="80" font-family="monospace" font-size="9.5" fill="#FDE047">3. Token Stream:</text>
+        <text x="180" y="80" font-family="monospace" font-size="9.5" fill="#CBD5E1">{ &quot;type&quot;: &quot;assistant_chunk&quot;, &quot;conversation_id&quot;: &quot;conv_101&quot;, &quot;token&quot;: &quot;Quicksort&quot; }</text>
+
+        <text x="16" y="100" font-family="monospace" font-size="9.5" fill="#FDE047">4. Presence State:</text>
+        <text x="180" y="100" font-family="monospace" font-size="9.5" fill="#A7F3D0">{ &quot;type&quot;: &quot;presence_update&quot;, &quot;active_users&quot;: [{ &quot;id&quot;: &quot;usr_a&quot;, &quot;role&quot;: &quot;owner&quot; }, { &quot;id&quot;: &quot;usr_b&quot;, &quot;role&quot;: &quot;viewer&quot; }] }</text>
+      </g>
+    </g>
+  </g>
+
+
+  <!-- ==================== FOOTER / METADATA ==================== -->
+  <rect x="25" y="1815" width="1150" height="80" rx="0" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1" />
+  <line x1="25" y1="1815" x2="1175" y2="1815" stroke="#CBD5E1" stroke-width="1" />
+
+  <text x="50" y="1844" font-family="sans-serif" font-size="11.5" font-weight="700" fill="#1E3A8A">
+    OmniAI B.Tech Capstone Project
+  </text>
+  <text x="50" y="1862" font-family="sans-serif" font-size="10.5" fill="#64748B">
+    Course: CSE 276 | Figure 3.5: Collaboration and Project Workspace Interaction in OmniAI
+  </text>
+  <text x="50" y="1878" font-family="sans-serif" font-size="10" fill="#94A3B8">
+    Architecture: React Frontend Client ↔ FastAPI Backend ↔ WebSocket Room Manager ↔ SQLite Persistence
+  </text>
+
+  <text x="1150" y="1844" text-anchor="end" font-family="sans-serif" font-size="11" font-weight="700" fill="#0F172A">
+    Format: Pure SVG / Vector Resolution
+  </text>
+  <text x="1150" y="1862" text-anchor="end" font-family="sans-serif" font-size="10.5" fill="#64748B">
+    Roles: Owner (Full Admin), Editor (Collaborate/Write), Viewer (Read-Only Observer)
+  </text>
+  <text x="1150" y="1878" text-anchor="end" font-family="sans-serif" font-size="10" fill="#94A3B8">
+    Real-Time Synchronization: Bidirectional WebSockets (WS) | Free-Tier Compatible
+  </text>
+</svg>
