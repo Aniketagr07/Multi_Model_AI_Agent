@@ -1,0 +1,350 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1300 2150" width="100%" height="100%" style="background-color: #FFFFFF; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+  <defs>
+    <!-- Card Shadow -->
+    <filter id="shadow" x="-10%" y="-10%" width="125%" height="125%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#0F172A" flood-opacity="0.06" />
+    </filter>
+    <filter id="card-shadow" x="-10%" y="-10%" width="125%" height="125%">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#0F172A" flood-opacity="0.07" />
+    </filter>
+
+    <!-- Markers -->
+    <marker id="arrow-navy" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="#1E293B" />
+    </marker>
+    <marker id="arrow-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="#2563EB" />
+    </marker>
+    <marker id="arrow-purple" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="#7C3AED" />
+    </marker>
+    <marker id="arrow-teal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="#059669" />
+    </marker>
+    <marker id="arrow-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="#DC2626" />
+    </marker>
+    <marker id="arrow-orange" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="#EA580C" />
+    </marker>
+  </defs>
+
+  <!-- ================= HEADER BLOCK ================= -->
+  <g id="header">
+    <rect x="40" y="20" width="1220" height="75" rx="8" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.5" />
+    <text x="650" y="48" text-anchor="middle" font-size="19" font-weight="800" fill="#0F172A" letter-spacing="0.5">FIGURE 3.3: CONCURRENT MODEL COMPARISON AND SSE STREAMING IN OMNIAI</text>
+    <text x="650" y="72" text-anchor="middle" font-size="13" font-weight="600" fill="#475569">Two Distinct Real-Time Architectural Capabilities: Asynchronous Concurrency vs. Progressive Token Delivery</text>
+  </g>
+
+  <!-- ========================================================================= -->
+  <!-- ================= SECTION A: CONCURRENT MODEL COMPARISON ================= -->
+  <!-- ========================================================================= -->
+  <g id="section-a">
+    <!-- Outer Section Container -->
+    <rect x="40" y="115" width="1220" height="970" rx="10" fill="#FFFFFF" stroke="#2563EB" stroke-width="2" filter="url(#card-shadow)" />
+    
+    <!-- Section Title Pill -->
+    <rect x="65" y="103" width="530" height="26" rx="5" fill="#2563EB" />
+    <text x="330" y="121" text-anchor="middle" font-size="12" font-weight="800" fill="#FFFFFF" letter-spacing="0.5">SECTION A: CONCURRENT MULTI-MODEL COMPARISON (ASYNC GATHER)</text>
+
+    <!-- Subtitle Note -->
+    <rect x="65" y="142" width="1170" height="34" rx="6" fill="#EFF6FF" stroke="#BFDBFE" stroke-width="1" />
+    <text x="650" y="163" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1E40AF">
+      Mechanism: Asynchronous non-blocking concurrency via Python asyncio.gather / Promise.all — Queries two distinct AI architectures simultaneously.
+    </text>
+
+    <!-- Step 1: User enters a prompt -->
+    <g id="sec-a-step1">
+      <rect x="400" y="195" width="500" height="52" rx="7" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.5" filter="url(#shadow)" />
+      <rect x="400" y="195" width="6" height="52" rx="3" fill="#2563EB" />
+      <text x="425" y="218" font-size="13.5" font-weight="700" fill="#0F172A">1. User Enters Comparison Prompt</text>
+      <text x="425" y="235" font-size="11" font-weight="400" fill="#475569">User inputs single prompt &amp; selects Model A (e.g. Gemini) and Model B (e.g. Llama / Qwen)</text>
+    </g>
+
+    <line x1="650" y1="247" x2="650" y2="275" stroke="#1E293B" stroke-width="2" marker-end="url(#arrow-navy)" />
+
+    <!-- Step 2: React frontend sends to FastAPI backend -->
+    <g id="sec-a-step2">
+      <rect x="400" y="275" width="500" height="52" rx="7" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.5" filter="url(#shadow)" />
+      <rect x="400" y="275" width="6" height="52" rx="3" fill="#2563EB" />
+      <text x="425" y="298" font-size="13.5" font-weight="700" fill="#0F172A">2. React Frontend Dispatches Comparison Request</text>
+      <text x="425" y="315" font-size="11" font-weight="400" fill="#475569">HTTP POST /api/compare (Payload: prompt, model_a_id, model_b_id, effort, customKeys)</text>
+    </g>
+
+    <line x1="650" y1="327" x2="650" y2="355" stroke="#1E293B" stroke-width="2" marker-end="url(#arrow-navy)" />
+
+    <!-- Step 3: Backend receives comparison request -->
+    <g id="sec-a-step3">
+      <rect x="400" y="355" width="500" height="52" rx="7" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.5" filter="url(#shadow)" />
+      <rect x="400" y="355" width="6" height="52" rx="3" fill="#0F172A" />
+      <text x="425" y="378" font-size="13.5" font-weight="700" fill="#0F172A">3. FastAPI Backend Receives &amp; Validates Request</text>
+      <text x="425" y="395" font-size="11" font-weight="400" fill="#475569">Validates non-empty prompt and distinct model IDs (model_a_id ≠ model_b_id)</text>
+    </g>
+
+    <line x1="650" y1="407" x2="650" y2="435" stroke="#1E293B" stroke-width="2" marker-end="url(#arrow-navy)" />
+
+    <!-- Step 4 & 5: Backend creates two async requests & executes concurrently -->
+    <g id="sec-a-step4">
+      <rect x="360" y="435" width="580" height="60" rx="7" fill="#EFF6FF" stroke="#3B82F6" stroke-width="1.75" filter="url(#shadow)" />
+      <rect x="360" y="435" width="6" height="60" rx="3" fill="#1D4ED8" />
+      <text x="385" y="458" font-size="14" font-weight="700" fill="#1E3A8A">4 &amp; 5. Concurrent Asynchronous Task Fork (asyncio.gather)</text>
+      <text x="385" y="475" font-size="11" font-weight="500" fill="#2563EB">Spawns independent non-blocking async coroutines: Task A and Task B</text>
+      <text x="385" y="489" font-size="10.5" font-weight="600" fill="#059669">Independent monotonic timers initialized via time.perf_counter() for exact latency measurement</text>
+    </g>
+
+    <!-- Branching split lines -->
+    <path d="M 650 495 L 650 520 L 330 520 L 330 545" stroke="#2563EB" stroke-width="2" fill="none" marker-end="url(#arrow-blue)" />
+    <path d="M 650 495 L 650 520 L 970 520 L 970 545" stroke="#7C3AED" stroke-width="2" fill="none" marker-end="url(#arrow-purple)" />
+
+    <rect x="220" y="508" width="130" height="20" rx="3" fill="#EFF6FF" stroke="#BFDBFE" stroke-width="1" />
+    <text x="285" y="522" text-anchor="middle" font-size="10.5" font-weight="700" fill="#1D4ED8">BRANCH A (PRIMARY)</text>
+
+    <rect x="940" y="508" width="150" height="20" rx="3" fill="#F5F3FF" stroke="#DDD6FE" stroke-width="1" />
+    <text x="1015" y="522" text-anchor="middle" font-size="10.5" font-weight="700" fill="#6D28D9">BRANCH B (COMPARISON)</text>
+
+    <!-- ================= BRANCH A CONTAINER ================= -->
+    <g id="branch-a-box">
+      <rect x="100" y="550" width="460" height="280" rx="8" fill="#F8FAFC" stroke="#93C5FD" stroke-width="1.75" />
+      <rect x="115" y="540" width="180" height="20" rx="3" fill="#2563EB" />
+      <text x="205" y="554" text-anchor="middle" font-size="10.5" font-weight="700" fill="#FFFFFF">EXECUTION PIPELINE A</text>
+
+      <!-- Provider Adapter A -->
+      <rect x="125" y="575" width="410" height="48" rx="6" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.2" filter="url(#shadow)" />
+      <text x="140" y="596" font-size="12.5" font-weight="700" fill="#0F172A">Provider Adapter A</text>
+      <text x="140" y="612" font-size="10.5" font-weight="400" fill="#64748B">Formats request envelope &amp; injects API key credentials for Provider A</text>
+
+      <line x1="330" y1="623" x2="330" y2="640" stroke="#2563EB" stroke-width="1.5" marker-end="url(#arrow-blue)" />
+
+      <!-- AI Model A -->
+      <rect x="125" y="640" width="410" height="48" rx="6" fill="#EFF6FF" stroke="#60A5FA" stroke-width="1.5" filter="url(#shadow)" />
+      <text x="140" y="661" font-size="13" font-weight="700" fill="#1E3A8A">AI Model A: Google Gemini 3.8 Flash</text>
+      <text x="140" y="677" font-size="10.5" font-weight="500" fill="#2563EB">Direct execution via Google Generative Language REST API</text>
+
+      <line x1="330" y1="688" x2="330" y2="705" stroke="#2563EB" stroke-width="1.5" marker-end="url(#arrow-blue)" />
+
+      <!-- Generated Response A -->
+      <rect x="125" y="705" width="410" height="48" rx="6" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.2" filter="url(#shadow)" />
+      <text x="140" y="726" font-size="12.5" font-weight="700" fill="#0F172A">Generated Response A</text>
+      <text x="140" y="742" font-size="10.5" font-weight="400" fill="#64748B">Full markdown output, code blocks, syntax &amp; explanatory text</text>
+
+      <line x1="330" y1="753" x2="330" y2="770" stroke="#2563EB" stroke-width="1.5" marker-end="url(#arrow-blue)" />
+
+      <!-- Response Time A -->
+      <rect x="125" y="770" width="410" height="46" rx="6" fill="#F0FDF4" stroke="#86EFAC" stroke-width="1.2" filter="url(#shadow)" />
+      <text x="140" y="790" font-size="12" font-weight="700" fill="#166534">Response Time A &amp; Telemetry</text>
+      <text x="140" y="805" font-size="10.5" font-weight="600" fill="#15803D">Latency: 480 ms | Tokens: 380 | Speed: ~58 tokens/sec</text>
+    </g>
+
+    <!-- ================= BRANCH B CONTAINER ================= -->
+    <g id="branch-b-box">
+      <rect x="740" y="550" width="460" height="280" rx="8" fill="#F8FAFC" stroke="#DDD6FE" stroke-width="1.75" />
+      <rect x="755" y="540" width="180" height="20" rx="3" fill="#7C3AED" />
+      <text x="845" y="554" text-anchor="middle" font-size="10.5" font-weight="700" fill="#FFFFFF">EXECUTION PIPELINE B</text>
+
+      <!-- Provider Adapter B -->
+      <rect x="765" y="575" width="410" height="48" rx="6" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.2" filter="url(#shadow)" />
+      <text x="780" y="596" font-size="12.5" font-weight="700" fill="#0F172A">Provider Adapter B</text>
+      <text x="780" y="612" font-size="10.5" font-weight="400" fill="#64748B">Formats request envelope &amp; injects API key credentials for Provider B</text>
+
+      <line x1="970" y1="623" x2="970" y2="640" stroke="#7C3AED" stroke-width="1.5" marker-end="url(#arrow-purple)" />
+
+      <!-- AI Model B -->
+      <rect x="765" y="640" width="410" height="48" rx="6" fill="#F5F3FF" stroke="#A78BFA" stroke-width="1.5" filter="url(#shadow)" />
+      <text x="780" y="661" font-size="13" font-weight="700" fill="#5B21B6">AI Model B: Groq Cloud (Llama 3.3 70B / Qwen)</text>
+      <text x="780" y="677" font-size="10.5" font-weight="500" fill="#7C3AED">Direct execution via Groq LPU Ultra-Low Latency Inference</text>
+
+      <line x1="970" y1="688" x2="970" y2="705" stroke="#7C3AED" stroke-width="1.5" marker-end="url(#arrow-purple)" />
+
+      <!-- Generated Response B -->
+      <rect x="765" y="705" width="410" height="48" rx="6" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.2" filter="url(#shadow)" />
+      <text x="780" y="726" font-size="12.5" font-weight="700" fill="#0F172A">Generated Response B</text>
+      <text x="780" y="742" font-size="10.5" font-weight="400" fill="#64748B">Full markdown output, algorithmic code blocks &amp; complexity analysis</text>
+
+      <line x1="970" y1="753" x2="970" y2="770" stroke="#7C3AED" stroke-width="1.5" marker-end="url(#arrow-purple)" />
+
+      <!-- Response Time B -->
+      <rect x="765" y="770" width="410" height="46" rx="6" fill="#F0FDF4" stroke="#86EFAC" stroke-width="1.2" filter="url(#shadow)" />
+      <text x="780" y="790" font-size="12" font-weight="700" fill="#166534">Response Time B &amp; Telemetry</text>
+      <text x="780" y="805" font-size="10.5" font-weight="600" fill="#15803D">Latency: 220 ms | Tokens: 410 | Speed: ~360 tokens/sec</text>
+    </g>
+
+    <!-- Branch Convergence to Comparison Result Processor -->
+    <path d="M 330 830 L 330 860 L 650 860" stroke="#2563EB" stroke-width="2" fill="none" />
+    <path d="M 970 830 L 970 860 L 650 860" stroke="#7C3AED" stroke-width="2" fill="none" />
+    <line x1="650" y1="860" x2="650" y2="880" stroke="#1E293B" stroke-width="2" marker-end="url(#arrow-navy)" />
+
+    <!-- Comparison Result Processor -->
+    <g id="sec-a-processor">
+      <rect x="360" y="880" width="580" height="56" rx="7" fill="#FFFFFF" stroke="#0F172A" stroke-width="1.75" filter="url(#shadow)" />
+      <rect x="360" y="880" width="6" height="56" rx="3" fill="#0F172A" />
+      <text x="385" y="903" font-size="13.5" font-weight="700" fill="#0F172A">Comparison Result Processor (Backend Aggregator)</text>
+      <text x="385" y="921" font-size="11" font-weight="400" fill="#475569">Aggregates model_a and model_b responses, latencies, tokens/sec &amp; records token usage</text>
+    </g>
+
+    <line x1="650" y1="936" x2="650" y2="955" stroke="#1E293B" stroke-width="2" marker-end="url(#arrow-navy)" />
+
+    <!-- Side-by-Side Comparison Interface -->
+    <g id="sec-a-ui">
+      <rect x="360" y="955" width="580" height="56" rx="7" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.5" filter="url(#shadow)" />
+      <rect x="360" y="955" width="6" height="56" rx="3" fill="#2563EB" />
+      <text x="385" y="978" font-size="13.5" font-weight="700" fill="#0F172A">Side-by-Side Comparison Interface (Frontend CompareView)</text>
+      <text x="385" y="996" font-size="11" font-weight="400" fill="#475569">Renders dual-column viewport with live speed badges, latency bars &amp; synchronized scrolling</text>
+    </g>
+
+    <line x1="650" y1="1011" x2="650" y2="1030" stroke="#1E293B" stroke-width="2" marker-end="url(#arrow-navy)" />
+
+    <!-- User Evaluates Both Responses -->
+    <g id="sec-a-evaluate">
+      <rect x="420" y="1030" width="460" height="42" rx="21" fill="#0F172A" stroke="#1E293B" stroke-width="1.5" filter="url(#shadow)" />
+      <text x="650" y="1056" text-anchor="middle" font-size="13" font-weight="700" fill="#FFFFFF">User Evaluates Both Responses (Reasoning, Code &amp; Latency)</text>
+    </g>
+  </g>
+
+  <!-- ========================================================================= -->
+  <!-- ================= SECTION B: SERVER-SENT EVENTS (SSE) ==================== -->
+  <!-- ========================================================================= -->
+  <g id="section-b">
+    <!-- Outer Section Container -->
+    <rect x="40" y="1120" width="1220" height="970" rx="10" fill="#FFFFFF" stroke="#059669" stroke-width="2" filter="url(#card-shadow)" />
+
+    <!-- Section Title Pill -->
+    <rect x="65" y="1108" width="530" height="26" rx="5" fill="#059669" />
+    <text x="330" y="1126" text-anchor="middle" font-size="12" font-weight="800" fill="#FFFFFF" letter-spacing="0.5">SECTION B: SERVER-SENT EVENTS (SSE) STREAMING PIPELINE</text>
+
+    <!-- Subtitle Note -->
+    <rect x="65" y="1147" width="1170" height="34" rx="6" fill="#ECFDF5" stroke="#A7F3D0" stroke-width="1" />
+    <text x="650" y="1168" text-anchor="middle" font-size="11.5" font-weight="600" fill="#065F46">
+      Mechanism: Unidirectional persistent HTTP stream (text/event-stream) — Delivers incremental token deltas progressively to the browser without buffering.
+    </text>
+
+    <!-- Step 1: User submits chat prompt -->
+    <g id="sec-b-step1">
+      <rect x="360" y="1200" width="580" height="52" rx="7" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.5" filter="url(#shadow)" />
+      <rect x="360" y="1200" width="6" height="52" rx="3" fill="#059669" />
+      <text x="385" y="1223" font-size="13.5" font-weight="700" fill="#0F172A">1. User Submits a Normal Chat Prompt</text>
+      <text x="385" y="1240" font-size="11" font-weight="400" fill="#475569">Submitted via ChatWindow MessageComposer with model selection &amp; optional document context</text>
+    </g>
+
+    <line x1="650" y1="1252" x2="650" y2="1280" stroke="#1E293B" stroke-width="2" marker-end="url(#arrow-navy)" />
+
+    <!-- Step 2: Backend forwards request to AI provider -->
+    <g id="sec-b-step2">
+      <rect x="360" y="1280" width="580" height="52" rx="7" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.5" filter="url(#shadow)" />
+      <rect x="360" y="1280" width="6" height="52" rx="3" fill="#059669" />
+      <text x="385" y="1303" font-size="13.5" font-weight="700" fill="#0F172A">2. Backend Forwards Request to Selected AI Provider</text>
+      <text x="385" y="1320" font-size="11" font-weight="400" fill="#475569">POST /v1beta/models/...:streamGenerateContent (Gemini) or /v1/chat/completions with stream=true (Groq)</text>
+    </g>
+
+    <line x1="650" y1="1332" x2="650" y2="1360" stroke="#1E293B" stroke-width="2" marker-end="url(#arrow-navy)" />
+
+    <!-- Step 3: AI provider generates tokens progressively -->
+    <g id="sec-b-step3">
+      <rect x="360" y="1360" width="580" height="56" rx="7" fill="#F0FDF4" stroke="#86EFAC" stroke-width="1.5" filter="url(#shadow)" />
+      <rect x="360" y="1360" width="6" height="56" rx="3" fill="#059669" />
+      <text x="385" y="1383" font-size="13.5" font-weight="700" fill="#065F46">3. AI Provider Generates Response Tokens Progressively</text>
+      <text x="385" y="1401" font-size="11" font-weight="500" fill="#15803D">Hardware inference runs on external LPU / TPU clusters; emits raw chunk deltas immediately</text>
+    </g>
+
+    <line x1="650" y1="1416" x2="650" y2="1445" stroke="#1E293B" stroke-width="2" marker-end="url(#arrow-navy)" />
+
+    <!-- Step 4: Backend receives generated content -->
+    <g id="sec-b-step4">
+      <rect x="360" y="1445" width="580" height="52" rx="7" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.5" filter="url(#shadow)" />
+      <rect x="360" y="1445" width="6" height="52" rx="3" fill="#059669" />
+      <text x="385" y="1468" font-size="13.5" font-weight="700" fill="#0F172A">4. Backend Receives Generated Content (Async Stream)</text>
+      <text x="385" y="1485" font-size="11" font-weight="400" fill="#475569">StreamingHandler unpacks chunk frames and strips protocol delimiters with zero intermediate buffering</text>
+    </g>
+
+    <line x1="650" y1="1497" x2="650" y2="1525" stroke="#1E293B" stroke-width="2" marker-end="url(#arrow-navy)" />
+
+    <!-- Step 5: Backend sends SSE events to frontend -->
+    <g id="sec-b-step5">
+      <rect x="360" y="1525" width="580" height="64" rx="7" fill="#ECFDF5" stroke="#34D399" stroke-width="1.75" filter="url(#shadow)" />
+      <rect x="360" y="1525" width="6" height="64" rx="3" fill="#059669" />
+      <text x="385" y="1548" font-size="13.5" font-weight="700" fill="#065F46">5. Backend Sends SSE Events to the Frontend</text>
+      <text x="385" y="1566" font-size="11.5" font-weight="600" fill="#047857">Format: data: {"type": "token", "token": "..."}
+
+ (Flushes token envelope immediately)</text>
+      <text x="385" y="1580" font-size="10.5" font-weight="500" fill="#475569">Headers: Content-Type: text/event-stream; Cache-Control: no-cache; Connection: keep-alive</text>
+    </g>
+
+    <line x1="650" y1="1589" x2="650" y2="1620" stroke="#1E293B" stroke-width="2" marker-end="url(#arrow-navy)" />
+
+    <!-- Step 6: Frontend progressively updates assistant response -->
+    <g id="sec-b-step6">
+      <rect x="360" y="1620" width="580" height="52" rx="7" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.5" filter="url(#shadow)" />
+      <rect x="360" y="1620" width="6" height="52" rx="3" fill="#059669" />
+      <text x="385" y="1643" font-size="13.5" font-weight="700" fill="#0F172A">6. Frontend Progressively Updates Assistant Response</text>
+      <text x="385" y="1660" font-size="11" font-weight="400" fill="#475569">useChat hook appends incoming delta chunks to active message state (accumulatedContent)</text>
+    </g>
+
+    <line x1="650" y1="1672" x2="650" y2="1705" stroke="#1E293B" stroke-width="2" marker-end="url(#arrow-navy)" />
+
+    <!-- Step 7: User sees response without waiting -->
+    <g id="sec-b-step7">
+      <rect x="360" y="1705" width="580" height="56" rx="7" fill="#EFF6FF" stroke="#3B82F6" stroke-width="1.75" filter="url(#shadow)" />
+      <rect x="360" y="1705" width="6" height="56" rx="3" fill="#2563EB" />
+      <text x="385" y="1728" font-size="14" font-weight="700" fill="#1E3A8A">7. User Sees the Response Without Waiting for Complete Generation</text>
+      <text x="385" y="1746" font-size="11.5" font-weight="600" fill="#2563EB">Time-to-First-Token (TTFT) &lt; 150 ms; seamless typewriter stream effect</text>
+    </g>
+
+    <!-- ================= STREAMING CONTROL & EXCEPTION BRANCHES ================= -->
+    <!-- Split lines to side handlers -->
+    <!-- Left Branch: Generation Cancellation -->
+    <path d="M 360 1555 L 140 1555 L 140 1800 L 220 1800" stroke="#EA580C" stroke-width="2" fill="none" marker-end="url(#arrow-orange)" />
+    <rect x="90" y="1660" width="105" height="22" rx="4" fill="#FFF7ED" stroke="#FED7AA" stroke-width="1" />
+    <text x="142" y="1675" text-anchor="middle" font-size="10" font-weight="700" fill="#C2410C">User Abort Signal</text>
+
+    <g id="sec-b-cancel">
+      <rect x="220" y="1775" width="400" height="90" rx="8" fill="#FFF7ED" stroke="#F97316" stroke-width="1.5" filter="url(#shadow)" />
+      <rect x="220" y="1775" width="6" height="90" rx="3" fill="#EA580C" />
+      <text x="240" y="1800" font-size="13" font-weight="700" fill="#9A3412">Generation Cancellation Subsystem</text>
+      <text x="240" y="1820" font-size="10.5" font-weight="500" fill="#C2410C">• Client invokes AbortController.abort() on "Stop" button click</text>
+      <text x="240" y="1836" font-size="10.5" font-weight="400" fill="#475569">• Backend catches ClientDisconnect and terminates upstream provider HTTP request</text>
+      <text x="240" y="1852" font-size="10.5" font-weight="600" fill="#9A3412">• Prevents wasted compute tokens and closes SSE stream gracefully</text>
+    </g>
+
+    <!-- Right Branch: Error Handling -->
+    <path d="M 940 1555 L 1150 1555 L 1150 1800 L 1080 1800" stroke="#DC2626" stroke-width="2" fill="none" marker-end="url(#arrow-red)" />
+    <rect x="1100" y="1660" width="95" height="22" rx="4" fill="#FEF2F2" stroke="#FECACA" stroke-width="1" />
+    <text x="1147" y="1675" text-anchor="middle" font-size="10" font-weight="700" fill="#B91C1C">Stream Error</text>
+
+    <g id="sec-b-error">
+      <rect x="680" y="1775" width="400" height="90" rx="8" fill="#FEF2F2" stroke="#EF4444" stroke-width="1.5" filter="url(#shadow)" />
+      <rect x="680" y="1775" width="6" height="90" rx="3" fill="#DC2626" />
+      <text x="700" y="1800" font-size="13" font-weight="700" fill="#991B1B">Stream Error &amp; Exception Handling</text>
+      <text x="700" y="1820" font-size="10.5" font-weight="500" fill="#B91C1C">• Catches HTTP 429 (Rate Limits) or 503 (Upstream Outage)</text>
+      <text x="700" y="1836" font-size="10.5" font-weight="400" fill="#475569">• Emits structured error event: data: {"type": "error", "message": "..."}
+
+</text>
+      <text x="700" y="1852" font-size="10.5" font-weight="600" fill="#991B1B">• UI renders non-blocking retry banner without crashing React DOM</text>
+    </g>
+
+    <!-- Normal Flow Finish: Step 7 to Session Saved -->
+    <line x1="650" y1="1761" x2="650" y2="1885" stroke="#1E293B" stroke-width="2" marker-end="url(#arrow-navy)" />
+
+    <g id="sec-b-finish">
+      <rect x="420" y="1885" width="460" height="54" rx="8" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.5" filter="url(#shadow)" />
+      <rect x="420" y="1885" width="6" height="54" rx="3" fill="#059669" />
+      <text x="445" y="1908" font-size="13" font-weight="700" fill="#0F172A">Stream Completed &amp; Conversation Persisted</text>
+      <text x="445" y="1926" font-size="11" font-weight="500" fill="#059669">Emits type: "done"; conversation updated in SQLite and local client storage</text>
+    </g>
+
+    <!-- End of Section B -->
+    <line x1="650" y1="1939" x2="650" y2="1970" stroke="#1E293B" stroke-width="2" marker-end="url(#arrow-navy)" />
+    <g id="sec-b-end">
+      <rect x="520" y="1970" width="260" height="42" rx="21" fill="#0F172A" stroke="#1E293B" stroke-width="1.5" filter="url(#shadow)" />
+      <text x="650" y="1996" text-anchor="middle" font-size="13" font-weight="800" fill="#FFFFFF" letter-spacing="0.5">COMPLETED CONVERSATION TURN</text>
+    </g>
+  </g>
+
+  <!-- ================= ARCHITECTURAL FOOTER NOTE ================= -->
+  <g id="footer-note" transform="translate(40, 2040)">
+    <rect x="0" y="0" width="1220" height="85" rx="8" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.5" />
+    <text x="25" y="26" font-size="12" font-weight="800" fill="#0F172A">ARCHITECTURAL DISTINCTION SUMMARY FOR UNIVERSITY THESIS:</text>
+    <text x="25" y="48" font-size="11" font-weight="700" fill="#1D4ED8">1. Concurrency (Section A):</text>
+    <text x="200" y="48" font-size="11" font-weight="400" fill="#475569">Executes two separate AI models in parallel via Python asyncio.gather / Promise.all to produce empirical latency &amp; quality benchmarks.</text>
+    <text x="25" y="68" font-size="11" font-weight="700" fill="#047857">2. SSE Streaming (Section B):</text>
+    <text x="215" y="68" font-size="11" font-weight="400" fill="#475569">A progressive delivery mechanism that eliminates waiting time for single-model inference by streaming token deltas over HTTP with cancel/error recovery.</text>
+  </g>
+</svg>
